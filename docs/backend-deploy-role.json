@@ -46,5 +46,6 @@
     "firebaserules.releases.list",
     "firebaserules.releases.update",
     "storage.buckets.get"
+    ,"firebasestorage.defaultBucket.get"
   ]
 }

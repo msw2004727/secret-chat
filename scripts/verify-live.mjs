@@ -3,7 +3,8 @@ import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 const hash=data=>createHash('sha256').update(data).digest('hex');
 for(const file of ['index.html','app.js','config.js']) {
-  const response=await fetch(`https://sb.02251121.com/${file}?deployment=${Date.now()}`);
+  const path=file==='index.html' ? '' : file;
+  const response=await fetch(`https://sb.02251121.com/${path}`, {headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(20000)});
   assert.equal(response.status,200,`${file} status`);
   assert.equal(hash(Buffer.from(await response.arrayBuffer())),hash(readFileSync(file)),`${file} deployed content`);
 }
