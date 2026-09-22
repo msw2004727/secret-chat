@@ -1,0 +1,399 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "settings": {
+      "homeSwitch": {
+        ".read": "auth != null",
+        ".write": false,
+        ".validate": "newData.isBoolean()"
+      }
+    },
+    "admin": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false,
+        ".validate": "newData.val() === true"
+      }
+    },
+    "acl": {
+      "$roomId": {
+        ".read": "root.child('admin/' + auth.uid).val() === true",
+        "on": {
+          ".read": "auth != null && $roomId.length == 32",
+          ".write": "root.child('admin/' + auth.uid).val() === true",
+          ".validate": "newData.isBoolean()"
+        },
+        "req": {
+          ".read": "root.child('admin/' + auth.uid).val() === true",
+          ".write": false,
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || root.child('admin/' + auth.uid).val() === true)",
+            ".write": "root.child('admin/' + auth.uid).val() === true && !newData.exists()",
+            "n": {
+              ".validate": "newData.isString() && newData.val().length <= 80"
+            },
+            "p": {
+              ".validate": "newData.isString() && newData.val().length <= 400"
+            },
+            "f": {
+              ".validate": "newData.isNumber()"
+            },
+            "l": {
+              ".validate": "newData.isNumber()"
+            },
+            "c": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "ok": {
+          ".read": "root.child('admin/' + auth.uid).val() === true",
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || root.child('admin/' + auth.uid).val() === true)",
+            ".write": "root.child('admin/' + auth.uid).val() === true",
+            ".validate": "newData.isBoolean()"
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "loc": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null && ( (!data.exists() && newData.hasChildren(['t','ek','iv','c'])) || !newData.exists() )",
+        "t": {
+          ".validate": "newData.val() === now"
+        },
+        "ek": {
+          ".validate": "newData.isString() && newData.val().length <= 128"
+        },
+        "iv": {
+          ".validate": "newData.isString() && newData.val().length <= 24"
+        },
+        "c": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "devnote": {
+      "$id": {
+        ".read": "auth != null && $id.length == 32",
+        ".write": "auth != null && $id.length == 32",
+        "$roomId": {
+          "$clientId": {
+            ".validate": "newData.hasChildren(['iv','c'])",
+            "t": {
+              ".validate": "newData.isNumber()"
+            },
+            "iv": {
+              ".validate": "newData.isString() && newData.val().length <= 24"
+            },
+            "c": {
+              ".validate": "newData.isString() && newData.val().length <= 400"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      }
+    },
+    "locpush": {
+      "$id": {
+        ".read": "auth != null && $id.length == 32",
+        ".write": "auth != null && $id.length == 32",
+        "$clientId": {
+          ".validate": "newData.hasChildren(['ep','k','a'])",
+          "ep": {
+            ".validate": "newData.isString() && newData.val().length <= 1024"
+          },
+          "k": {
+            ".validate": "newData.isString() && newData.val().length <= 200"
+          },
+          "a": {
+            ".validate": "newData.isString() && newData.val().length <= 64"
+          },
+          "t": {
+            ".validate": "newData.isNumber()"
+          },
+          "on": {
+            ".validate": "newData.isBoolean()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+        ".write": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+        "m": {
+          ".indexOn": "t",
+          "$msgId": {
+            ".validate": "newData.hasChildren(['s','t','c','iv'])",
+            "s": {
+              ".validate": "newData.isString() && newData.val().length <= 64"
+            },
+            "t": {
+              ".validate": "newData.isNumber()"
+            },
+            "iv": {
+              ".validate": "newData.isString() && newData.val().length <= 32"
+            },
+            "c": {
+              ".validate": "newData.isString() && newData.val().length <= 400000"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "p": {
+          "$clientId": {
+            ".validate": "newData.hasChild('at')",
+            "at": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            },
+            "u": {
+              ".validate": "newData.isString() && newData.val().length == 32"
+            }
+          }
+        },
+        "typing": {
+          "$clientId": {
+            ".validate": "newData.isNumber()"
+          }
+        },
+        "read": {
+          "$clientId": {
+            ".validate": "newData.isString() && newData.val().length <= 64"
+          }
+        },
+        "recv": {
+          "$clientId": {
+            ".validate": "newData.isString() && newData.val().length <= 64"
+          }
+        },
+        "rx": {
+          "$msgId": {
+            "$clientId": {
+              ".validate": "newData.isString() && newData.val().length <= 2"
+            }
+          }
+        },
+        "meta": {
+          "wipe": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "notice": {
+          ".validate": "newData.hasChildren(['t','iv','c'])",
+          "t": {
+            ".validate": "newData.isNumber()"
+          },
+          "iv": {
+            ".validate": "newData.isString() && newData.val().length <= 32"
+          },
+          "c": {
+            ".validate": "newData.isString() && newData.val().length <= 24000"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "nt": {
+          "$noteId": {
+            ".validate": "newData.hasChildren(['t','c','iv'])",
+            "t": {
+              ".validate": "newData.isNumber()"
+            },
+            "iv": {
+              ".validate": "newData.isString() && newData.val().length <= 32"
+            },
+            "c": {
+              ".validate": "newData.isString() && newData.val().length <= 400000"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "heart": {
+          "$clientId": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          }
+        },
+        "gate2": {
+          ".validate": "newData.hasChildren(['on','fp'])",
+          "on": {
+            ".validate": "newData.isBoolean()"
+          },
+          "fp": {
+            ".validate": "newData.isString() && newData.val().length == 32"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "pet": {
+          "boost": {
+            ".validate": "root.child('admin/' + auth.uid).val() === true && newData.isNumber()"
+          },
+          "b": {
+            ".validate": "newData.val() === now && !data.exists()"
+          },
+          "a": {
+            "$clientId": {
+              "n": {
+                ".validate": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || newData.val() === data.val() + 1)"
+              },
+              "w": {
+                ".validate": "newData.val() === now && (!data.exists() || now > data.val() + 3600000)"
+              },
+              "s": {
+                ".validate": "newData.val() === now && (!data.exists() || now > data.val() + 10800000)"
+              },
+              "t": {
+                ".validate": "newData.val() === now && (!data.exists() || now > data.val() + 18000000)"
+              },
+              "pw": {
+                ".validate": "newData.val() === now && (!data.exists() || now > data.val() + 3600000)"
+              },
+              "ps": {
+                ".validate": "newData.val() === now && (!data.exists() || now > data.val() + 10800000)"
+              },
+              "pt": {
+                ".validate": "newData.val() === now && (!data.exists() || now > data.val() + 18000000)"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "seen": {
+          ".validate": false,
+          "$who": {
+            "f": {
+              ".validate": "newData.val() === now && !data.exists()"
+            },
+            "l": {
+              ".validate": "newData.val() === now"
+            },
+            "n": {
+              ".validate": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || newData.val() === data.val() + 1)"
+            },
+            "nf": {
+              ".validate": "newData.val() === now && !data.exists()"
+            },
+            "dn": {
+              ".validate": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || newData.val() === data.val() + 1)"
+            },
+            "dl": {
+              ".validate": "newData.val() === now"
+            },
+            "dv": {
+              ".validate": "newData.hasChildren()",
+              "$dev": {
+                ".validate": "newData.val() === true"
+              }
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "hm": {
+          "$clientId": {
+            ".validate": "newData.hasChildren(['iv','c'])",
+            "iv": {
+              ".validate": "newData.isString() && newData.val().length <= 64"
+            },
+            "c": {
+              ".validate": "newData.isString() && newData.val().length <= 8192"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "mem": {
+          "$memberId": {
+            ".validate": "newData.hasChildren(['iv','c'])",
+            "t": {
+              ".validate": "newData.isNumber()"
+            },
+            "iv": {
+              ".validate": "newData.isString() && newData.val().length <= 64"
+            },
+            "c": {
+              ".validate": "newData.isString() && newData.val().length <= 2048"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "push": {
+          "$clientId": {
+            ".validate": "newData.hasChildren(['ep','k','a'])",
+            "ep": {
+              ".validate": "newData.isString() && newData.val().length <= 1024"
+            },
+            "k": {
+              ".validate": "newData.isString() && newData.val().length <= 200"
+            },
+            "a": {
+              ".validate": "newData.isString() && newData.val().length <= 64"
+            },
+            "t": {
+              ".validate": "newData.isNumber()"
+            },
+            "on": {
+              ".validate": "newData.isBoolean()"
+            },
+            "nm": {
+              ".validate": "newData.isBoolean()"
+            },
+            "lo": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            },
+            "lm": {
+              ".validate": "newData.isNumber()"
+            }
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "lineProfiles": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

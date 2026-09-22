@@ -1,0 +1,22 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),source=fs.readFileSync(new URL('./index.js',import.meta.url),'utf8'),store=new Map();
+const db={ref:path=>({get:async()=>({val:()=>store.get(path)}),set:async value=>store.set(path,value)})};
+const ctx=vm.createContext({getDb:()=>db,require,Buffer,process:{env:{HOME_DEFAULT_PASSWORD:"2468",HOME_DISABLE_PASSWORD:"87654321"}}});vm.runInContext(source.slice(source.indexOf('async function handleHomeSettings'),source.indexOf('\nconst { onRequest }')),ctx);
+async function call(body,admin=true){store.set('admin/u',admin);let status,data;const res={status(v){status=v;return this},json(v){data=v}};await ctx.handleHomeSettings(body,{uid:'u',lp:admin},res,()=>{status=400});return{status,data};}
+assert.equal((await call({homeAction:'unlock',password:'2468'},false)).data.unlocked,true);
+delete ctx.process.env.HOME_DEFAULT_PASSWORD;
+assert.equal((await call({homeAction:'unlock',password:'2468'},false)).data.unlocked,false);
+ctx.process.env.HOME_DEFAULT_PASSWORD='2468';
+delete ctx.process.env.HOME_DISABLE_PASSWORD;
+assert.equal((await call({homeAction:'toggle',enabled:false,password:''})).status,400);
+ctx.process.env.HOME_DISABLE_PASSWORD='87654321';
+assert.equal((await call({homeAction:'toggle',enabled:false,password:'87654321'},false)).status,400);
+store.set('settings/homeSwitch',true);assert.equal((await call({homeAction:'toggle',enabled:false,password:'wrong'})).status,400);assert.equal(store.get('settings/homeSwitch'),true);
+assert.equal((await call({homeAction:'toggle',enabled:false,password:'87654321'})).status,200);assert.equal(store.get('settings/homeSwitch'),false);
+assert.equal((await call({homeAction:'toggle',enabled:true})).status,200);assert.equal(store.get('settings/homeSwitch'),true);
+assert.equal((await call({homeAction:'password',password:'123456'},false)).status,400);
+assert.equal((await call({homeAction:'password',password:'123456'})).status,200);assert.equal(JSON.stringify(store.get('homeSwitchSecret')).includes('123456'),false);
+assert.equal((await call({homeAction:'unlock',password:'2468'},false)).data.unlocked,false);assert.equal((await call({homeAction:'unlock',password:'123456'},false)).data.unlocked,true);
+assert.equal((await call({homeAction:'password',password:'abc'})).status,400);
+assert.equal((await call({homeAction:'toggle',enabled:false,password:'123456'})).status,400);
+console.log('PASS: default and changed passwords, hashed storage, admin-only changes, fixed disable password independent of home password, wrong-password rejection, re-enable.');

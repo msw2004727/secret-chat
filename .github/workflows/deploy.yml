@@ -1,0 +1,70 @@
+name: Deploy chat
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'hosting = website only; full = website, functions and rules'
+        type: choice
+        options: [hosting, full]
+        default: hosting
+permissions:
+  contents: read
+concurrency:
+  group: firebase-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix functions
+      - run: npm test
+      - run: npm run build
+      - name: Select deployment scope
+        id: scope
+        env:
+          BEFORE: ${{ github.event.before }}
+          REQUESTED: ${{ inputs.scope }}
+          EVENT: ${{ github.event_name }}
+        run: node scripts/deploy-scope.mjs
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: daily-notes-7bb64
+          workload_identity_provider: projects/731968413005/locations/global/workloadIdentityPools/github-secret-chat/providers/github
+          service_account: github-deploy@daily-notes-7bb64.iam.gserviceaccount.com
+      - name: Restore Functions configuration
+        if: contains(steps.scope.outputs.only, 'functions')
+        env:
+          FUNCTIONS_ENV: ${{ secrets.FUNCTIONS_ENV }}
+        run: |
+          test -n "$FUNCTIONS_ENV" || { echo 'Missing FUNCTIONS_ENV secret'; exit 1; }
+          umask 077
+          printf '%s\n' "$FUNCTIONS_ENV" > functions/.env
+      - name: Deploy selected resources
+        env:
+          FUNCTIONS_DISCOVERY_TIMEOUT: '120'
+          ONLY: ${{ steps.scope.outputs.only }}
+        run: npx --no-install firebase deploy --config .firebase-cloud.json --only "$ONLY" --project daily-notes-7bb64 --non-interactive
+      - name: Remove temporary environment file
+        if: always()
+        run: rm -f functions/.env
+      - name: Verify website
+        run: node scripts/verify-live.mjs

@@ -1,0 +1,15 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import assert from 'node:assert/strict';
+const run = args => { const result = spawnSync(process.execPath,args,{stdio:'inherit'}); if(result.status !== 0) process.exit(result.status || 1); };
+for (const file of ['app.js','assets.js','config.js','sw.js','functions/index.js']) run(['--check',file]);
+for (const file of readdirSync('functions').filter(f=>/^test-.*\.mjs$/.test(f)).sort()) run([`functions/${file}`]);
+const firebase=JSON.parse(readFileSync('firebase.json','utf8'));
+assert.equal(firebase.hosting.site,'daily-notes-7bb64');
+const redirect=JSON.parse(readFileSync('domain-redirect/firebase.json','utf8'));
+assert.equal(redirect.hosting.site,'dn-domain-retire');
+assert.equal(redirect.hosting.redirects[0].destination,'https://jav101.com');
+const app=readFileSync('app.js','utf8').match(/const APP_VERSION = "([^"]+)"/)[1];
+assert.ok(readFileSync('sw.js','utf8').includes(`sc-${app}`));
+assert.ok(readFileSync('index.html','utf8').includes(`content="${app}"`));
+console.log('PASS: domain separation and release versions.');

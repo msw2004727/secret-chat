@@ -1,0 +1,3073 @@
+/* ============================================================
+ *  秘密聊天 — 樣式表（全裝置自適應）
+ *
+ *  A. 基礎與斷點
+ *  B. 偽裝首頁（桌機 / 手機兩種版面）
+ *  C. 聊天室（手機優先，大螢幕置中）
+ * ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ⚠️ body 必須是 fixed。
+   iOS Safari 在鍵盤彈出時會把整份文件往上推，只要 body 還在正常文件流裡，
+   畫面就會被捲走、下方露出一大片空白。把 body 釘死才能徹底擋掉。 */
+body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0; padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  font-family: arial, "Helvetica Neue", Helvetica, "PingFang TC", "Noto Sans TC", sans-serif;
+  background: #fff;
+  color: #202124;
+  touch-action: manipulation;         /* 拿掉行動裝置雙擊縮放的 300ms 延遲 */
+}
+
+/* 高度用「實際看得到的高度」，鍵盤彈出時自動縮短，輸入列就會停在鍵盤正上方。
+   因為 body 已經釘死，縮短後也不會露出背景。
+   ⚠️ 底下任何 #id 規則都不可以再寫 height，ID 優先級較高會把這裡整個蓋掉。 */
+.screen {
+  position: absolute;
+  top: var(--app-top, 0px);
+  left: 0;
+  right: 0;
+  height: 100%;
+  height: var(--app-h, 100%);
+  overflow: hidden;
+}
+
+[hidden] { display: none !important; }
+button { font: inherit; cursor: pointer; }
+
+/* 桌機 / 手機專屬元素，預設先藏起手機版 */
+.g-mob { display: none; }
+
+.g-home-switch { border: 0; background: transparent; padding: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 32px; flex-shrink: 0; }
+.home-switch-dialog { width: min(320px, calc(100vw - 40px)); border: 1px solid #dadce0; border-radius: 16px; padding: 24px; color: #202124; background: #fff; box-shadow: 0 12px 40px #0002; }
+.home-switch-dialog::backdrop { background: #20212466; }
+.home-switch-dialog h2 { font-size: 19px; margin: 0 0 20px; }
+.home-switch-dialog input { width: 100%; font-size: 20px; padding: 12px; border: 1px solid #9aa0a6; border-radius: 6px; }
+.home-switch-dialog p { min-height: 20px; color: #b3261e; font-size: 13px; }
+.home-switch-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.home-switch-actions button { border: 0; border-radius: 6px; padding: 9px 16px; background: #f1f3f4; color: #202124; }
+#homeSwitchConfirm { color: #fff; background: #1a73e8; }
+.home-location-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 14px; font-size: 12px; white-space: nowrap; }
+.home-location-row label, .location-choice { display: flex; align-items: center; gap: 5px; }
+.home-switch-dialog input[type="checkbox"] { width: 14px; height: 14px; padding: 0; margin: 0; flex: 0 0 14px; accent-color: #1a73e8; }
+.location-settings-link { border: 0; padding: 3px 0; background: transparent; color: #1a73e8; font-size: 12px; white-space: nowrap; }
+.location-choice { font-size: 13px; }
+.home-switch-dialog .location-help { color: #5f6368; line-height: 1.6; font-size: 12px; }
+
+
+/* ══════════════════════════════════════════════
+   B. 偽裝首頁
+   ══════════════════════════════════════════════ */
+
+#gate {
+  display: flex;
+  flex-direction: column;
+  background: #fff;                   /* 明確指定，避免被大螢幕的頁面底色影響 */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* --- 頂列 --- */
+.g-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 60px;
+  padding: 6px 15px 0;
+  flex: 0 0 auto;
+}
+.g-top-left, .g-top-right { display: flex; align-items: center; gap: 15px; }
+.g-top-right { margin-left: auto; }   /* 左側連結在窄螢幕會隱藏，這行確保右側永遠靠右 */
+.g-link {
+  color: #000; font-size: 13px; text-decoration: none; padding: 4px 2px;
+  opacity: .87;
+}
+.g-link:hover { text-decoration: underline; }
+.g-apps {
+  border: 0; background: transparent; padding: 8px; border-radius: 50%;
+  display: flex; opacity: .72;
+}
+.g-apps:hover { background: rgba(60,64,67,.08); }
+.g-signin {
+  background: #1a73e8; color: #fff; text-decoration: none;
+  font-size: 14px; font-weight: 500; letter-spacing: .18px;
+  padding: 9px 23px; border-radius: 4px; line-height: 1;
+  display: inline-flex; align-items: center;
+  box-shadow: 0 1px 2px rgba(60,64,67,.3);
+}
+.g-signin:hover { background: #2b7de9; box-shadow: 0 1px 3px rgba(60,64,67,.35); }
+.g-signin { border: 0; white-space: nowrap; flex-shrink: 0; }
+.line-header-account { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.line-header-avatar { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; background: #e7f5eb; color: #167c3b; font-weight: 600; }
+.line-header-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.line-header-logout { border: 1px solid #dadce0; color: #5f6368; background: #fff; border-radius: 16px; padding: 7px 10px; font-size: 12px; white-space: nowrap; }
+@media (max-width: 600px) {
+  .g-top-right { gap: 5px; }
+  .g-top-right .g-apps { display: none; }
+  .g-mtop-left { gap: 8px; }
+}
+
+/* 手機版頂部：漢堡選單 + 全部／圖片分頁 */
+.g-mtop-left { align-items: stretch; gap: 12px; }
+
+.g-plain {
+  border: 0; background: transparent; padding: 6px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; flex: 0 0 auto;
+}
+.g-plain:active { background: rgba(60,64,67,.1); }
+
+/* 未讀小紅點：尺寸、顏色與白色描邊都照真的 Google 通知徽章。
+   刻意不做動畫、不變色、不放大 —— 會動的鈴鐺等於在廣告「這頁不是真的 Google」。 */
+.g-bell { position: relative; }
+.g-bell-dot {
+  position: absolute; top: 4px; right: 4px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #ea4335;
+  box-shadow: 0 0 0 2px #fff;
+  pointer-events: none;
+}
+/* 兩間以上有新訊息就顯示數字。只有一間時維持小圓點，最不起眼。 */
+.g-bell-dot.num {
+  top: 1px; right: 0;
+  width: auto; min-width: 15px; height: 15px;
+  padding: 0 4px; border-radius: 8px;
+  color: #fff; font-size: 10.5px; font-weight: 600; line-height: 15px;
+  text-align: center;
+  font-family: arial, sans-serif;
+}
+
+.g-tab {
+  display: flex; align-items: center;
+  font-size: 14px; color: #5f6368;
+  position: relative; padding: 0 2px;
+  user-select: none; white-space: nowrap;
+}
+.g-tab.is-active { color: #1a73e8; }
+.g-tab.is-active::after {
+  content: "";
+  position: absolute; left: -3px; right: -3px; bottom: 0;
+  height: 3px; background: #1a73e8; border-radius: 3px 3px 0 0;
+}
+
+/* --- 主區 --- */
+.g-main {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 20px;
+  margin-top: max(15vh, 92px);
+}
+
+.g-logo {
+  font-family: "Product Sans", "Google Sans", arial, sans-serif;
+  font-size: clamp(46px, 12vw, 92px);
+  line-height: 1;
+  letter-spacing: -0.065em;
+  margin-bottom: 26px;
+  user-select: none;
+  white-space: nowrap;
+}
+.g-logo span { display: inline-block; }
+
+/* --- 搜尋框 --- */
+.g-searchwrap { width: 100%; max-width: 584px; }
+
+.g-search {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 46px;
+  border: 1px solid #dfe1e5;
+  border-radius: 24px;
+  padding: 0 14px;
+  background: #fff;
+  transition: box-shadow .12s, border-color .12s;
+}
+.g-search:hover,
+.g-search.is-focus {
+  border-color: rgba(223,225,229,0);
+  box-shadow: 0 1px 6px rgba(32,33,36,.28);
+}
+.g-ico-search { flex: 0 0 auto; }
+/* 這是 contenteditable 的 div，不是 input —— 樣式要自己補齊 */
+.g-input {
+  flex: 1 1 auto; min-width: 0;
+  border: 0; outline: 0; background: transparent;
+  font-family: inherit;
+  font-size: 16px;                    /* 不可低於 16px，否則 iOS 會自動放大整頁 */
+  color: #202124;
+  height: 36px; line-height: 36px;    /* 用 line-height 讓文字與游標垂直置中 */
+  white-space: nowrap;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-user-modify: read-write-plaintext-only;   /* 貼上時自動轉純文字 */
+  cursor: text;
+}
+.g-input::-webkit-scrollbar { display: none; }
+.g-ico-btn {
+  border: 0; background: transparent; padding: 6px; border-radius: 50%;
+  display: flex; align-items: center;
+}
+.g-ico-btn:hover { background: rgba(60,64,67,.06); }
+.g-divider { width: 1px; height: 24px; background: #dadce0; flex: 0 0 auto; }
+
+.g-buttons {
+  display: flex; justify-content: center; gap: 12px;
+  margin-top: 29px;
+}
+.g-btn {
+  background: #f8f9fa;
+  border: 1px solid #f8f9fa;
+  border-radius: 4px;
+  color: #3c4043;
+  font-size: 14px;
+  min-height: 36px;
+  padding: 0 18px;
+}
+.g-btn:hover {
+  border-color: #dadce0;
+  box-shadow: 0 1px 1px rgba(0,0,0,.1);
+  color: #202124;
+}
+.g-lang { font-size: 13px; color: #4d5156; text-align: center; margin: 30px 0 0; }
+.g-langlink { color: #1a0dab; text-decoration: none; }
+.g-langlink:hover { text-decoration: underline; }
+
+/* --- 底部 --- */
+.g-foot {
+  flex: 0 0 auto;
+  background: #f2f2f2;
+  border-top: 1px solid #dadce0;
+  font-size: 14px;
+  color: #70757a;
+  margin-top: 40px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.g-foot-row { padding: 15px 30px; }
+.g-foot-country { border-bottom: 1px solid #dadce0; }
+.g-foot-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.g-foot a {
+  color: #70757a; text-decoration: none; margin-right: 27px; display: inline-block; padding: 3px 0;
+}
+.g-foot-right a { margin: 0 0 0 27px; }
+.g-foot a:hover { text-decoration: underline; }
+
+.g-hint {
+  position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
+  font-size: 12px; color: #9aa0a6; letter-spacing: .2px;
+  pointer-events: none;
+}
+
+/* 手機版底部連結列（display 交給下方的手機斷點設定，這裡不能寫，否則桌機也會冒出來） */
+.g-foot-mob { flex-wrap: wrap; gap: 6px 18px; }
+.g-foot-mob a { margin: 0; font-size: 13px; }
+
+/* 平板寬度不要隱藏桌機版左側連結 ——
+   手機版的漢堡選單要到 600px 才出現，提早隱藏會讓 601~820px 的頂列左半邊開天窗 */
+
+/* ---------- 手機 ---------- */
+@media (max-width: 600px) {
+  .g-desk { display: none !important; }
+  .g-mtop-left { display: flex; }
+  .g-mob.g-plain { display: flex; }
+  .g-mob.g-ico-btn { display: flex; }
+  .g-foot-mob { display: flex; }
+
+  .g-top { padding: 0 12px; min-height: 52px; align-items: stretch; }
+  .g-top-right { gap: 6px; align-items: center; }
+
+  .g-signin { padding: 8px 18px; border-radius: 18px; box-shadow: none; }
+
+  .g-main { margin-top: max(9vh, 50px); padding: 0 16px; }
+  .g-logo { margin-bottom: 24px; }
+
+  .g-search {
+    min-height: 48px; border-radius: 26px; padding: 0 14px; gap: 8px;
+    box-shadow: 0 1px 6px rgba(32,33,36,.16); border-color: transparent;
+  }
+
+  .g-foot { margin-top: 28px; font-size: 13px; }
+  .g-foot-row { padding: 13px 16px; }
+}
+
+/* ---------- 手機橫向：畫面很矮，把上方留白壓縮 ---------- */
+@media (max-height: 480px) and (orientation: landscape) {
+  .g-main { margin-top: 16px; }
+  .g-logo { font-size: 40px; margin-bottom: 14px; }
+  .g-foot { margin-top: 18px; }
+}
+
+
+/* ══════════════════════════════════════════════
+   C. 聊天室
+   ══════════════════════════════════════════════ */
+
+#chat, #admin {
+  --bg:        #ffffff;
+  --bg-soft:   #f4f5f7;
+  --line:      #e6e8eb;
+  --txt:       #16181c;
+  --txt-dim:   #8a9099;
+  --me:        var(--me-accent, #1a73e8);
+  --me-txt:    #ffffff;
+  --you:       #eef0f3;
+  --you-txt:   #16181c;
+  --danger:    #d93025;
+
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--txt);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif;
+  /* 這裡刻意不寫 height —— 高度由 .screen 的 --app-h 控制，
+     寫了會因為 ID 優先級較高而蓋掉它，輸入列就會被鍵盤壓住 */
+}
+
+/* 深色不再跟隨系統，改由 <html data-theme> 決定（上方列有切換鈕）。
+   預設值寫在 index.html 的 <html> 標籤上，所以載入時不會先閃一下淺色。 */
+html[data-theme="dark"] #chat,
+html[data-theme="dark"] #admin {
+    --bg:      #0f1115;
+    --bg-soft: #171a20;
+    --line:    #262a32;
+    --txt:     #e8eaed;
+    --txt-dim: #7d848f;
+    --me:      var(--me-accent, #2b6cd4);
+    --me-txt:  #ffffff;
+    --you:     #1c2028;
+    --you-txt: #e8eaed;
+}
+
+/* --- 頂部列 --- */
+.c-bar {
+  flex: 0 0 auto;
+  /* ⚠️ position: relative 是給飄浮愛心（.c-heart-field）當定位錨點的。
+        拿掉的話愛心會往上找到別的祖先，飄到畫面別的地方去。 */
+  position: relative;
+  display: flex; align-items: center; gap: 2px;
+  padding: 0 6px;
+  padding-top: env(safe-area-inset-top);
+  height: calc(54px + env(safe-area-inset-top));
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+/* 「正在輸入…」用主色標出來，跟「在線上／不在線」區隔 */
+#peerText.typing { color: var(--me); }
+/* ⚠️ 省略號要掛在「裝文字的那個元素」上。
+      .c-title 是 flex 容器，text-overflow 對它的子元素不會自動生效 ——
+      少了這一條，窄機上狀態文字會被切在半個字中間（不是省略號）。 */
+#peerText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.c-title {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--txt-dim);
+  padding-left: 4px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.c-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #c2c7ce; flex: 0 0 auto;
+  transition: background .25s;
+}
+.c-dot[data-on="true"] { background: #34a853; box-shadow: 0 0 0 3px rgba(52,168,83,.16); }
+
+/* ── 隱身常駐提示（v56）──
+ * 使用者的話：「有辦法私人房針對我自己個人登入不留已讀之類的痕跡給對方嗎?」
+ * 他選的是「一直看得到的小標記」。
+ *
+ * ⚠️⚠️ 第一版做成 `.c-bar` 裡的小膠囊，量出來不能用：
+ *    `.c-title`（在線文字那一格）是 flex: 1 1 auto，跟一排固定寬度的按鈕
+ *    擠同一列。帶字的膠囊 47px 塞進去之後，「正在輸入…」那句從 62px 掉到 8px，
+ *    **320／340／360／375／390／414 每一個寬度都一樣** ——
+ *    等於用「一直看得到的標記」換掉了「照常看得到對方的狀態」，
+ *    而那兩件事都是使用者親口選的。
+ *    （順帶一提：320px 上 `.c-title` 只有 40px，而「正在輸入…」整句要 80px，
+ *      所以那裡本來就只看得到一個半字 —— 但那是既有狀況，不該由這一版加劇。）
+ *
+ * → 改成跟 `.c-openbar` 同一套的整行細帶：不搶橫向空間、永遠不會被截斷、
+ *   而且寫得下完整的一句話。「隔幾天再進來忘記自己還開著」本來就是這個標記
+ *   要防的事，一個 21px 的圖示防不住。
+ *
+ * ⚠️ 顏色用中性灰，不用警示色 —— 它是狀態不是警告，做成紅的每次進房都像出事。
+ * ⚠️ 不要加動畫。這條的正下方就是訊息區，會動的東西只會把注意力拉走。 */
+.c-stealthbar {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 5px 14px;
+  background: var(--bg-soft);
+  color: var(--txt-dim);
+  border-bottom: 1px solid var(--line);
+  font-size: 11.5px;
+  letter-spacing: .2px;
+}
+.c-stealthbar svg { flex: 0 0 auto; opacity: .8; }
+/* ⚠️ 320px 上這一句要放得下：整行有 320px，圖示 12 ＋ 間距 5 ＋ 左右內距 28 = 45，
+      剩 275px 給 22 個字（11.5px 字級約 253px）—— 剛好，不換行。
+      再加字之前一定要回來重量一次。 */
+}
+.c-badge {
+  font-size: 11px; padding: 2px 7px; border-radius: 20px;
+  background: var(--bg-soft); color: var(--txt-dim); flex: 0 0 auto;
+}
+
+/* ---------- 思念（v24）---------- */
+/* 使用者選的是「一行」版型：愛心 + 數字，按下去才短暫浮出「+1」。
+   ⚠️ 內距要留得比一般圖示鈕寬鬆 —— 使用者明確要求「文字不要被容器壓迫」。 */
+.c-heart {
+  appearance: none; border: 0; cursor: pointer; flex: 0 0 auto;
+  position: relative;
+  display: flex; align-items: center; gap: 6px;
+  /* ⚠️ 高度要跟旁邊的倒數膠囊（.c-count）一模一樣，兩顆並排才不會參差。
+        兩邊都改成 28px：思念鈕從 30 降 2（點擊面積幾乎沒差），
+        倒數從 26 升 2（它是被動指示，不該比互動元件更搶眼）。
+     ⚠️ margin-right 是必要的：上方列的 gap 只有 2px，
+        那個間距對「兩顆貼邊的膠囊」來說太擠，看起來像黏在一起。
+        右邊那些圖示鈕靠 42px 的內距自然撐開視覺距離，膠囊沒有，要自己補。 */
+  height: 28px; padding: 0 12px 0 10px; margin-right: 11px;
+  border-radius: 999px;
+  background: rgba(255, 107, 157, .10);
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 157, .24);
+  color: #ff6b9d;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .16s, transform .1s;
+}
+.c-heart:active { transform: scale(.94); }
+
+/* 長按 5 秒的進度（v52）—— 由左往右填滿。
+   ⚠️⚠️ **裁切要做在這一層，絕對不可以往 .c-heart 加 overflow: hidden。**
+      按下去浮出的「+1」（.c-heart-pop）是這顆按鈕的子元素，而且會往上飄到
+      button 外面（translate(-50%, -18px)）—— 在按鈕上加 overflow: hidden
+      會把它整個裁掉。第一版就是這樣寫的，測試全綠但「+1」再也不會出現。
+      所以是 .c-hold-fill 自己裁自己：它 inset: 0、圓角跟著按鈕，
+      真正的填色是裡面那層 ::before。
+   ⚠️ 只動 transform（scaleX），不動 width —— 動 width 每一幀都要重排。
+   ⚠️ 0.4 秒之前不加 .holding，所以輕點完全看不到它閃一下。 */
+.c-hold-fill {
+  position: absolute; inset: 0; pointer-events: none;
+  overflow: hidden; border-radius: inherit;
+  opacity: 0; transition: opacity .12s;
+}
+.c-hold-fill::before {
+  content: ""; position: absolute; inset: 0;
+  background: currentColor;
+  transform-origin: left center;
+  transform: scaleX(var(--hold-p, 0));
+}
+.c-heart.holding .c-hold-fill { opacity: .20; }
+/* ⚠️ 填色是 absolute 疊在底層的，圖示與數字要墊上去才不會被蓋住。 */
+.c-heart > svg, .c-heart > .c-heart-n { position: relative; z-index: 1; }
+/* 320 寬（初代 iPhone SE）上方列本來就很擠，把思念鈕的留白收一點回來給狀態文字 */
+@media (max-width: 360px) {
+  .c-heart { margin-right: 7px; padding: 0 10px 0 8px; }
+}
+.c-heart svg { display: block; flex: 0 0 auto; }
+.c-heart-n {
+  font-size: 13px; font-weight: 700; color: #ffd0e0;
+  /* ⚠️ 等寬數字：9 跳到 10 的時候按鈕寬度才不會抖一下 */
+  font-variant-numeric: tabular-nums;
+  min-width: 1.1em; text-align: center; line-height: 1;
+}
+/* 淺色主題下粉色要壓深一點，不然在白底上會糊掉 */
+html[data-theme="light"] #chat .c-heart { background: rgba(214, 51, 108, .09); box-shadow: inset 0 0 0 1px rgba(214, 51, 108, .22); color: #d6336c; }
+html[data-theme="light"] #chat .c-heart-n { color: #b02a5b; }
+
+/* ── 友誼（多人房）──
+   尺寸／間距／動畫完全沿用 .c-heart，只換配色。
+   ⚠️ 這幾條一定要排在粉色那幾條「後面」—— .c-friend 也帶著 .c-heart，
+      同分特異度時後面的才蓋得過去。 */
+.c-heart.c-friend {
+  background: rgba(240, 164, 55, .11);
+  box-shadow: inset 0 0 0 1px rgba(240, 164, 55, .26);
+  color: #f0a437;
+}
+.c-friend .c-heart-n { color: #f6d49b; }
+.c-friend .c-heart-pop { color: #f0a437; }
+/* 別人也按了 → 外圈亮一圈。⚠️ 邊框色寫死在 ::after 裡，所以要單獨覆蓋 */
+.c-heart.c-friend.peer::after { border-color: #f0a437; }
+html[data-theme="light"] #chat .c-heart.c-friend {
+  background: rgba(176, 106, 16, .10);
+  box-shadow: inset 0 0 0 1px rgba(176, 106, 16, .24);
+  color: #b06a10;
+}
+html[data-theme="light"] #chat .c-friend .c-heart-n { color: #8a5209; }
+html[data-theme="light"] #chat .c-friend .c-heart-pop { color: #b06a10; }
+
+/* 按下去浮出的「+1」／點數字時的「你 19 · 對方 23」 */
+.c-heart-pop {
+  position: absolute; left: 50%; top: -2px;
+  transform: translate(-50%, 0);
+  font-size: 10.5px; font-weight: 700; white-space: nowrap;
+  color: #ff6b9d; pointer-events: none;
+  animation: heart-pop 1.15s ease-out forwards;
+}
+@keyframes heart-pop {
+  0%   { opacity: 0; transform: translate(-50%, 2px); }
+  18%  { opacity: 1; transform: translate(-50%, -8px); }
+  70%  { opacity: 1; transform: translate(-50%, -12px); }
+  100% { opacity: 0; transform: translate(-50%, -18px); }
+}
+/* 對方按的時候：外圈擴散一圈，跟自己按的區分開 */
+.c-heart.peer::after {
+  content: ""; position: absolute; inset: -2px; border-radius: 999px;
+  border: 1.5px solid #ff6b9d; pointer-events: none;
+  animation: heart-ring .9s ease-out forwards;
+}
+@keyframes heart-ring {
+  0%   { opacity: .85; transform: scale(1); }
+  100% { opacity: 0;   transform: scale(1.5); }
+}
+
+/* 飄浮的愛心。
+   ⚠️ 只動 transform 與 opacity —— 這兩個由合成器處理，不觸發版面計算與重繪。
+      改成動 top/left/width 的話手機會直接掉幀。
+   ⚠️ 這一層一定要 pointer-events: none，否則飄過去的愛心會擋住上方列的按鈕。 */
+.c-heart-field {
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  pointer-events: none; overflow: visible; z-index: 2;
+}
+.c-heart-bit {
+  position: absolute; will-change: transform, opacity; opacity: 0;
+  animation: heart-rise var(--dur) cubic-bezier(.25, .55, .3, 1) forwards;
+}
+@keyframes heart-rise {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0) scale(.5) rotate(0deg); }
+  14%  { opacity: var(--peak); }
+  100% { opacity: 0; transform: translate3d(var(--dx), var(--dy), 0) scale(var(--sc)) rotate(var(--rot)); }
+}
+
+/* 「你不在的時候，對方想念了你 5 次」
+   ⚠️ 它會被搬進 #msgList（緊接在「以下是新訊息」分隔線下面），
+      所以 margin 要照訊息列的節奏留，不是照上方那一區。 */
+.c-missed {
+  flex: 0 0 auto; align-self: center;
+  margin: 2px auto 8px; padding: 5px 13px;
+  border-radius: 999px;
+  background: rgba(255, 107, 157, .12);
+  color: #ff8fb1; font-size: 11.5px; line-height: 1.5;
+}
+.c-missed b { font-weight: 700; }
+html[data-theme="light"] #chat .c-missed { background: rgba(214, 51, 108, .10); color: #b02a5b; }
+
+/* 多人房的提示跟著友誼的暖橘走。
+   ⚠️ 靠 data-room 選色而不是再開一個 class —— applyRoomMode() 本來就會設它，
+      少一個要記得同步的地方。 */
+html[data-room="open"] #chat .c-missed { background: rgba(240, 164, 55, .13); color: #e8b45c; }
+html[data-room="open"][data-theme="light"] #chat .c-missed { background: rgba(176, 106, 16, .11); color: #8a5209; }
+
+/* 舊的標記淡一階 —— 往上捲看得到歷史，但不可以跟新訊息搶注意力 */
+.c-missed.old { opacity: .55; }
+
+/* ───────── 思念泡泡（v40）─────────
+   收到「你不在的時候，◯◯想念了你 N 次」的那一刻，
+   從輸入列上緣的隨機位置往上飄出 N 顆，大小／位置／透明度都隨機。
+
+   ⚠️ 只動 transform 與 opacity —— 這兩個由合成器處理，不觸發版面計算與重繪。
+      一次要飄幾十上百顆，改成動 top/left 的話手機會直接掉幀。
+   ⚠️ 這一層一定要 pointer-events: none，否則飄過去的泡泡會擋住訊息與按鈕。
+   ⚠️ 上緣要切在上方列「下面」（由 JS 量出來寫進 top）——
+      蓋過去的話泡泡會飄到狀態列上，把在線狀態與計數擋掉：
+      這一層的 z-index 比上方列高，上方列的底色擋不住它。
+   ⚠️ z-index 要低於附件選單（45）與毛玻璃遮罩（90）—— 閒置上鎖時它必須被蓋住。 */
+.c-miss-field {
+  position: absolute; left: 0; right: 0;
+  pointer-events: none; overflow: hidden;
+  z-index: 44;
+}
+
+/* ───────── 「愛」關鍵字的常駐愛心（v46）─────────
+   跟思念泡泡分開一層：那一層是「爆發」用的，會被 Miss.stop() 整層清掉，
+   而且同時數有名額限制 —— 常駐的這幾顆不該去佔那個名額。
+   ⚠️ z-index 比思念泡泡低一階：兩個同時發生時，爆發的那一片在上面。 */
+.c-love-field {
+  position: absolute; left: 0; right: 0;
+  pointer-events: none; overflow: hidden;
+  z-index: 43;
+}
+.c-love-bit {
+  position: absolute; bottom: 0; opacity: 0;
+  animation: love-rise var(--dur) linear forwards,
+             love-fade var(--dur) linear forwards;
+}
+@keyframes love-rise {
+  from { transform: translate3d(0, 0, 0) scale(.6); }
+  to   { transform: translate3d(0, calc(var(--rise) * -1), 0) scale(1.05); }
+}
+@keyframes love-fade {
+  0%   { opacity: 0; }
+  20%  { opacity: var(--peak); }
+  62%  { opacity: var(--peak); }
+  100% { opacity: 0; }
+}
+/* 擺動掛在裡面那個 svg 上（跟思念泡泡同一個理由：
+   兩條 transform 動畫寫在同一個元素上會互相覆蓋，只有後面那條生效）。 */
+.c-love-bit svg {
+  animation: love-sway var(--swayd) ease-in-out var(--swayo) infinite alternate;
+}
+@keyframes love-sway {
+  from { transform: translateX(calc(var(--sx) * -1)); }
+  to   { transform: translateX(var(--sx)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .c-love-bit, .c-love-bit svg { animation: none; opacity: 0; }
+}
+
+/* ⚠️⚠️ 這裡是整個效果最容易做壞的一點，寫清楚免得以後又被改回去：
+ *
+ *   timing function 是「每兩個關鍵影格之間各跑一次」，不是整條動畫跑一次。
+ *   所以只要在上升的路徑上多放幾個關鍵影格（例如中間插兩個左右擺動的點），
+ *   泡泡就會在每一個影格「慢下來 → 再加速」，看起來一頓一頓的。
+ *   量過：那樣寫每毫秒位移會在 0.0012 ～ 0.32 px 之間跳（差 267 倍），
+ *   最慢的那幾幀幾乎是停住的 —— 使用者第一眼就看出來了。
+ *
+ *   → 上升只留頭尾兩個影格，而且用 linear：等速，全程沒有轉折（實測變異 0%）。
+ *   → 淡入淡出拆成另一條動畫（opacity 與 transform 是不同屬性，可以並存），
+ *     它要幾個影格都不會影響上升的速度。
+ *   → 左右擺動掛到裡面那個 <svg> 上，跟上升各走各的（一個管 Y、一個管 X）。
+ *     兩條都寫在同一個元素上的話會互相覆蓋，只有後面那條會生效。
+ *
+ * ⚠️ 刻意不加 will-change。同時有幾十上百顆的時候，每顆都硬要一層合成層
+ *    會把手機的繪圖記憶體吃光 —— translate3d 在動畫期間本來就會自動提升。
+ *    （飄浮愛心那邊同時只有 18 顆，情況不同，那邊留著沒關係。） */
+.c-miss-bit {
+  position: absolute; bottom: 0; opacity: 0;
+  animation: miss-rise var(--dur) linear forwards,
+             miss-fade var(--dur) linear forwards;
+}
+@keyframes miss-rise {
+  from { transform: translate3d(0, 0, 0) scale(var(--s0)); }
+  to   { transform: translate3d(0, calc(var(--rise) * -1), 0) scale(var(--s1)); }
+}
+@keyframes miss-fade {
+  0%   { opacity: 0; }
+  14%  { opacity: var(--peak); }
+  64%  { opacity: var(--peak); }
+  100% { opacity: 0; }
+}
+
+/* 左右輕輕擺 + 微微轉。
+   ⚠️ 用 alternate + ease-in-out：轉向的那一刻是「慢下來再盪回去」，
+      那是鐘擺本來就有的樣子，不是頓點（兩端的速度都是 0，接得起來）。
+   ⚠️ 每顆的週期與起始相位都要隨機（起始相位用「負的 delay」做），
+      不然整片會像節拍器一樣一起擺。 */
+.c-miss-bit svg {
+  display: block;
+  animation: miss-sway var(--swayd) ease-in-out var(--swayo) infinite alternate;
+}
+@keyframes miss-sway {
+  from { transform: translate3d(calc(var(--sx) * -1), 0, 0) rotate(calc(var(--rot) * -1)); }
+  to   { transform: translate3d(var(--sx), 0, 0) rotate(var(--rot)); }
+}
+
+/* 系統開了「減少動態」就整個不播，只留數字本身的變化。
+   ⚠️ 這不是可有可無的禮貌 —— 有前庭系統敏感的人，飄浮動畫會讓他們不舒服。 */
+@media (prefers-reduced-motion: reduce) {
+  .c-heart-bit { display: none; }
+  /* ⚠️ 思念泡泡更要擋 —— 一次會飄幾十上百顆，對前庭系統敏感的人是災難 */
+  .c-miss-bit { display: none; }
+  .c-heart-pop, .c-heart.peer::after { animation: none; }
+  .c-heart-pop { opacity: 1; transform: translate(-50%, -12px); }
+}
+/* ───────── 位置回報（v41）· 偽裝首頁的大頭針 ─────────
+   ⚠️ 平常「不在畫面上」（連 DOM 都不進去，見 Loc.init()）。
+      長按 Google logo 才淡入，5 秒沒動作自己消失。
+   ⚠️ 尺寸與顏色一律跟著鈴鐺（.g-plain）走 ——
+      多一顆長得不一樣的按鈕，就是在對看到的人說「這頁不是真的 Google」。 */
+.g-pin {
+  color: #3c4043;                       /* 待機：跟鈴鐺同一個灰 */
+  opacity: 0;
+  transform: scale(.8);
+  transition: opacity .26s ease, transform .26s ease, color .18s ease;
+}
+.g-pin.show { opacity: 1; transform: none; }
+.g-pin.busy { animation: pin-pulse 1.15s ease-in-out infinite; }
+.g-pin.ok   { color: #34a853; }         /* 已送出 */
+.g-pin.bad  { color: #ea4335; }         /* 失敗：權限被拒／逾時／節流中，三者不分 */
+@keyframes pin-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .38; } }
+
+/* ⚠️ logo 一定要擋掉 iOS 的長按選單與選字，
+      否則長按會叫出放大鏡與「拷貝／查詢」，手勢直接被吃掉。
+      （.g-logo 本來就有 user-select: none，這裡補上 iOS 專屬的那一條。） */
+.g-logo { -webkit-touch-callout: none; -webkit-user-select: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .g-pin { transition: none; }
+  .g-pin.busy { animation: none; opacity: .55; }
+}
+
+/* ───────── 位置回報 · 儀表板那一區 ───────── */
+.a-loc { border-top: 1px solid var(--line); padding-top: 22px; margin: 0 0 26px; }
+.a-loc h3 { font-size: 15px; margin: 0 0 6px; }
+.a-loc-list { display: flex; flex-direction: column; margin-top: 10px; }
+
+.a-loc-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 4px;
+  border-top: 1px solid var(--line);
+  font-size: 13.5px; color: var(--txt);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.a-loc-row:active { background: var(--bg-soft); }
+/* ⚠️ 只有「最新那一筆」是綠的 —— 一眼分得出剛剛來的跟上禮拜的 */
+.a-loc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: 0 0 auto; }
+.a-loc-row.new .a-loc-dot { background: var(--ok, #2e9e63); }
+.a-loc-when { font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.a-loc-ago { color: var(--txt-dim); font-size: 12.5px; flex: 0 0 auto; }
+.a-loc-acc {
+  margin-left: auto; flex: 0 0 auto;
+  color: var(--txt-dim); font-size: 12.5px; font-variant-numeric: tabular-nums;
+}
+/* ⚠️ 誤差超過 100 公尺一定要標出來。室內可能差好幾百公尺，
+      不標的話地圖上那個點會騙人（跟坑 #86「不要替使用者猜原因」同一類）。 */
+.a-loc-acc.far { color: #d98324; font-weight: 600; }
+html[data-theme="light"] #admin .a-loc-acc.far { color: #a35a08; }
+
+.a-loc-chev { flex: 0 0 auto; color: var(--txt-dim); transition: transform .18s ease; }
+.a-loc-row.open .a-loc-chev { transform: rotate(90deg); }
+
+/* 座標藏在展開裡，不平鋪在列表上 —— 少一點被旁邊的人瞄到的機會 */
+.a-loc-detail {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 0 4px 12px 21px;
+  font-size: 12.5px; color: var(--txt-dim);
+}
+.a-loc-xy {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px; color: var(--txt);
+  background: var(--bg-soft); border-radius: 6px; padding: 4px 8px;
+  user-select: all;
+}
+.a-loc-map { color: var(--me); text-decoration: none; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.a-loc-warn { color: #d98324; }
+html[data-theme="light"] #admin .a-loc-warn { color: #a35a08; }
+.a-loc-more {
+  appearance: none; border: 1px solid var(--line); background: var(--bg-soft);
+  color: var(--txt-dim); font: inherit; font-size: 12.5px;
+  padding: 6px 14px; border-radius: 999px; margin: 12px auto 0; display: block;
+}
+.a-loc-more:disabled { opacity: .5; }
+/* 「空的」跟「壞掉」要分得出來（坑 #62 同類） */
+.a-loc-empty {
+  font-size: 13px; color: var(--txt-dim);
+  padding: 18px 4px; text-align: center;
+  border-top: 1px solid var(--line);
+}
+
+/* 位置回報的推播開關（v42）。
+   ⚠️ 借用設定面板那一列的樣式（.c-set-row / .c-sw），但它現在長在儀表板裡 ——
+      左右內距要跟著儀表板走，不然會比旁邊那幾行多縮排一截。 */
+.a-loc-push { padding: 12px 0; border-bottom: 0; border-top: 1px solid var(--line); margin-top: 12px; }
+.a-loc-push .c-set-label { font-size: 14px; }
+
+/* 位置回報的一鍵清空（v43）。⚠️ 借用各房「清空」那顆的樣式與長按條。 */
+.a-loc-wipe { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+.a-loc-wipe .a-hint { margin: 0; }
+
+/* 閒置倒數 */
+.c-count {
+  flex: 0 0 auto;
+  /* ⚠️ 高度要跟思念膠囊（.c-heart）一致 —— 兩顆並排時參差很明顯 */
+  min-width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 8px; margin-right: 2px;
+  border-radius: 14px;
+  background: var(--bg-soft);
+  color: var(--txt-dim);
+  font-size: 12px; font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  transition: background .2s, color .2s;
+}
+.c-count.warn {                    /* 剩 5 秒以內 */
+  background: #e8710a; color: #fff;
+}
+.c-count.paused { opacity: .45; }
+
+/* 搖晃與翻面保護開關 */
+.c-shake[aria-pressed="true"] { color: var(--me); }
+.c-shake[aria-pressed="true"] .sk-off { display: none; }
+.c-shake[aria-pressed="false"] .sk-wave { opacity: .3; }
+.c-shake[aria-pressed="false"] .sk-body { opacity: .7; }
+
+.c-watch[aria-pressed="true"] { color: var(--me); }
+.c-watch[aria-pressed="true"] .wt-off { display: none; }
+.c-watch[aria-pressed="false"] .wt-bell { opacity: .45; }
+
+/* ---------- 深淺色切換 ---------- */
+/* 圖示顯示「目前是什麼」：深色→月亮，淺色→太陽 */
+html[data-theme="dark"]  .th-sun  { display: none; }
+html[data-theme="light"] .th-moon { display: none; }
+
+/* 極窄螢幕（iPhone SE 一代、Galaxy S 小尺寸）上方列有 6 顆控制項會擠掉狀態文字，
+   這裡把圖示縮一點換空間。42→38 仍在可點範圍內，只在真的很窄時才縮。 */
+@media (max-width: 360px) {
+  .c-icon { width: 38px; height: 38px; }
+  .c-count { min-width: 24px; padding: 0 5px; }
+  .c-title { font-size: 12.5px; gap: 5px; }
+}
+
+/* ---------- 斷線橫幅 ---------- */
+.c-offline {
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  background: #e8710a;
+  color: #fff;
+  font-size: 12.5px;
+  text-align: center;
+  letter-spacing: .2px;
+}
+
+/* ---------- 多人房常駐提示 ---------- */
+/* 一定要「常駐」不是「吐司」—— 這條講的是「訊息會被刪掉」，
+   看漏一次就可能誤以為東西一直都在。 */
+.c-openbar {
+  flex: 0 0 auto;
+  padding: 5px 14px;
+  background: var(--bg-soft);
+  color: var(--txt-dim);
+  border-bottom: 1px solid var(--line);
+  font-size: 11.5px;
+  text-align: center;
+  letter-spacing: .2px;
+}
+.c-openbar b { color: var(--txt); font-weight: 600; }
+
+/* ---------- 置頂公告（v45）----------
+ *
+ * ⚠️ 配色刻意跟訊息氣泡（藍）分開，用一組暖琥珀色 ——
+ *    公告如果跟自己的訊息同色，眼睛會把它當成一則訊息滑過去。
+ * ⚠️ 但也不可以用整塊實心色：它常駐在對話最上面，
+ *    太搶眼會變成每次進房都先看到它、而不是先看到訊息。
+ *    所以是「很淡的底 + 一條細邊 + 一道會走的光」。
+ */
+#chat {
+  --ann-bg:     #fffdf6;
+  --ann-txt:    #3b3223;
+  --ann-accent: #b0770f;
+  --ann-edge:   rgba(176, 119, 15, .26);
+  --ann-glow:   rgba(232, 176, 58, .95);
+  --ann-shadow: rgba(176, 119, 15, .10);
+}
+html[data-theme="dark"] #chat {
+  --ann-bg:     #1a1712;
+  --ann-txt:    #ebe4d5;
+  --ann-accent: #e2ab4a;
+  --ann-edge:   rgba(226, 171, 74, .24);
+  --ann-glow:   rgba(255, 209, 120, .95);
+  --ann-shadow: rgba(0, 0, 0, .35);
+}
+
+.c-annslot { flex: 0 0 auto; padding: 8px 10px 2px; background: var(--bg); }
+
+.c-ann {
+  position: relative;
+  border-radius: 13px;
+  /* 這 1px 就是那圈流動光芒的厚度 —— 加厚它光會變成一片，不是一道 */
+  padding: 1px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px var(--ann-shadow);
+  cursor: pointer;
+  /* ⚠️ isolation 是必要的：底下那圈 conic 漸層要壓在自己的堆疊環境裡，
+        少了它在某些瀏覽器會蓋到氣泡上面去。 */
+  isolation: isolate;
+  -webkit-tap-highlight-color: transparent;
+}
+/* 固定的細邊：光沒掃到的那一段也要看得出這是一個框 */
+.c-ann::after {
+  content: ""; position: absolute; inset: 0; border-radius: 13px;
+  box-shadow: inset 0 0 0 1px var(--ann-edge);
+  pointer-events: none; z-index: 2;
+}
+/* 流動光芒：一圈 conic 漸層在後面慢慢轉，只從那 1px 的縫隙露出來。
+   ⚠️ 用 rotate 而不是 @property 的角度動畫 —— 後者 Safari 較舊的版本不支援，
+      而且失敗時是「完全不會動」，不會有任何錯誤訊息。 */
+.c-ann::before {
+  content: ""; position: absolute; inset: -60%;
+  background: conic-gradient(from 0deg,
+    transparent 0 62%,
+    var(--ann-glow) 76%,
+    transparent 84% 100%);
+  animation: ann-spin 7s linear infinite;
+  opacity: .55;
+  z-index: 0;
+}
+@keyframes ann-spin { to { transform: rotate(360deg); } }
+
+.c-ann-in {
+  position: relative; z-index: 1;
+  border-radius: 12px;
+  background: var(--ann-bg);
+  color: var(--ann-txt);
+  padding: 9px 11px 9px 10px;
+}
+
+/* 收合：兩行，看不完的點開（使用者選的是兩行版）。
+ *
+ * ⚠️ 下架鈕與圖釘是**行內元素、跟文字排在同一個框裡**，不是左邊獨立的一欄。
+ *    分欄的話第二行會從圖釘右邊開始，圖釘底下留一塊永遠用不到的空白
+ *    （使用者明確要求拿掉那塊）。放進同一個框，第二行就自然回到最左邊。
+ *
+ * ⚠️ 因為 -webkit-box 不會讓文字繞著 float 跑，所以「行內元素」是唯一做得到
+ *    「第一行讓開、後面幾行滿版」而且還能用 -webkit-line-clamp 截斷的做法。
+ *
+ * ⚠️ padding-right 是留給右上角那顆箭頭的。它是絕對定位，沒有這道內距文字會壓到它。
+ */
+.c-ann-text {
+  font-size: 13.5px; line-height: 1.55;
+  overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; line-clamp: 2;
+  word-break: break-word;
+  padding-right: 20px;
+}
+/* ⚠️ pre-wrap 只掛在真正裝文字的那個 span 上。
+      掛在外層的話，HTML 原始碼裡元素之間的換行與縮排會變成看得見的空白。 */
+#annText { white-space: pre-wrap; }
+
+/* 展開：全文攤開；真的很長就在框裡自己捲，不會把對話擠光 */
+.c-ann.open .c-ann-text {
+  display: block; -webkit-line-clamp: none; line-clamp: none;
+  max-height: 168px; overflow-y: auto;
+}
+
+.c-ann-pin {
+  /* ⚠️ vertical-align 一定要用 middle，不可以用「往下推幾 px」那種寫法。
+        圖釘裡面是一張 SVG、沒有文字，瀏覽器拿它的**底邊**當基線；
+        「下架」是按鈕、裡面有字，瀏覽器拿它**裡面那行字的基線**當基線。
+        同一個數字對兩者的意義不一樣 —— 實測會差 7px（使用者一眼就看出來了）。
+        middle 是「中心對齊中心」，兩個都是 19px 高，上下緣自然完全一致。 */
+  display: inline-block; vertical-align: middle;
+  width: 19px; height: 19px; margin-right: 5px;
+  color: var(--ann-accent);
+}
+.c-ann-pin svg { display: block; }
+
+/* 下架鈕：高度跟圖釘一樣（19px），坐在圖釘左邊。
+   ⚠️ 收合時「不出現」—— 下架是雙方都會消失、而且沒有第二道確認的動作，
+      19px 的小鈕一直貼在最左邊太容易誤按。要按到它得先點開公告，
+      那一下就是很輕的一道門檻（使用者選的）。 */
+.c-ann-drop {
+  display: none;
+  appearance: none; font: inherit; cursor: pointer;
+  height: 19px; line-height: 17px; padding: 0 7px;
+  margin-right: 6px;
+  font-size: 11px; letter-spacing: .5px; white-space: nowrap;
+  border-radius: 6px;
+  background: transparent; color: var(--danger);
+  border: 1px solid rgba(217, 48, 37, .40);
+}
+.c-ann.open .c-ann-drop { display: inline-block; vertical-align: middle; }
+.c-ann-drop:active { background: rgba(217, 48, 37, .10); }
+html[data-theme="dark"] #chat .c-ann-drop { border-color: rgba(239, 83, 80, .40); }
+html[data-theme="dark"] #chat .c-ann-drop:active { background: rgba(239, 83, 80, .12); }
+
+.c-ann-chev {
+  position: absolute; top: 10px; right: 10px;
+  width: 16px; height: 16px; color: var(--ann-accent); opacity: .7;
+  transition: transform .18s;
+}
+.c-ann.open .c-ann-chev { transform: rotate(180deg); }
+
+/* 長按選單裡那一項用公告的顏色標出來，一眼分得出它跟「複製／刪除」不同類 */
+.c-mm-ann { color: var(--ann-accent); }
+
+/* ⚠️ 會動的東西一律尊重系統設定。這一條不是裝飾 ——
+      前庭功能障礙的人看到持續轉動的東西會不舒服。 */
+@media (prefers-reduced-motion: reduce) {
+  .c-ann::before { animation: none; opacity: .3; }
+  .c-ann-chev { transition: none; }
+}
+
+/* ---------- 送出狀態 ---------- */
+/* pending 用一個會慢慢轉的小圈，failed 用驚嘆號。落地了就整個移除，不留勾。 */
+.sendmark {
+  position: absolute;
+  left: -18px; bottom: 4px;
+  width: 12px; height: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; line-height: 1;
+  color: var(--txt-dim);
+  pointer-events: none;
+}
+.sendmark.pending {
+  border: 1.5px solid var(--txt-dim);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+.sendmark.failed { color: var(--danger); font-weight: 700; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- 回到最新 ---------- */
+.c-jump {
+  position: absolute;
+  right: 14px; bottom: 74px;
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--txt-dim);
+  box-shadow: 0 2px 10px rgba(0,0,0,.14);
+  z-index: 4;
+}
+.c-jump:active { background: var(--bg-soft); }
+
+/* ---------- 長按：擋掉瀏覽器自己的選單 ---------- */
+/* iOS Safari 長按文字會跳出「拷貝／查詢／使用 Google 搜尋」那一排系統選單，
+   會直接蓋住我們自己的選單。-webkit-touch-callout 只影響觸控裝置的長按，
+   桌機完全不受影響。 */
+.bub, .row {
+  -webkit-touch-callout: none;
+}
+/* 選取本身只在觸控裝置上關掉 —— 桌機還是要能用滑鼠圈選文字。
+   觸控裝置有我們自己的「複製」按鈕，不靠系統選取。 */
+@media (pointer: coarse) {
+  .bub, .row { -webkit-user-select: none; user-select: none; }
+}
+
+/* ---------- 單則長按選單 ---------- */
+/* body 是 position:fixed，所以 fixed 的座標就等於視窗座標，
+   直接用 getBoundingClientRect() 的值定位即可 */
+.c-msgmenu {
+  position: fixed;
+  z-index: 8;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 6px 22px rgba(0,0,0,.2);
+}
+.c-mm-item {
+  border: 0; background: transparent;
+  padding: 9px 16px;
+  font-size: 14px;
+  color: var(--txt);
+  white-space: nowrap;
+}
+.c-mm-item:active { background: var(--bg-soft); }
+.c-mm-item + .c-mm-item { border-left: 1px solid var(--line); }
+.c-mm-danger { color: var(--danger); }
+
+/* ---------- 設定面板 ---------- */
+.c-settings {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--line);
+  background: var(--bg-soft);
+  max-height: min(60dvh, 420px);
+  display: flex; flex-direction: column;
+}
+.c-set-list { overflow-y: auto; padding: 4px 0 2px; }
+
+.c-set-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.c-set-row:last-child { border-bottom: 0; }
+.c-set-col { flex-direction: column; align-items: stretch; gap: 10px; }
+
+.c-set-ico {
+  flex: 0 0 auto; width: 24px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--txt-dim);
+}
+.c-set-label {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 14.5px; color: var(--txt); line-height: 1.4;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.c-set-label small { font-size: 12px; color: var(--txt-dim); line-height: 1.45; }
+
+/* 開關 */
+.c-sw { position: relative; flex: 0 0 auto; width: 44px; height: 26px; }
+.c-sw input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 2; }
+.c-sw-t {
+  position: absolute; inset: 0; border-radius: 13px;
+  background: var(--line); transition: background .16s;
+}
+.c-sw-t::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: transform .16s;
+}
+.c-sw input:checked + .c-sw-t { background: var(--me); }
+.c-sw input:checked + .c-sw-t::after { transform: translateX(18px); }
+
+/* 分段選擇（閒置秒數） */
+.c-seg { display: flex; gap: 6px; }
+.c-seg button {
+  flex: 1 1 0; min-width: 0;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); color: var(--txt-dim);
+  font-size: 13px; padding: 8px 2px; white-space: nowrap;
+}
+.c-seg button[aria-pressed="true"] {
+  background: var(--me); border-color: var(--me); color: var(--me-txt);
+}
+
+/* ---------- 回覆 ---------- */
+.c-replybar {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+.c-replybar-txt {
+  flex: 1 1 auto; min-width: 0;
+  border-left: 3px solid var(--me); padding-left: 9px;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.c-replybar-who { font-size: 12px; color: var(--me); font-weight: 600; }
+.c-replybar-snip {
+  font-size: 13px; color: var(--txt-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.c-replybar-x {
+  flex: 0 0 auto; width: 30px; height: 30px; border: 0; border-radius: 50%;
+  background: transparent; color: var(--txt-dim);
+  display: flex; align-items: center; justify-content: center;
+}
+.c-replybar-x:active { background: var(--line); }
+
+/* 泡泡裡的引用塊 */
+.q {
+  display: block;
+  margin: -1px 0 6px;
+  padding: 5px 9px;
+  border-left: 3px solid currentColor;
+  border-radius: 5px;
+  background: rgba(127,127,127,.16);
+  font-size: 12.8px; line-height: 1.45;
+  opacity: .82;
+  cursor: pointer;
+  max-width: 100%;
+}
+.q-who { display: block; font-weight: 600; font-size: 11.5px; margin-bottom: 1px; }
+.q-snip {
+  display: block;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* 被引用的那則已經刪掉了 —— 預覽字不存在雲端，所以這裡是真的找不到，不是藏起來 */
+.q-snip.gone { font-style: italic; opacity: .7; }
+/* 被跳轉過去的訊息閃一下，讓人找得到 */
+.row.flash .bub { animation: flash 1.1s ease-out; }
+@keyframes flash {
+  0%, 40% { box-shadow: 0 0 0 3px var(--me); }
+  100%    { box-shadow: 0 0 0 3px transparent; }
+}
+
+/* ---------- 訊息裡的連結 ---------- */
+/* 只把網址變成可點，不抓預覽圖 —— 抓預覽等於把網址送給第三方伺服器。 */
+.bub a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.row.you .bub a { color: var(--me); }
+
+.c-icon {
+  flex: 0 0 auto;
+  width: 42px; height: 42px; border: 0; border-radius: 50%;
+  background: transparent; color: var(--txt-dim);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.c-icon:hover { background: var(--bg-soft); color: var(--txt); }
+.c-icon:active { transform: scale(.92); background: var(--bg-soft); }
+.c-danger:hover { color: var(--danger); }
+.c-hold {
+  position: absolute; inset: auto 0 0 0; height: 100%;
+  background: rgba(217,48,37,.18); transform: scaleY(0); transform-origin: bottom;
+  pointer-events: none;
+}
+.c-hold.run { transition: transform 2s linear; transform: scaleY(1); }
+
+/* --- 訊息捲動區 --- */
+.c-scroll {
+  flex: 1 1 auto;
+  position: relative;                 /* 空狀態文字要相對訊息區置中，不是相對整個視窗 */
+  /* ⚠️⚠️ z-index 一定要寫在**這一格**上，不可以只靠 `.c-scroll > *` 那條（見下方）。
+   *
+   *  使用者回報：「電腦網頁版沒問題，但用手機開就有問題」—— 植物蓋在泡泡上。
+   *  原因：手機（iOS WebKit 尤其明顯，`-webkit-overflow-scrolling: touch` 加上
+   *  捲動區被提升成合成層）會讓 `.c-scroll` **自己形成一個堆疊脈絡**。
+   *  一旦形成，`#msgList` 那個 `z-index: 1` 就只在 `.c-scroll` **內部**有效 ——
+   *  對外只剩 `.c-scroll`（z-index: auto）跟 `#plantBg`（z-index: 0）在比，
+   *  而 auto 與 0 同級時比的是 **DOM 順序**，植物排在捲動區後面 → 蓋上去。
+   *  桌機 Chrome 忽略 `-webkit-overflow-scrolling`、不形成脈絡，所以完全正常。
+   *
+   *  ⚠️ 這就是為什麼整套測試（跑在桌機版 Chromium）一條都沒紅：
+   *     **測試環境根本造不出手機那個堆疊脈絡**。
+   *     test-v561 因此改成先強制 `isolation: isolate` 把手機的條件造出來再量。
+   *
+   *  ⚠️ 不要改成給植物 `z-index: -1` —— 那會讓它掉到 `#chat` 的底色後面，直接看不見。 */
+  z-index: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 12px 6px;
+}
+.c-list { display: flex; flex-direction: column; gap: 3px; }
+
+.c-loadmore { display: flex; justify-content: center; align-items: center; padding: 10px 0 14px; }
+.c-loadbtn {
+  appearance: none; border: 1px solid var(--line);
+  background: var(--bg-soft); color: var(--txt-dim);
+  font: inherit; font-size: 12.5px;
+  padding: 6px 14px; border-radius: 999px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.c-loadbtn:active { background: var(--line); }
+/* 「到最早了」也做成可以按的：萬一是網路抽風被誤判成到頂，還有路可以退 */
+.c-loadend {
+  appearance: none; border: 0; background: none;
+  font: inherit; font-size: 11.5px; color: var(--txt-dim);
+  opacity: .7; letter-spacing: .3px; padding: 4px 8px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.c-loadend:active { opacity: 1; }
+.c-spin {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--line); border-top-color: var(--txt-dim);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.c-top { height: 1px; }
+
+/* --- 氣泡 --- */
+.row { display: flex; margin: 0; align-items: flex-end; }   /* flex-end：小圓鈕對齊氣泡下緣 */
+.row.me  { justify-content: flex-end; }
+.row.you { justify-content: flex-start; }
+.row.tight { margin-top: 0; }
+.row.gap  { margin-top: 10px; }
+
+.bub {
+  max-width: min(84%, 520px);
+  padding: 8px 12px 6px;
+  border-radius: 18px;
+  font-size: 15.5px;
+  line-height: 1.45;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  position: relative;
+  animation: pop .16s ease-out;
+}
+@keyframes pop { from { opacity: 0; transform: translateY(4px); } }
+
+.me  .bub { background: var(--me);  color: var(--me-txt);  border-bottom-right-radius: 6px; }
+.you .bub { background: var(--you); color: var(--you-txt); border-bottom-left-radius: 6px; }
+
+.bub .time {
+  font-size: 10.5px;
+  opacity: .62;
+  margin-left: 8px;
+  float: right;
+  position: relative;
+  top: 6px;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.bub.sticker {
+  background: transparent !important;
+  padding: 2px 0 0;
+  border-radius: 0;
+}
+.bub.sticker img {
+  display: block;
+  width: 40vw;
+  max-width: 148px; max-height: 148px;
+  height: auto;
+  border-radius: 12px;
+  cursor: zoom-in;
+  /* 不擋掉的話，iOS 長按會跳出系統的「儲存到照片／分享」選單 */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none; user-select: none;
+}
+.bub.sticker .time {
+  float: none; display: block; top: 0;
+  margin: 3px 2px 0; color: var(--txt-dim); opacity: 1;
+  text-align: right;
+}
+.you .bub.sticker .time { text-align: left; }
+/* 還沒解碼完的貼圖先占住高度。少了這道，往上翻載入舊訊息的瞬間
+   這些圖高度是 0，解碼完才突然撐開，畫面會整個往上跳。載完就放開。 */
+.bub.sticker img:not(.ready) { min-height: 148px; }
+
+/* ---------- 多人房：暱稱標籤 ---------- */
+/* 泡泡外面再包一層直向的 stack，名字才放得到泡泡上方。
+   ⚠️ .row 是橫向 flex（泡泡 + 表情小圓鈕），名字不能直接塞進 .row。 */
+/* 寬度上限要搬到 stack 上 —— 泡泡的 max-width 是「相對父層」的，
+   留在泡泡上就會變成相對於一個由泡泡自己撐出來的寬度，等於沒有上限。 */
+.b-stack {
+  display: flex; flex-direction: column; align-items: flex-start;
+  min-width: 0; max-width: min(84%, 520px);
+}
+.b-stack .bub { max-width: 100%; }
+.nick {
+  font-size: 11.5px; font-weight: 600;
+  letter-spacing: .2px;
+  margin: 0 0 2px 10px;
+  max-width: 60vw;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* 顏色只上在名字和左緣那條細線 —— 不動泡泡底色，六色 × 深淺兩套主題
+   很容易做出看不清楚的組合。inset 陰影會跟著圓角走，比 border 乾淨。 */
+.bub.named { box-shadow: inset 3px 0 0 var(--nick, transparent); }
+
+/* ───────── 「愛」關鍵字：粉光繞框（v49）─────────
+ *
+ * v46 是把整顆泡泡換成粉紅。v49 改成**底色一律維持預設**（自己藍、對方灰），
+ * 只在外框繞一道粉光。使用者的原話：
+ * 「泡泡框從粉色改回原本預設，但泡泡框的外框要有粉色發淡淡光外框線條」。
+ *
+ * ⚠️⚠️ **泡泡的外框尺寸一格都不可以變。**
+ *    用 `border` 做這道光會把泡泡撐大 3px，含「愛」的那幾則就會在對話裡
+ *    「跳出來一塊」，看起來像壞掉而不是像特別。
+ *    所以用 `inset: -1.5px` 的 ::before ＋ 遮罩挖空中間 —— 完全不佔版面。
+ *    實測（iPhone 13）：套上這一層前後，泡泡都是 105×36，
+ *    送出狀態的小標也還在 (-18, -4)。
+ *
+ * ⚠️ 這個做法**依賴 `.bub` 的 `position: relative`**（它本來就有，見上面 .bub）。
+ *    哪天有人把那一行拿掉，這道光會跑到不知道哪裡去。test-v49 有一條專門守它。
+ *    （順帶更正：坑 #142 與 app.js 舊註解寫「泡泡沒有 position: relative」，
+ *      那是過時的說法，實測是 relative，而且 .sendmark 正是靠它定位的。）
+ */
+
+/* 光繞到哪個角度。
+   ⚠️ 一定要用 @property 註冊成 <angle>，不然 CSS 沒辦法內插自訂屬性，
+      conic-gradient 會一格都不動。Safari 16.4 / Chrome 85 起支援。
+      不支援的瀏覽器會拿到「一道不會轉的」漸層光 —— 會退化，但不會整個不見。 */
+@property --love-a { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+
+#chat {
+  --love-line: rgba(232, 84, 139, .72);   /* 光帶最亮的那一段 */
+  --love-glow: rgba(232, 84, 139, .30);   /* 亮段兩側的暈 */
+  --love-halo: rgba(232, 84, 139, .16);   /* 一圈很淡、不會動的底光 */
+}
+html[data-theme="dark"] #chat {
+  --love-line: rgba(255, 139, 180, .78);
+  --love-glow: rgba(255, 139, 180, .34);
+  --love-halo: rgba(255, 139, 180, .18);
+}
+
+/* ⚠️ 這一圈靜態底光不是裝飾：亮的那一段轉到泡泡背面時，
+      沒有它就會有一兩秒「看起來什麼都沒有」，像功能壞掉。 */
+.bub.love { box-shadow: 0 0 0 1px var(--love-halo); }
+/* 多人房：暱稱那條左緣細線要留著，不可以被底光那條 box-shadow 蓋掉 */
+.bub.named.love { box-shadow: inset 3px 0 0 var(--nick, transparent), 0 0 0 1px var(--love-halo); }
+
+.bub.love::before {
+  content: "";
+  position: absolute; inset: -1.5px;
+  border-radius: 19.5px;          /* 泡泡的 18px ＋ 外擴的 1.5px */
+  padding: 1.5px;                 /* 這 1.5px 就是光帶的寬度 */
+  /* ⚠️ 一定要 pointer-events: none。它整片蓋在泡泡上，吃掉點擊的話
+        長按選單、點照片、按表情全部會失效，而且完全看不出原因（同 v45 吐司那條坑）。 */
+  pointer-events: none;
+  --love-a: 0deg;
+  background: conic-gradient(from var(--love-a),
+    transparent 0 46%, var(--love-glow) 58%, var(--love-line) 66%,
+    var(--love-glow) 74%, transparent 86%);
+  /* 只留邊框那一圈：整塊塗滿，再把「內容區」那一塊挖掉 */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: love-ring 4.5s linear infinite;
+}
+@keyframes love-ring { to { --love-a: 360deg; } }
+
+/* ⚠️ 減少動態時是「光還在、只是不轉」，不是整個拿掉 ——
+      拿掉的話含「愛」的訊息就完全看不出被標記過。 */
+@media (prefers-reduced-motion: reduce) {
+  .bub.love::before { animation: none; }
+}
+
+/* ---------- 照片 ---------- */
+/* 泡泡裡放的是「縮圖」，原圖要點開才下載。
+   ⚠️ .ph 一定要用 aspect-ratio 先把原圖比例佔住 ——
+      少了它，縮圖解碼完的那一瞬間高度才撐開，整串訊息會往上跳一大格。 */
+.bub.photo { padding: 3px; background: transparent !important; box-shadow: none; }
+.bub.photo .ph {
+  position: relative;
+  width: min(66vw, 300px);
+  /* 直式的照片（9:16 那種）不加這道會整個吃掉一整屏。
+     超過就用 object-fit: cover 裁掉上下，點開看到的仍然是完整的原圖。 */
+  max-height: 46dvh;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg-soft);
+  cursor: zoom-in;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none; user-select: none;
+}
+.bub.photo .ph img {
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+/* 右下角那顆小標：先讓人知道點下去要抓多大 */
+.ph-size {
+  position: absolute; right: 6px; bottom: 6px;
+  font-size: 10px; line-height: 1;
+  padding: 3px 6px; border-radius: 999px;
+  background: rgba(0,0,0,.52); color: #fff;
+  letter-spacing: .2px;
+  pointer-events: none;
+}
+/* ---------- 影片泡泡（v23）---------- */
+/* 泡泡裡放的是「封面圖」，不是 <video>。
+   ⚠️ 每一則都放 <video> 的話，捲一長串訊息等於同時開幾十個解碼器，記憶體會爆。 */
+.bub.photo .ph.vd { cursor: pointer; background: #14161a; }
+/* 抽不到封面（格式讀不出來）時，至少要有個底色 + 播放鍵，不能是一片空白 */
+.bub.photo .ph.vd:empty::before { content: ""; display: block; width: 100%; height: 100%; }
+.vd-play {
+  position: absolute; left: 50%; top: 50%;
+  width: 46px; height: 46px; margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.46);
+  box-shadow: 0 0 0 1.5px rgba(255,255,255,.9) inset;
+  pointer-events: none;
+}
+/* 三角形用 border 畫，不另外拉 SVG —— 一則訊息一個，越輕越好。
+   ⚠️ 三角形的視覺重心比幾何中心偏左，所以 margin-left 要比算出來的再多 2px。 */
+.vd-play::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 0; height: 0; margin: -8px 0 0 -5px;
+  border-left: 14px solid #fff;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+}
+.bub.photo .time {
+  float: none; display: block; top: 0;
+  margin: 3px 4px 0; color: var(--txt-dim); opacity: 1;
+  text-align: right;
+}
+.you .bub.photo .time { text-align: left; }
+/* 照片泡泡是透明的，多人房那條暱稱色線改畫在縮圖左緣 */
+.bub.photo.named { box-shadow: none; }
+.bub.photo.named .ph { box-shadow: inset 3px 0 0 var(--nick, transparent); }
+
+/* ---------- 上傳進度 ---------- */
+.c-upbar {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 14px;
+  background: var(--bg-soft);
+  border-top: 1px solid var(--line);
+}
+.c-uptext { font-size: 11.5px; color: var(--txt-dim); flex: 0 0 auto; white-space: nowrap; }
+.c-uptrack { flex: 1 1 auto; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.c-upfill { display: block; height: 100%; width: 0%; background: var(--me); transition: width .18s; }
+
+/* 輸入列的相簿鈕 */
+.c-photo {
+  appearance: none; border: 0; background: none;
+  width: 38px; height: 38px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--txt-dim); border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+}
+.c-photo:active { background: var(--line); }
+.c-photo[aria-expanded="true"] { color: var(--me); background: var(--line); }
+
+/* 「＋」展開的附件選單（v23）。
+   ⚠️ 定位錨點是 .c-input（它是 position: relative），不是輸入框本身 ——
+      掛在輸入框上的話，多行輸入時選單會跟著往上飄。
+   ⚠️ z-index 要低於毛玻璃遮罩（.c-veil 是 90），閒置上鎖時它必須被蓋住。 */
+/* ⚠️ v39：「＋」搬到輸入列左邊之後，選單也要跟著改成靠左。
+      留在 right: 8px 的話，選單會從畫面右下角冒出來，
+      跟按下去的那顆鈕差了一整條輸入列的寬度。 */
+.c-plus {
+  position: absolute; left: 8px; bottom: calc(100% + 8px);
+  z-index: 45;
+  min-width: 210px;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px;
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.26);
+}
+.c-plus-item {
+  appearance: none; border: 0; background: none;
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 10px; border-radius: 10px;
+  color: var(--txt); text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.c-plus-item:active { background: var(--bg-soft); }
+.c-plus-ico {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-soft); color: var(--me);
+}
+.c-plus-txt { display: flex; flex-direction: column; font-size: 14px; font-weight: 500; }
+.c-plus-txt small {
+  font-size: 11px; font-weight: 400; color: var(--txt-dim);
+  margin-top: 1px; letter-spacing: .1px;
+}
+
+/* 設定面板裡的「清除」小按鈕 */
+.c-set-btn {
+  appearance: none; flex: 0 0 auto;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); color: var(--txt);
+  font-size: 12.5px; padding: 6px 12px;
+}
+.c-set-btn:active { background: var(--bg-soft); }
+
+
+/* ---------- 未讀分隔線 ---------- */
+.newline {
+  align-self: stretch;
+  display: flex; align-items: center; gap: 8px;
+  margin: 12px 2px 6px;
+  font-size: 11px; color: var(--me); letter-spacing: .5px;
+  user-select: none;
+}
+.newline::before, .newline::after {
+  content: ""; flex: 1; height: 1px;
+  background: color-mix(in srgb, var(--me) 45%, transparent);
+}
+.c-manyunread {
+  margin: 4px 8px 8px; padding: 7px 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--me) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--me) 35%, transparent);
+  font-size: 11.5px; color: var(--txt-dim); text-align: center;
+}
+
+/* ---------- 氣泡配色 ---------- */
+.c-accent { display: flex; gap: 8px; flex-wrap: wrap; }
+.c-acc {
+  appearance: none; width: 30px; height: 30px; border-radius: 50%;
+  border: 2px solid transparent; background: var(--dot);
+  -webkit-tap-highlight-color: transparent; padding: 0;
+}
+.c-acc.on { border-color: var(--txt); box-shadow: 0 0 0 2px var(--bg) inset; }
+
+/* ---------- 表情回應 ---------- */
+/* 貼在氣泡正下方，稍微往上壓一點讓它像「掛」在泡泡上 */
+.rx-bar {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  margin: -2px 2px 0;
+  max-width: 78%;
+}
+.rx-bar.me { align-self: flex-end; justify-content: flex-end; }
+.rx-bar.you { align-self: flex-start; }
+
+.rx-chip {
+  appearance: none; border: 1px solid var(--line);
+  background: var(--bg-soft);
+  border-radius: 999px;
+  padding: 1px 7px 2px;
+  display: inline-flex; align-items: center; gap: 3px;
+  line-height: 1.35;
+  -webkit-tap-highlight-color: transparent;
+}
+.rx-chip:active { transform: scale(.92); }
+/* 自己按過的那個框起來，一眼看得出「這是我按的」 */
+.rx-chip.mine { border-color: var(--me); background: color-mix(in srgb, var(--me) 16%, transparent); }
+.rx-em { font-size: 13px; }
+.rx-n { font-size: 10.5px; color: var(--txt-dim); font-weight: 600; }
+.rx-chip.mine .rx-n { color: var(--me); }
+
+/* 三種以上不同表情就疊起來省空間（使用者指定的 (b) 版）。
+   z-index 在 JS 裡由左往右遞減，所以每一顆露出來的左半邊都壓在後一顆上面，
+   還是點得到。疊起來時不顯示數字，不然重疊處會糊成一團。 */
+.rx-bar.stack { gap: 0; }
+.rx-bar.stack .rx-chip + .rx-chip { margin-left: -9px; }
+.rx-bar.stack .rx-n { display: none; }
+.rx-bar.stack .rx-chip { position: relative; }
+
+/* 氣泡外側下緣那顆小圓鈕：點了展開表情。
+   平常很淡，不要跟訊息搶注意力；按下去或已經有表情時才明顯。 */
+.rx-btn {
+  appearance: none; border: 0; background: none; padding: 0;
+  width: 22px; height: 22px; flex: 0 0 auto;
+  margin: 0 2px 3px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--txt-dim); opacity: .32;
+  border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity .12s;
+}
+.rx-btn:active { opacity: 1; background: var(--line); transform: scale(.9); }
+@media (hover: hover) { .rx-btn:hover { opacity: .85; } }
+/* 自己的訊息靠右，鈕再放右邊會貼到螢幕邊 —— 翻到氣泡左側 */
+.row.me .rx-btn { order: -1; }
+/* 解不開的訊息沒有可回應的內容 */
+.row.undec .rx-btn { display: none; }
+
+/* 展開後的表情列 */
+.c-rxpick {
+  position: fixed; z-index: 70;
+  display: flex; gap: 2px;
+  padding: 5px 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 8px 26px rgba(0,0,0,.32);
+  animation: pop .13s ease-out;
+}
+.c-rxb {
+  appearance: none; border: 0; background: none;
+  font-size: 22px; line-height: 1;
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.c-rxb:active { background: var(--line); transform: scale(.88); }
+.c-rxb.mine { background: color-mix(in srgb, var(--me) 22%, transparent); }
+
+/* 「已讀 / 已送達」標記：各只出現一次，貼在對應的最後一則我方訊息下面 */
+.readmark {
+  align-self: flex-end;
+  font-size: 10.5px;
+  color: var(--txt-dim);
+  margin: 3px 3px 0 0;
+  letter-spacing: .3px;
+  user-select: none;
+  animation: pop .16s ease-out;
+}
+/* 「已送達」比「已讀」再淡一點，一眼就分得出哪個是弱狀態 */
+.readmark.sent { opacity: .62; }
+
+.sep { display: flex; align-items: center; margin: 14px 4px; opacity: .5; }
+.sep::before, .sep::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* 解不開的訊息：一條細細的佔位。
+   讓則數對得起來，也一眼看得出有幾則有問題 —— 比靜靜消失好太多。 */
+.row.undec { justify-content: center; }
+.undec-tag {
+  font-size: 11px; color: var(--txt-dim); opacity: .55;
+  padding: 2px 10px; border-radius: 999px;
+  border: 1px dashed var(--line);
+  user-select: none; letter-spacing: .3px;
+}
+
+.sys {
+  align-self: center; text-align: center;
+  font-size: 12px; color: var(--txt-dim);
+  background: var(--bg-soft);
+  padding: 5px 14px; border-radius: 20px;
+  margin: 10px auto;
+}
+
+.c-empty {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: var(--txt-dim); pointer-events: none;
+}
+
+/* --- 貼圖面板 --- */
+.c-stickers {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--line);
+  background: var(--bg-soft);
+  max-height: min(46dvh, 320px);
+  display: flex; flex-direction: column;
+}
+.c-stickers-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px 5px; font-size: 12px; color: var(--txt-dim);
+}
+.c-mini {
+  border: 0; background: transparent; color: var(--me);
+  font-size: 13px; padding: 8px 10px; border-radius: 8px;
+  min-height: 36px;
+}
+.c-mini:hover { background: rgba(26,115,232,.1); }
+
+/* 貼圖面板的分頁列（v48）。
+   ⚠️ 它「取代」了原本的 .c-stickers-head，不是多疊一列 —— 見 index.html 的註解。
+   ⚠️ 最窄的 iPhone SE（320px）上要能同時塞下五個分頁＋「＋ 新增」＋「收合」，
+      所以分頁的左右內距壓到 8px、字級 13.5px。改大之前先量一次 320px。 */
+.c-stk-tabs {
+  display: flex; align-items: center; gap: 1px;
+  padding: 4px 6px 0; border-bottom: 1px solid var(--line);
+}
+.c-stk-tab {
+  border: 0; background: transparent; color: var(--txt-dim);
+  font: inherit; font-size: 13.5px; line-height: 1;
+  padding: 9px 8px 10px; border-radius: 8px 8px 0 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer; white-space: nowrap;
+}
+.c-stk-tab[aria-selected="true"] {
+  color: var(--me); border-bottom-color: var(--me); font-weight: 600;
+}
+.c-stk-sp { flex: 1 1 auto; }
+/* 內建那幾頁沒有「長按刪除」，所以格子不要有刪除鈕的位置感 */
+.c-sticker-grid .cell.fixed { cursor: pointer; }
+/* 載入中／載不到／沒有貼圖時的那一句話 */
+.stk-note {
+  grid-column: 1 / -1; font-size: 12px; color: var(--txt-dim); padding: 14px 2px;
+}
+
+.c-sticker-grid {
+  flex: 1 1 auto; overflow-y: auto; min-height: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px; padding: 4px 12px 8px;
+  /* ⚠️⚠️ grid-auto-rows 一定要 max-content，不可以留成預設的 auto。
+     格子的高度是 aspect-ratio: 1 從欄寬算出來的（86px），
+     但 **auto 的列是「可伸縮」的**：內容比容器高的時候，
+     瀏覽器會把列壓到 51px，格子照樣畫 86px —— 於是一列壓著一列，
+     每張臉的下巴都被下一列切掉。
+     實測（iPhone 13、每頁 16 張）：auto → 列距 59px；max-content → 列距 94px（= 86 + gap 8）。
+     ⚠️ 這是 v48 之前就存在的老 bug，只是以前使用者的貼圖少、排不出第二列，
+        所以一直沒被看見。內建每頁 16 張才把它炸出來。
+     ⚠️ align-self / align-items: start 都**沒有用**（實測），只有列的尺寸換成
+        非彈性的 max-content 才有效。 */
+  grid-auto-rows: max-content;
+  align-content: start;
+}
+/* ── 相簿（v60）──
+   版型照抄貼圖面板，因為它們在畫面上是同一種東西（底部浮層 + 方格）。 */
+.c-album {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--line);
+  background: var(--bg-soft);
+  max-height: min(52dvh, 380px);
+  display: flex; flex-direction: column;
+}
+.c-alb-n { font-size: 11px; color: var(--txt-dim); font-variant-numeric: tabular-nums; }
+.c-album-grid {
+  flex: 1 1 auto; overflow-y: auto; min-height: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 6px; padding: 4px 12px 8px;
+  /* ⚠️⚠️ 跟貼圖格子同一顆坑：grid-auto-rows **一定要** max-content。
+        留成預設的 auto 的話，列會被壓縮（實測貼圖那邊 94px → 59px），
+        而格子照樣按 aspect-ratio 畫，於是每一列的下緣都被下一列切掉。
+        align-items: start 沒有用，只有換掉列的尺寸才有效。 */
+  grid-auto-rows: max-content;
+  align-content: start;
+}
+.c-alb-cell {
+  aspect-ratio: 1; border-radius: 10px; overflow: hidden; padding: 0;
+  background: var(--bg); border: 1px solid var(--line);
+  display: block; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.c-alb-cell:active { transform: scale(.94); }
+.c-alb-cell img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+  pointer-events: none;
+}
+.c-album-foot {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 2px 14px 10px; min-height: 26px;
+}
+.c-album-tip { font-size: 11.5px; color: var(--txt-dim); }
+
+.c-sticker-grid .cell {
+  aspect-ratio: 1; border-radius: 12px; overflow: hidden;
+  background: var(--bg); border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+}
+.c-sticker-grid .cell:active { transform: scale(.93); }
+.c-sticker-grid .cell img {
+  width: 100%; height: 100%; object-fit: contain;
+  -webkit-touch-callout: none;        /* 長按要進入刪除模式，不是叫出系統選單 */
+  -webkit-user-select: none; user-select: none;
+  pointer-events: none;
+}
+.c-sticker-grid .cell .del {
+  position: absolute; top: 3px; right: 3px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(0,0,0,.62); color: #fff; border: 0;
+  font-size: 14px; line-height: 1; display: none;
+  align-items: center; justify-content: center;
+}
+.c-sticker-grid.editing .cell .del { display: flex; }
+.c-stickers-tip { font-size: 11px; color: var(--txt-dim); margin: 0; padding: 0 14px 9px; }
+
+/* --- 輸入列 --- */
+.c-input {
+  flex: 0 0 auto;
+  /* ⚠️ position: relative 是給「＋」附件選單當定位錨點的。
+        拿掉的話 .c-plus 會往上找到別的祖先，選單會飄到畫面別的地方。 */
+  position: relative;
+  display: flex; align-items: flex-end; gap: 6px;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+.c-text {
+  flex: 1 1 auto; min-width: 0;
+  resize: none; border: 0; outline: 0;
+  background: var(--bg-soft); color: var(--txt);
+  border-radius: 20px; padding: 10px 14px;
+  font-family: inherit;
+  font-size: 16px;                    /* 不可低於 16px，否則 iOS 會自動放大整頁 */
+  line-height: 1.4;
+  max-height: 132px; overflow-y: auto;
+}
+.c-text::placeholder { color: var(--txt-dim); }
+
+/* ───────── 閱後即焚（v50）─────────
+   ⚠️ 這顆鈕是「這則會不會燒」唯一的提示，而且那件事是**不可逆**的 ——
+      所以亮起來一定要一眼看得出來：整顆變橘＋外圈一圈呼吸的暖光＋火苗自己會搖。
+   ⚠️ 320px（iPhone SE 一代）實測：五個控制項共 192px、輸入框還剩 126px，排得下。
+      要再加第六顆鈕之前先重量一次。 */
+#chat {
+  --burn:      #e2622b;
+  --burn-soft: rgba(226, 98, 43, .28);
+  --burn-glow: rgba(226, 98, 43, .45);
+  /* 泡泡上那顆膠囊小標的底與邊（v51） */
+  --burn-cap:      rgba(226, 98, 43, .14);
+  --burn-cap-edge: rgba(226, 98, 43, .32);
+  --burn-me:       #ffd0b8;
+  --burn-cap-me:      rgba(255, 255, 255, .20);
+  --burn-cap-me-edge: rgba(255, 255, 255, .34);
+}
+html[data-theme="dark"] #chat {
+  --burn:      #ff8a4c;
+  --burn-soft: rgba(255, 138, 76, .30);
+  --burn-glow: rgba(255, 138, 76, .50);
+  --burn-cap:      rgba(255, 138, 76, .16);
+  --burn-cap-edge: rgba(255, 138, 76, .36);
+  --burn-me:       #ffd9c4;
+  --burn-cap-me:      rgba(255, 255, 255, .18);
+  --burn-cap-me-edge: rgba(255, 255, 255, .34);
+}
+#btnBurn.lit { color: var(--burn); }
+#btnBurn.lit::after {
+  content: ""; position: absolute; inset: 2px; border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--burn-soft), 0 0 10px 1px var(--burn-glow);
+  animation: burn-pulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes burn-pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+#btnBurn.lit .bn-fl {
+  transform-origin: 19px 6px;
+  animation: burn-flick 1.6s ease-in-out infinite alternate;
+}
+@keyframes burn-flick {
+  from { transform: scale(.92) rotate(-4deg); }
+  to   { transform: scale(1.06) rotate(4deg); }
+}
+
+/* 泡泡上的火苗小標＋倒數數字（v51 膠囊底）。
+   ⚠️ 跟 .time 一樣是 float: right —— 不這樣做它會自己另起一行，把泡泡撐高一整格。
+   ⚠️ 這裡有**兩種**弄壞版面的方式，而且各自只會被一種量法抓到，改大小之前先讀完：
+        ① 把盒子變大（font-size / padding / svg 尺寸）
+           .row 是 display:flex，所以 .bub 是 flex item ＝ 一個獨立的 BFC，
+           float **會**把它撐高。實測：字級調到 20px + 6px padding，
+           泡泡從 36.5px 變 48px，但 mark.bottom - bub.bottom 還是負的。
+           → 只量「有沒有露出泡泡」抓不到這個，要量泡泡高度。
+        ② 動 top（position: relative 的位移）
+           位移不參與版面計算，泡泡高度完全不變，但小標會從泡泡底下畫出去。
+           實測：top 從 2px 調到 24px，泡泡還是 36.47px，卻露出 14px。
+           → 只量泡泡高度抓不到這個，要量 mark.bottom - bub.bottom ≤ 0。
+      test-v51 兩種都量，兩種都驗過會變紅。
+   ⚠️ 目前的數字：12.5px 字、12.5px 圖、上下各 2px padding、1px 邊 → 小標高 18.5px，
+      泡泡的行框是 22.5px，配 top: 2px 剛好包得住。 */
+.burn-mark {
+  float: right;
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-left: 6px; position: relative; top: 2px;
+  font-size: 12.5px; line-height: 1;
+  color: var(--burn);
+  background: var(--burn-cap);
+  border: 1px solid var(--burn-cap-edge);
+  border-radius: 999px;
+  padding: 2px 7px 2px 5px;
+  font-variant-numeric: tabular-nums;
+}
+/* 自己那一側是深藍底，橘色壓不出來 —— 改用亮一點的暖色＋白色半透明底 */
+.row.me .burn-mark {
+  color: var(--burn-me);
+  background: var(--burn-cap-me);
+  border-color: var(--burn-cap-me-edge);
+}
+.burn-cd:empty { display: none; }
+.burn-cd { min-width: 1.15em; text-align: right; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  #btnBurn.lit::after, #btnBurn.lit .bn-fl { animation: none; }
+}
+.c-send {
+  flex: 0 0 auto;
+  width: 42px; height: 42px; border: 0; border-radius: 50%;
+  background: var(--me); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .15s, transform .1s;
+}
+.c-send:disabled { opacity: .35; cursor: default; }
+.c-send:not(:disabled):active { transform: scale(.9); }
+
+/* --- 失焦遮罩（解除需重新輸入密碼） --- */
+/* ---------- 九宮格密碼盤（遮罩解鎖 + 歷史訊息鎖共用） ---------- */
+.c-pad-lock { color: var(--txt-dim); display: block; margin: 0 auto 6px; }
+/* ---------- 歷史訊息鎖的九宮格 ---------- */
+.c-pad {
+  position: fixed; inset: 0; z-index: 80;      /* 低於毛玻璃遮罩（90），閒置時仍會被蓋住 */
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.c-pad-box {
+  width: min(88vw, 300px);
+  background: var(--bg); color: var(--txt);
+  border: 1px solid var(--line); border-radius: 18px;
+  padding: 20px 18px 14px;
+  box-shadow: 0 18px 48px rgba(0,0,0,.4);
+  text-align: center;
+}
+.c-pad-title { font-size: 15px; font-weight: 600; }
+.c-pad-sub { font-size: 12px; color: var(--txt-dim); margin-top: 5px; min-height: 16px; }
+.c-pad-sub.bad { color: var(--danger); }
+
+/* 只顯示位數，不顯示數字本身 —— 旁邊的人看不出你按了什麼 */
+.c-pad-dots {
+  display: flex; justify-content: center; align-items: center; gap: 8px;
+  height: 26px; margin: 12px 0 14px;
+}
+.c-pad-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--txt); }
+
+/* 一次送出幾次（v52）。
+   ⚠️ 這個盤**顯示數字本身**，不是圓點 —— 其他幾個藏數字是為了不讓旁邊的人看到密碼，
+      這裡沒有秘密，而且計數不可逆，送出前一定要看得到自己打了什麼。 */
+.c-hn-big {
+  font-size: 40px; font-weight: 800; line-height: 1.1; margin: 10px 0 2px;
+  font-variant-numeric: tabular-nums; color: var(--hn, #ff6b9d);
+}
+.c-hn-big.zero { color: var(--txt-dim); opacity: .45; }
+.c-hn-after {
+  font-size: 12px; color: var(--txt-dim); min-height: 18px; margin-bottom: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.c-hn-after b { color: var(--txt); }
+/* ⚠️ 這一行是「送出後收不回來」。計數沒有 undo，這句話是這個功能能存在的條件。 */
+.c-hn-warn { font-size: 11.5px; color: var(--danger); min-height: 17px; margin-bottom: 10px; }
+#hnGate { --hn: #ff6b9d; }
+#hnGate.friend { --hn: #f0a437; }
+html[data-theme="light"] #hnGate { --hn: #d6336c; }
+html[data-theme="light"] #hnGate.friend { --hn: #b06a10; }
+.c-key-go[disabled] { opacity: .4; }
+
+.c-pad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.c-key {
+  appearance: none; border: 1px solid var(--line); background: var(--bg-soft);
+  color: var(--txt); font: inherit; font-size: 20px; font-variant-numeric: tabular-nums;
+  height: 52px; border-radius: 12px;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.c-key:active { background: var(--line); transform: scale(.96); }
+.c-key-fn, .c-key-go { font-size: 14px; }
+.c-key-go { background: var(--me); color: var(--me-txt); border-color: var(--me); }
+
+/* ---------- 個人密碼登入（多人房）----------
+   ⚠️ 這道關卡出現在「還在偽裝首頁、還沒進聊天室」的時刻，
+      那時候主題色還沒切到聊天室那一套，用 var(--bg) 會拿到淺色而讓按鍵糊掉。
+      所以跟它後面接的暱稱視窗（.n-box）用同一套寫死的配色 ——
+      兩步是同一個流程，本來就該長得像同一個對話框。 */
+#memGate { background: rgba(20, 22, 26, .46); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+#memGate .c-pad-box {
+  width: 100%; max-width: 340px;
+  background: #fff; color: #202124;
+  border: 0; border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.28);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif;
+}
+#memGate .c-pad-title { font-size: 17px; }
+/* ⚠️ 留兩行的高度：預設是說明文字（兩行），錯誤訊息只有一行 ——
+      不留的話每次出錯整個盒子會跳一下。 */
+#memGate .c-pad-sub {
+  color: #5f6368; line-height: 1.5;
+  /* 預留說明文字的高度，錯誤訊息（一行）蓋上來時盒子才不會抖。
+     ⚠️ 要按「這個寬度下說明實際佔幾行」算 —— 12.5px × 1.5 ≈ 18.75px 一行。
+        320 寬會多擠出一行，所以下面的 media query 要加高，不能共用同一個值。 */
+  min-height: 38px;
+}
+@media (max-width: 360px) { #memGate .c-pad-sub { min-height: 57px; } }
+#memGate .c-pad-sub.bad { color: #d93025; }
+#memGate .c-pad-dot { background: #202124; }
+#memGate .c-key {
+  background: #f8f9fa; color: #202124; border-color: #dadce0;
+}
+#memGate .c-key:active { background: #e8eaed; }
+#memGate .c-key-go { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+#memGate .c-pad-cancel { color: #5f6368; }
+
+/* ══ 植物（v55）══
+ *
+ * ⚠️⚠️ `.c-plantbg` 的 `pointer-events: none` 是**安全設計，不只是美觀**。
+ *    觸控要直接穿過去，植物才永遠不會被點到 —— 少了它，「戳一下植物」
+ *    就等於 panicTaps:2 / panicTapWindowMs:500 / panicTapRadius:44 那個
+ *    「同一處 500ms 內點兩下＝緊急退出」的手勢，使用者會莫名其妙被彈回偽裝首頁。
+ *
+ * ⚠️ 綠色**寫死不跟主題色走**（使用者指定）。深淺色主題下都是同一株，
+ *    只有背景透明度為了淺色底稍微調整。
+ */
+#chat {
+  --p-stem: #5a7f4c; --p-leaf: #79a468; --p-leaf-b: #4b7040;
+  --p-vein: #2e4d28; --p-soil: #7a6349;
+}
+/* ⚠️⚠️ **`sticky` 不是 `absolute`。** 這一格在 `.c-scroll`（會捲動）裡面，
+      absolute 是貼著**內容**、不是貼著看得到的那一塊 —— 它會跟著訊息一起捲走。
+      實測 320×568、14 則訊息：捲到最底時植物底部在 342，而訊息區底部在 509，
+      整株往上飄了 167px 卡在訊息中間；訊息再多一點就整個捲出畫面。
+      使用者原本以為是「植物太淡看不見」，其實是**它根本不在那裡**。
+      （跟 `#plantSay` 同一顆坑 —— 那次我修了橫幅，卻沒回頭檢查背景。）
+   ⚠️ sticky 一定要搭配 height: 0：它是流內元素，有高度的話會把訊息往下推。
+      真正的圖用絕對定位掛在它上面，往上長。 */
+/* ── 土線（v55.2）──
+ * 使用者的話：「我不要現有的土設計，我要植物是種在文字輸入框上，
+ * 也就是貼著文字輸入框，輸入框上方本身就是土底」。
+ * 所以：SVG 裡原本那坨土丘和碎土塊全部拿掉（viewBox 一起從 150 改成 142，
+ * 讓根部剛好落在盒子底邊），改成這一條貫穿整個聊天室寬度的水平線。
+ *
+ * ⚠️ 土線**不在 SVG 裡面**。放進去的話它只會跟植物一樣寬（max-width: 260px），
+ *    而且會跟著階段縮放 —— 使用者要的是「一條橫貫的地平線」，不是植物的底座。
+ * ⚠️ 跟 .c-plantbg 用同一個 --c-in-h 錨點 —— 兩者要對得剛剛好，
+ *    差一兩個 px 就會看成「植物浮在土上面」或「陷進土裡」。
+ *    實測 320×568 第 5 階：植物底 509、土線 509，差 0。
+ * ⚠️ 這一條**不吃植物的 14% 透明度**：它是一條 1.5px 的細線，
+ *    再乘 0.14 就等於不存在。它有自己的濃度（寫在 rgba 裡，不是 opacity）。
+ *
+ * 使用者從三種畫法裡選了 B：線 + 往上淡出的土色，看起來土有厚度。
+ * ⚠️ 漸層是 `to top`（下濃上淡）不是 `to bottom`。反過來的話濃的那一端
+ *    貼在輸入列上、淡的那一端接著植物，看起來像「土浮在空中」。
+ */
+.c-plantsoil {
+  position: absolute; left: 0; right: 0; z-index: 0;
+  bottom: var(--c-in-h, 66px);
+  height: 7px; pointer-events: none;
+  border-bottom: 1.5px solid rgba(122, 99, 73, .34);
+  background: linear-gradient(to top, rgba(122, 99, 73, .26), rgba(122, 99, 73, 0));
+}
+/* ⚠️ 淺色主題要調淡：同一組 rgba 壓在白底上會變成一條灰帶，看起來像髒污不像土。 */
+html[data-theme="light"] #chat .c-plantsoil {
+  border-bottom-color: rgba(122, 99, 73, .30);
+  background: linear-gradient(to top, rgba(122, 99, 73, .15), rgba(122, 99, 73, 0));
+}
+
+/* ⚠️ 貼著 #chat 的底部（.screen 是 position:absolute，是有效的定位祖先），
+      不是貼著捲動區的內容 —— 見 index.html 那段註解。
+   ⚠️ bottom 用 --c-in-h（輸入列的實際高度，JS 量了寫進來）：
+      輸入列會跟著多行文字變高，寫死的話植物的土線會被吃掉或浮在半空中。 */
+.c-plantbg {
+  position: absolute; left: 0; right: 0; z-index: 0;
+  bottom: var(--c-in-h, 66px);
+  height: min(58%, 300px);
+  display: flex; align-items: flex-end; justify-content: center;
+  pointer-events: none;                 /* ⚠️ 見上面 —— 這一行不可以拿掉 */
+  opacity: .14;                          /* 使用者從 9%／14%／22% 裡選的 */
+  overflow: hidden;
+}
+html[data-theme="light"] #chat .c-plantbg { opacity: .11; }
+/* ⚠️ 尺寸要**卡死**，不可以用訊息區高度的百分比。
+      訊息區在 iPhone 上有 380～700px 不等，用百分比的話植物會在高螢幕上
+      長成一棵塞滿畫面的樹（實測 320×568 就已經頂到天花板、樹幹 26px 寬）。
+      固定盒子還有一個好處：**階段感才對** —— 種子是盒子底部的一個小點，
+      第 5 階才長滿整個盒子，「逐漸壯大」是看得出來的。 */
+.c-plantbg svg { display: block; width: 100%; max-width: 260px; height: 100%; }
+/* ── 枝梢晃動（v55.1）──
+ * 使用者的話：「我想要加入枝梢會有微微晃動的特效，但不佔用手機性能太多為前提」
+ *
+ * ⚠️ 效能是前提，所以**只有兩個會動的元素**：整株一個慢的、枝梢一個快一點的。
+ *    兩層的週期刻意不成整數倍（13s 與 8.5s），錯開之後看起來像不規則的風，
+ *    但成本還是兩條 transform 動畫。
+ * ⚠️ 只動 `transform` —— 不碰 filter／box-shadow／寬高，那些每一幀都要重繪。
+ * ⚠️ **不用 `will-change`**：提升圖層在低階手機上反而更貴，
+ *    而這裡只是 14% 透明度的幾條線，不值得多一個合成層。
+ * ⚠️ 原本整株 ±0.5deg —— 300px 高的植物枝梢只移動 2.6px，等於看不出來。
+ *    改成整株 ±0.9deg、枝梢再疊 ±1.6deg。
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .c-plantbg svg { animation: p-sway 13s ease-in-out infinite; transform-origin: 50% 100%; }
+  /* ⚠️ SVG 裡的 transform-origin 百分比預設是對「使用者座標系」算的，
+        不加 transform-box: fill-box 的話會以整張畫布左上角為準，
+        枝梢會用一個完全錯的支點甩出去。 */
+  .c-plantbg .p-tip {
+    transform-box: fill-box; transform-origin: 50% 100%;
+    animation: p-tip 8.5s ease-in-out infinite;
+  }
+}
+@keyframes p-sway {
+  0%, 100% { transform: rotate(-.9deg); }
+  50%      { transform: rotate(.9deg); }
+}
+@keyframes p-tip {
+  0%, 100% { transform: rotate(1.6deg); }
+  50%      { transform: rotate(-1.6deg); }
+}
+/* ⚠️ 訊息要蓋在植物上面。少了這一條，氣泡與植物會依 DOM 順序疊，
+      背景反而蓋掉最新那幾則。
+   ⚠️⚠️ 但**這一條單獨不夠**：它只在 `.c-scroll` 沒有自成堆疊脈絡時有效，
+      而手機上它會自成脈絡（見 `.c-scroll` 那段的長註解）。
+      真正擋住植物的是 `.c-scroll` 自己的 `z-index: 1`，這一條是內層的第二道。 */
+.c-scroll > *:not(.c-plantbg) { position: relative; z-index: 1; }
+
+/* ── 成長計量條（同時是叫出扇形選單的那顆按鈕）──
+   ⚠️ 高度要壓到最低。320×568 上「標題列 54 ＋ 這一條 ＋ 斷線提示 ＋ 公告 ＋ 輸入列 65」
+      全開會吃掉 213px，訊息區只剩 355px。 */
+.c-plantbar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 7px;
+  width: 100%; border: 0; border-bottom: 1px solid var(--line);
+  background: var(--bg); color: inherit; font: inherit;
+  padding: 5px 12px 6px; min-height: 26px;
+  -webkit-tap-highlight-color: transparent; cursor: pointer;
+}
+.c-plantbar:active { background: var(--bg-soft); }
+.c-pb-ic { flex: none; display: flex; color: #7fb06a; }
+.c-pb-lv { flex: none; font-size: 10.5px; font-weight: 700; color: #7fb06a;
+  white-space: nowrap; letter-spacing: .03em; }
+.c-pb-track { flex: 1 1 auto; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.c-pb-fill { display: block; height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, #5d8a4e, #a8d992); transition: width .5s ease; }
+.c-pb-fruit { flex: none; font-size: 10px; font-weight: 600; color: #e88aa8; white-space: nowrap;
+  font-variant-numeric: tabular-nums; }
+/* ── 成長（＝經驗值，v58）──
+   ⚠️ 綠色＝照顧給的，粉色＝思念給的。兩個數字的來源完全不同，
+      顏色是唯一的線索，所以**兩個都要寫標籤**（使用者選的寫法 B）。
+   ⚠️ tabular-nums 兩個都要：數字一直在變，等寬才不會讓整條左右抖。 */
+.c-pb-grow { flex: none; font-size: 10px; font-weight: 600; color: #8ec97a; white-space: nowrap;
+  font-variant-numeric: tabular-nums; }
+.c-pb-grow .t, .c-pb-fruit .t { font-size: 9px; font-weight: 500; opacity: .72; margin-right: 2px; }
+/* ⚠️ 淺色主題要壓深。#8ec97a 是配深色底挑的，放到白底上對比只有 1.9:1 ——
+      比旁邊的階段文字還淡，而這個數字正是整個修正的目的。
+      #5d8a4e 是計量條漸層本來就在用的深綠，不是新顏色。 */
+html[data-theme="light"] .c-pb-grow { color: #5d8a4e; }
+/* 公告開著時縮成一條細線 —— 高度讓給訊息區，但還是按得到 */
+.c-plantbar.slim { padding: 3px 12px; min-height: 18px; }
+/* ⚠️ 細線模式要把成長也收掉。漏掉的話公告一展開，
+      這一條只剩「成長 612 果實 279」浮在那裡，比原本更亂。 */
+.c-plantbar.slim .c-pb-lv, .c-plantbar.slim .c-pb-fruit,
+.c-plantbar.slim .c-pb-grow, .c-plantbar.slim .c-pb-ic { display: none; }
+
+/* ── 互動後的回饋 ──
+   使用者指定放在**訊息區上方**（接近公告下方），不是底部吐司 ——
+   底部那一帶是輸入列與送出鈕，訊息剛送出時最忙。 */
+.c-plantsay {
+  /* ⚠️ top 是「標題列 54 ＋ 計量條 26 ＋ 一點空隙」算出來的 —— 它浮在訊息區最上面，
+        公告開著時會蓋到公告一點點，那是可以接受的（回饋只出現 3.6 秒）。 */
+  position: absolute; left: 50%; top: 92px; transform: translateX(-50%);
+  z-index: 6; max-width: calc(100% - 28px);
+  background: rgba(20, 26, 18, .96); border: 1px solid #3f5638; border-radius: 9px;
+  padding: 7px 13px; font-size: 12px; line-height: 1.45; color: #cfe6c2;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45); text-align: center;
+  pointer-events: none;                 /* 不要擋住底下的訊息 */
+  animation: p-say .22s ease-out;
+}
+html[data-theme="light"] .c-plantsay {
+  background: rgba(245, 250, 242, .97); border-color: #b9d3ac; color: #33502a;
+  box-shadow: 0 8px 24px rgba(0,0,0,.14);
+}
+@keyframes p-say { from { opacity: 0; transform: translate(-50%, -6px); } }
+@media (prefers-reduced-motion: reduce) { .c-plantsay { animation: none; } }
+
+/* ── 扇形選單 ──
+   ⚠️ 黑幕一定要**吞掉點擊**。少了它，點歪會落到訊息區，
+      而那正好會被算進「連點兩下＝緊急退出」。 */
+/* ⚠️⚠️ `absolute` 不是 `fixed`。fixed 的百分比是對**整個視窗**算的，
+      而 ≥760px 時 `#chat` 會被限制成 760px 置中 ——
+      實測 1280px：聊天室 260～1020，但「澆水」落在 205～281、「鬆土」落在 999～1075，
+      兩顆都跑到聊天室外面的灰底上。
+      `.screen` 是 position:absolute，所以 `#chat` 本身就是有效的定位祖先。 */
+.c-plantfan { position: absolute; inset: 0; z-index: 70; }
+.c-pf-scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55);
+  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.c-pf-items { position: absolute; left: 0; right: 0; top: 96px; height: 150px; }
+/* ⚠️⚠️ v57.1：定位在 **.c-pf-slot** 這一層，兩顆鈕在裡面由上往下排。
+      v57 是兩顆各自 absolute、粉色那顆寫死 `top: …+84px` ——
+      但免費鈕的高度會變：冷卻中多一行「還要 N 分」就長高 11.4px，
+      於是那行字直接壓在粉色藥丸上（實測 390／414 重疊 3.4px、
+      320／360 矮螢幕 5.4px，四種寬度全中）。
+      現在改成同一欄 flow 排版，中間永遠隔著 gap —— 文字再長也撞不到。 */
+.c-pf-slot {
+  position: absolute; left: var(--x); top: calc(60px + var(--y));
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  animation: p-fan .18s ease-out both;
+}
+.c-pf-item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  width: 76px; border: 0; background: none; color: inherit; font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.c-pf-ic {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: #1b2318; border: 1px solid #3f5638; color: #a8d992;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 22px rgba(0,0,0,.55);
+}
+html[data-theme="light"] .c-pf-ic { background: #f2f8ee; border-color: #b9d3ac; color: #3f7a34; }
+.c-pf-lb { font-size: 11.5px; font-weight: 600; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+html[data-theme="light"] .c-pf-lb { color: #1c2b17; text-shadow: none; }
+/* ⚠️ min-height 先把那一行的位置**留著**。少了它，冷卻字一出現／一消失
+      整顆免費鈕就長高／變矮，下面的粉色藥丸會跟著上下跳一格。 */
+.c-pf-cd { font-size: 9.5px; color: var(--warn, #e0a355); line-height: 1.2; min-height: 12px; }
+.c-pf-item.off .c-pf-ic { opacity: .4; border-color: #333; color: var(--txt-dim); }
+.c-pf-item.off .c-pf-lb { color: var(--txt-dim); font-weight: 400; text-shadow: none; }
+/* ── 消耗思念的粉色鈕（v57）──
+ * 使用者從三種畫法裡選了 **A：藥丸自己填滿** —— 不寫剩餘時間，
+ * 背景由左往右填色代表能量累積，滿了才按得下去。
+ *
+ * ⚠️ 選 A 的主因是**不佔額外高度**。320×568 上扇形本來就很擠
+ *    （標題列 54 ＋ 計量條 ＋ 公告 ＋ 輸入列已經吃掉一大半），
+ *    B 的「藥丸下方細條」每顆要再多 7px。
+ * ⚠️ 那層填色是 `transform: scaleX()` 不是 `width` ——
+ *    width 每一格都要重新排版，scaleX 只走合成層。這顆一秒重畫一次，值得。
+ * ⚠️ 價格**一直寫著**，不是只在按得下去時才顯示：
+ *    思念不夠的人最需要知道的就是「差多少」。 */
+.c-pf-pay {
+  /* ⚠️ v57.1：不再自己定位（改由 .c-pf-slot 排）。
+        relative 是給裡面那層 .c-pf-juice（inset:0）當定位祖先用的，不能拿掉。 */
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 4px 11px 4px 9px; border-radius: 999px;
+  border: 1px solid rgba(214, 51, 108, .55);
+  background: rgba(214, 51, 108, .14);
+  color: #ff5d92; font: inherit; font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+}
+.c-pf-pay > svg, .c-pf-pay > .c-pf-cost { position: relative; z-index: 1; }
+.c-pf-juice {
+  position: absolute; inset: 0; z-index: 0; transform-origin: left center;
+  background: linear-gradient(90deg, rgba(214, 51, 108, .55), rgba(255, 93, 146, .5));
+  transform: scaleX(var(--p, 0));
+  transition: transform .3s linear;
+}
+.c-pf-pay.ready { background: rgba(214, 51, 108, .30); border-color: #ff5d92; color: #fff; }
+/* ⚠️ 思念不夠時整顆轉成中性灰，不是只調透明度 ——
+      粉色淡掉還是粉色，看起來像「還在充能」而不是「你買不起」。 */
+.c-pf-pay.broke {
+  opacity: .42; color: var(--txt-dim);
+  border-color: rgba(140, 140, 150, .45); background: rgba(140, 140, 150, .14);
+}
+.c-pf-pay.broke .c-pf-juice { display: none; }
+html[data-theme="light"] .c-pf-pay {
+  background: rgba(214, 51, 108, .10); border-color: rgba(214, 51, 108, .38); color: #c02a63;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .10);
+}
+html[data-theme="light"] .c-pf-pay.ready { background: #d6336c; border-color: #d6336c; color: #fff; }
+
+@keyframes p-fan { from { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(.9); } }
+@media (prefers-reduced-motion: reduce) { .c-pf-slot { animation: none; } }
+/* 矮螢幕：圈圈縮小，不然三顆會擠到訊息區中間。
+   ⚠️ v57.1 起粉色鈕跟著 flow 走，不必再另外把它往上搬。 */
+@media (max-height: 640px) {
+  .c-pf-items { top: 76px; }
+  .c-pf-ic { width: 46px; height: 46px; }
+  .c-pf-slot { gap: 4px; }
+}
+
+/* ── 儀表板的植物面板 ── */
+.pa-body {
+  text-align: left; font-size: 12.5px; line-height: 1.7; color: var(--txt);
+  background: var(--bg-soft); border: 1px solid var(--line); border-radius: 9px;
+  padding: 9px 11px; margin: 10px 0 0; max-height: 46dvh; overflow-y: auto;
+}
+.pa-body b { color: var(--txt-dim); font-weight: 600; }
+.pa-body .pa-k { color: var(--txt-dim); }
+.pa-body .pa-v { float: right; font-variant-numeric: tabular-nums; }
+.pa-reset { width: 100%; margin-top: 12px; padding: 10px; font-size: 13px; }
+
+/* ══ 第二道密碼（v54）══
+   ⚠️ 這個盒子的高度一定要卡住而且內容要能捲。320×568（初代 iPhone SE）上，
+      警語＋九宮格本來就塞不下 —— 不卡的話盒子會長到螢幕外面，
+      使用者看得到警語卻**按不到「進入」**，而 .c-pad 自己不捲，
+      畫面上不會有任何東西告訴他要往下滑。（做預覽時實測撞到。） */
+#g2Box { max-height: 100%; display: flex; flex-direction: column; min-height: 0; }
+#g2Step1, #g2Step2 { display: flex; flex-direction: column; min-height: 0; }
+#g2Gate {
+  --seal: #a8342c;
+  --seal-soft: rgba(197, 34, 31, .09);
+  --seal-line: rgba(197, 34, 31, .22);
+}
+html[data-theme="dark"] #g2Gate {
+  --seal: #e08b80;
+  --seal-soft: rgba(255, 140, 126, .10);
+  --seal-line: rgba(255, 140, 126, .26);
+}
+/* ⚠️ 這是「私人空間」的識別圖，不是任何機關的標誌 —— 刻意做成盾牌＋鑰匙孔。 */
+.g2-seal { flex: none; display: flex; justify-content: center; margin: 2px 0 8px; }
+.g2-seal svg { display: block; color: var(--seal); }
+.g2-lead {
+  flex: none; margin: 8px 0 0; text-align: left;
+  font-size: 12.5px; line-height: 1.75; color: var(--txt);
+}
+.g2-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  -webkit-overflow-scrolling: touch; margin-top: 2px; padding-right: 2px;
+}
+.g2-body::-webkit-scrollbar { width: 3px; }
+.g2-body::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+/* 法條：左邊一條線＋天秤，讀起來像「引用」而不是「跳出來的錯誤訊息」 */
+.g2-law {
+  margin: 12px 0 0; padding: 9px 11px 9px 10px; border-radius: 9px; text-align: left;
+  background: var(--seal-soft); border-left: 3px solid var(--seal-line);
+  color: var(--txt-dim); font-size: 11px; line-height: 1.7;
+}
+.g2-law-h {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 5px;
+  color: var(--seal); font-size: 10.5px; font-weight: 700; letter-spacing: .03em;
+}
+.g2-law-h svg { flex: none; }
+.g2-law p { margin: 0 0 6px; }
+.g2-law p:last-child { margin-bottom: 0; }
+.g2-law b { color: var(--seal); font-weight: 700; }
+/* 只寫真的有記的兩樣：裝置識別碼與存取時間 */
+.g2-log {
+  display: flex; align-items: flex-start; gap: 7px; margin: 10px 0 0; text-align: left;
+  font-size: 10.5px; line-height: 1.6; color: var(--txt-dim);
+}
+.g2-log svg { flex: none; margin-top: 2px; opacity: .75; }
+.g2-log b { color: var(--txt); font-weight: 600; }
+.g2-go {
+  flex: none; appearance: none; width: 100%; border: 0; border-radius: 10px;
+  background: var(--me); color: var(--me-txt); font: inherit; font-size: 14.5px;
+  font-weight: 500; padding: 12px; margin-top: 14px;
+  -webkit-tap-highlight-color: transparent;
+}
+.g2-go:active { opacity: .85; }
+.g2-back {
+  flex: none; appearance: none; border: 0; background: none; color: var(--txt-dim);
+  font: inherit; font-size: 12.5px; margin-top: 10px; padding: 6px 12px;
+  -webkit-tap-highlight-color: transparent;
+}
+/* ⚠️ 矮螢幕壓縮版。320×568 上，圖騰＋標題＋引言＋按鈕已經吃掉全部高度，
+      可捲區會被擠成 0 —— 畫面上有法條區的邊框、裡面一個字都沒有。
+   ⚠️ 判準不是「好不好看」，是**「進入」那顆鈕在不在畫面裡**。 */
+@media (max-height: 640px) {
+  #g2Box { padding: 14px 16px 10px; }
+  #g2Gate .g2-seal { margin: 0 0 6px; }
+  #g2Gate .g2-seal svg { width: 34px; height: 34px; }
+  #g2Gate .c-pad-title { font-size: 14.5px; }
+  #g2Gate .g2-lead { font-size: 12px; margin-top: 6px; }
+  #g2Gate .c-pad-dots { height: 20px; margin: 8px 0 10px; }
+  #g2Gate .c-key { height: 44px; font-size: 18px; }
+  #g2Gate .c-pad-cancel { margin-top: 8px; padding: 4px 12px; }
+  #g2Gate .g2-go { padding: 11px; margin-top: 10px; }
+  /* 寧可整個盒子頂到螢幕邊，也不要出現「有框、沒內容」那種看起來壞掉的狀態 */
+  #g2Gate .g2-body { min-height: 96px; }
+}
+
+.a-g2.on { color: var(--me); border-color: var(--me); font-weight: 600; }
+.g2-off { margin-top: 12px; color: var(--danger); }
+
+/* 讓中文只在「句子之間」換行，不在句子中間切開。
+   ⚠️ 中文沒有空格，瀏覽器預設可以在任兩個字之間斷 ——
+      包成 inline-block 之後，片段內部就不能斷了。 */
+.c-nb { display: inline-block; }
+
+/* 個人密碼登入的警語。
+   ⚠️ 這一段不可以拿掉，也不可以縮到看不見 —— 使用者是在知情的前提下接受
+      「同房的人試得出來」這個風險的，畫面上就必須說。
+   ⚠️ iPhone SE（375）上這一段是最容易擠爆的，字級與行高調過才收得住。 */
+.c-pad-warn {
+  margin: 13px 0 0; padding: 9px 11px;
+  border-radius: 9px; text-align: left;
+  background: rgba(217, 48, 37, .07);
+  color: #5f6368; font-size: 11px; line-height: 1.65;
+}
+.c-pad-warn b { color: #c5221f; font-weight: 700; }
+/* （v27 之後四句都收進紅框了，這個樣式保留給未來要拆開時用） */
+.c-pad-warn-2 {
+  background: none; padding: 6px 2px 0;
+  font-size: 10.5px; opacity: .85;
+}
+@media (max-width: 380px) {
+  .c-pad-box { padding: 18px 14px 12px; }
+  .c-pad-warn { font-size: 10.5px; padding: 8px 9px; }
+}
+
+.c-pad-cancel {
+  appearance: none; border: 0; background: none;
+  color: var(--txt-dim); font: inherit; font-size: 12.5px;
+  margin-top: 12px; padding: 6px 12px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.c-veil {
+  position: fixed; inset: 0; z-index: 90;   /* 必須高於放大圖與吐司，否則遮不住 */
+  backdrop-filter: blur(18px) saturate(.55);
+  -webkit-backdrop-filter: blur(18px) saturate(.55);
+  background: rgba(255,255,255,.36);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 20px;
+}
+html[data-theme="dark"] .c-veil { background: rgba(0,0,0,.46); }
+
+
+
+/* ---------- 多人房：進房前的暱稱設定 ---------- */
+/* ⚠️ 這一層在 #chat 外面，吃不到聊天室那組 CSS 變數，顏色只能寫死。
+   它永遠蓋在偽裝首頁（白底）上，所以固定用淺色。 */
+.n-gate {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background: rgba(20, 22, 26, .46);
+  backdrop-filter: blur(3px);
+}
+.n-box {
+  width: 100%; max-width: 340px;
+  background: #fff; color: #202124;
+  border-radius: 16px;
+  padding: 20px 18px 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.28);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif;
+}
+.n-title { font-size: 17px; font-weight: 600; letter-spacing: .2px; }
+.n-sub { font-size: 12.5px; color: #5f6368; line-height: 1.6; margin-top: 6px; }
+
+.n-field {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 14px;
+  border: 1px solid #dadce0; border-radius: 10px;
+  padding: 0 10px;
+  transition: border-color .12s, box-shadow .12s;
+}
+.n-field:focus-within { border-color: var(--nick-c, #1a73e8); box-shadow: 0 0 0 3px rgba(26,115,232,.12); }
+/* contenteditable，不是 <input> —— 沒有輸入框就沒有自動填入、不會進表單歷史 */
+.n-input {
+  flex: 1 1 auto; min-width: 0;
+  outline: 0; border: 0; background: transparent;
+  font-size: 16px;                    /* 低於 16px 的話 iOS 會自動放大整頁 */
+  line-height: 40px; height: 40px;
+  color: var(--nick-c, #202124);
+  font-weight: 600;
+  white-space: nowrap; overflow-x: auto; scrollbar-width: none;
+  -webkit-user-modify: read-write-plaintext-only;
+  cursor: text;
+}
+.n-input::-webkit-scrollbar { display: none; }
+.n-input:empty::before { content: "暱稱"; color: #9aa0a6; font-weight: 400; }
+.n-count { font-size: 11px; color: #9aa0a6; flex: 0 0 auto; user-select: none; }
+
+.n-colors { display: flex; gap: 10px; margin-top: 14px; }
+.n-color {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 2px solid transparent; background: var(--c);
+  padding: 0; flex: 0 0 auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.n-color.on { box-shadow: 0 0 0 2px #fff inset, 0 0 0 2px var(--c); }
+
+.n-note { font-size: 11px; color: #80868b; line-height: 1.6; margin-top: 14px; }
+
+.n-actions { display: flex; gap: 8px; margin-top: 16px; }
+.n-btn {
+  flex: 1 1 0; min-height: 40px;
+  border: 1px solid #dadce0; border-radius: 10px;
+  background: #fff; color: #3c4043;
+  font-size: 14px; font-weight: 500;
+}
+.n-btn:active { background: #f1f3f4; }
+.n-btn.n-go { background: var(--nick-c, #1a73e8); border-color: var(--nick-c, #1a73e8); color: #fff; }
+.n-btn.n-go:active { filter: brightness(.92); }
+.n-btn.n-go:disabled { background: #dadce0; border-color: #dadce0; color: #9aa0a6; cursor: default; }
+/* 破壞性動作：白字紅底，而且刻意「不」跟旁邊的按鈕平分寬度 ——
+   它只要放得下字就好，版面重心留給正常的那顆。
+   ⚠️ 文字一定要短（兩個字），這一列在 iPhone SE 上只有約 300px。 */
+.n-btn.n-danger {
+  flex: 0 0 auto; padding: 0 20px;
+  background: var(--danger, #d93025); border-color: var(--danger, #d93025); color: #fff;
+}
+.n-btn.n-danger:active { filter: brightness(.92); }
+
+/* ---------- 推播通知 ---------- */
+/* 開關被系統擋掉（或 iPhone 還沒裝到主畫面）時，整列淡掉但「說明」還是要按得到 */
+.c-set-row.blocked .c-set-label { opacity: .55; }
+.c-set-row.blocked .c-sw { opacity: .4; pointer-events: none; }
+/* ⚠️ 「對方上線通知」附屬在新訊息推播上（共用同一筆訂閱），
+      推播沒開的時候整列要淡掉、開關按不動 —— 用的是同一組 .blocked 樣式。 */
+
+/* 說明裡那則假的通知，讓人先看到鎖定畫面會出現什麼 */
+.p-sample {
+  border: 1px dashed var(--page-line, #dadce0);
+  border-radius: 12px; padding: 10px 12px; margin: 14px 0 4px;
+  background: rgba(120,130,150,.08);
+}
+.p-sample-cap { font-size: 10px; color: #80868b; letter-spacing: .06em; margin-bottom: 8px; }
+.p-notif {
+  display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start;
+  background: rgba(120,130,150,.14); border-radius: 14px; padding: 9px 11px;
+}
+.p-notif img { border-radius: 8px; display: block; }
+.p-notif-top { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
+.p-notif-top b { flex: 1 1 auto; }
+.p-notif-top span { font-size: 11px; opacity: .6; }
+.p-notif-body { font-size: 13px; margin-top: 1px; }
+
+/* 說明頁：步驟預設收起來，點標題才展開 */
+.p-help { max-height: 88dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.p-acc { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.p-item {
+  border: 1px solid #dadce0; border-radius: 11px;
+  background: #fff; overflow: hidden;
+}
+.p-item > summary {
+  cursor: pointer; list-style: none;
+  padding: 11px 13px; font-size: 13.5px; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.p-item > summary::-webkit-details-marker { display: none; }
+.p-item > summary::after {
+  content: "＋"; margin-left: auto; font-weight: 400; color: #80868b; flex: 0 0 auto;
+}
+.p-item[open] > summary::after { content: "－"; }
+.p-item[open] > summary { border-bottom: 1px solid #eceff1; }
+.p-item ol, .p-item p { margin: 0; padding: 0 13px 12px 30px; font-size: 12.8px; line-height: 1.8; color: #3c4043; }
+.p-item p { padding-left: 13px; }
+.p-item ol { padding-top: 10px; }
+.p-item ol + p, .p-item p + p { padding-top: 2px; }
+.p-item li { margin-bottom: 3px; }
+.p-item b { color: #202124; }
+.p-warn { color: #a8620a !important; }
+/* 說明文字裡「指著某顆按鈕」時，就把那顆按鈕的樣子畫出來，不要用引號複述它的文字。
+   ⚠️ 按鈕改字的時候，說明裡的引號版本很容易忘記跟著改（v22.1 就漏了一次）——
+      畫成膠囊之後，改的只剩一個地方。 */
+.p-pill {
+  display: inline-block; vertical-align: baseline;
+  padding: 1px 9px; border-radius: 999px;
+  background: var(--danger, #d93025); color: #fff;
+  font-size: 11.5px; font-weight: 600; line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* 窄機（iPhone SE 是 375px，第一代只有 320px）。
+   ⚠️ 這個彈窗的可用寬度算起來是：畫面 − .n-gate 的 padding×2 − .n-box 的 padding×2
+      − summary 的 padding×2 − 右邊那顆＋。SE 上只剩約 250px 給標題文字，
+      13.5px 的中文一行大概只放得下 17 個字 —— 標題超過就會斷行。
+      所以這裡把三層 padding 一起收窄、字級也降一點，把可用寬度擠回來。
+      真的還是放不下的話，優先改短標題，不要再往下調字級（會小到看不清楚）。 */
+@media (max-width: 380px) {
+  .n-gate { padding: 12px; }
+  .n-box  { padding: 18px 14px 14px; }
+  .p-item > summary { padding: 11px 11px; font-size: 12.5px; gap: 6px; }
+  .p-item ol, .p-item p { font-size: 12.2px; padding-left: 26px; padding-right: 11px; }
+  .p-item p { padding-left: 11px; }
+  .n-btn { font-size: 13.5px; }
+  .n-btn.n-danger { padding: 0 16px; }
+}
+/* 萬一還是塞不下，讓它斷得平均一點，不要最後一行只剩一個字 */
+.p-item > summary { text-wrap: balance; }
+
+/* ---------- 記事本 ---------- */
+/* 一間房一本、兩個人共用。整片蓋在聊天室上面，跟設定面板同一種做法。
+   ⚠️ z-index 要低於毛玻璃遮罩（.c-veil 是 90），閒置上鎖時記事本必須被蓋住。 */
+.c-notes {
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+}
+
+.nt-head {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 2px;
+  padding: 0 6px; height: 54px;
+  border-bottom: 1px solid var(--line); background: var(--bg);
+}
+.nt-name {
+  flex: 1 1 auto; min-width: 0; padding-left: 4px;
+  font-size: 15px; font-weight: 600; color: var(--txt);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nt-name small { font-size: 11.5px; font-weight: 400; color: var(--txt-dim); margin-left: 8px; }
+
+.nt-list {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 10px calc(20px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 8px;
+}
+.nt-item {
+  appearance: none; text-align: left; width: 100%;
+  border: 1px solid var(--line); background: var(--bg-soft);
+  border-radius: 14px; padding: 11px 13px;
+  color: inherit; font: inherit;
+  display: grid; gap: 3px;
+  -webkit-tap-highlight-color: transparent;
+}
+.nt-item:active { background: var(--line); }
+.nt-t {
+  font-size: 14.5px; font-weight: 600; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nt-p {
+  font-size: 12.5px; color: var(--txt-dim); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.nt-w { font-size: 10.5px; color: var(--txt-dim); margin-top: 2px; font-variant-numeric: tabular-nums; }
+/* 多人房記事的作者。顏色跟著他自己選的暱稱色，掃清單時一眼認得出誰寫的 */
+.nt-who { font-weight: 700; font-variant-numeric: normal; }
+
+.nt-empty {
+  padding: 56px 26px; text-align: center; color: var(--txt-dim);
+  font-size: 13.5px; line-height: 1.8;
+}
+.nt-empty svg { opacity: .35; display: block; margin: 0 auto 10px; }
+.nt-empty-sub { font-size: 12px; margin-top: 8px; opacity: .8; }
+
+/* ⚠️ position: relative 是給「下面還有」那個提示當定位錨點的（v47）。
+      拿掉的話它會往上找到別的祖先，飄到畫面別的地方去。 */
+.nt-edit { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+/* ⚠️ position: relative 掛在**這一層**，不是整個 .nt-edit 上（v47）——
+      提示要貼在文字區的下緣，掛在外層的話它會蓋到底下那條「已儲存」。 */
+.nt-wrap { flex: 1 1 auto; min-height: 0; display: flex; position: relative; }
+
+/* ───────── 「下面還有」（v47）─────────
+ *
+ * 使用者的話：「點開記事本定位在底部可能會忽略了上面還有文字，
+ * 並且如果畫面下還有內容要有簡易指引繼續往下滑動」
+ *
+ * ⚠️ 一定要 pointer-events: none。它蓋在文字最下面那一兩行上，
+ *    會吃掉點擊的話，使用者就沒辦法把游標點進那一區
+ *    —— 跟 v45 吐司那條坑一模一樣，而且一樣完全看不出原因。
+ * ⚠️ 底下那層漸層是「從記事本底色淡出」，所以一定要用 var(--bg)，
+ *    寫死白色的話深色主題會出現一條灰白色的橫帶。
+ */
+.nt-more {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 54px;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 6px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--bg) 78%);
+}
+.nt-more-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px 3px 11px;
+  border-radius: 20px;
+  background: var(--bg-soft);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--txt-dim);
+  font-size: 11.5px; letter-spacing: .3px;
+  animation: nt-more-bob 1.8s ease-in-out infinite;
+}
+@keyframes nt-more-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nt-more-pill { animation: none; }
+}
+/* ⚠️ 字級不可低於 16px，否則 iOS 一聚焦就會把整頁放大 */
+.nt-body {
+  flex: 1 1 auto; width: 100%; resize: none;
+  border: 0; outline: 0; background: var(--bg); color: var(--txt);
+  font-family: inherit; font-size: 16px; line-height: 1.7;
+  padding: 14px 14px 18px;
+  -webkit-appearance: none;
+}
+.nt-body::placeholder { color: var(--txt-dim); }
+.nt-foot {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 7px 14px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  font-size: 11px; color: var(--txt-dim);
+}
+.nt-confirm { color: var(--danger); font-weight: 600; }
+
+/* --- 吐司 --- */
+.toast {
+  position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  background: rgba(32,33,36,.94); color: #fff;
+  font-size: 13.5px; padding: 10px 18px; border-radius: 22px;
+  z-index: 75; max-width: 86vw; text-align: center;
+  line-height: 1.5;                    /* 錯誤訊息可能兩行，不要擠在一起 */
+  /* ⚠️ 一定要 pointer-events: none（v45 補的）。
+        它蓋在輸入列上方約 90px 的那一條 —— 剛好是最後一兩則訊息的位置。
+        沒有這一行的話，吐司在的那兩秒內，那一帶的長按、點照片、按表情
+        全部會被它吃掉，而且畫面上完全看不出為什麼「按了沒反應」。
+        （這是寫 v45 的測試時撞到的：設完公告跳出吐司，
+          接著長按下一則訊息就完全沒有反應。）
+        吐司本身沒有任何可以點的東西，讓它徹底不吃事件是安全的。 */
+  pointer-events: none;
+  animation: pop .18s ease-out;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif;
+}
+
+/* --- 圖片放大 --- */
+.lightbox {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(0,0,0,.9);
+  display: flex; align-items: center; justify-content: center;
+  cursor: zoom-out;
+  padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+}
+.lightbox img { max-width: 92vw; max-height: 84dvh; border-radius: 8px; }
+/* 抓原圖的時候：縮圖先擺著（會有點糊），轉圈疊在上面 */
+.lightbox.loading img { filter: blur(1.5px); opacity: .8; }
+.lb-spin {
+  position: absolute;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,.28); border-top-color: #fff;
+  animation: spin .7s linear infinite;
+  display: none;
+}
+.lightbox.loading .lb-spin { display: block; }
+.lb-note {
+  position: absolute; left: 50%; bottom: 6dvh; transform: translateX(-50%);
+  max-width: 82vw; text-align: center;
+  font-size: 12px; line-height: 1.5; color: #fff;
+  background: rgba(0,0,0,.6); border-radius: 10px; padding: 8px 12px;
+}
+
+/* 影片播放（v23）。
+   ⚠️ 燈箱本身是「點一下就關」的（cursor: zoom-out），
+      所以播放器一定要 stopPropagation，不然按暫停就把整個燈箱關掉了。 */
+.lb-video {
+  max-width: 92vw; max-height: 84dvh;
+  border-radius: 8px; background: #000;
+  cursor: default;
+}
+/* 影片載入中不要把封面糊掉 —— 影片本來就要等，糊掉只會看起來像壞了 */
+.lightbox.isvideo.loading img { filter: none; opacity: .55; }
+/* 放不出來時的退路：存下來用別的播放器開 */
+.lb-save {
+  position: absolute; left: 50%; bottom: 15dvh; transform: translateX(-50%);
+  font-size: 13px; font-weight: 600; text-decoration: none;
+  color: #fff; background: var(--me, #1a73e8);
+  border-radius: 999px; padding: 9px 20px;
+  cursor: pointer;
+}
+
+/* --- 捲軸美化（手機沒有捲軸，只影響桌機） --- */
+.c-scroll::-webkit-scrollbar, .c-sticker-grid::-webkit-scrollbar, .c-text::-webkit-scrollbar { width: 8px; }
+.c-scroll::-webkit-scrollbar-thumb, .c-sticker-grid::-webkit-scrollbar-thumb, .c-text::-webkit-scrollbar-thumb {
+  background: var(--line); border-radius: 8px;
+}
+
+/* ---------- 小螢幕微調 ---------- */
+@media (max-width: 380px) {
+  .bub { font-size: 15px; padding: 7px 11px 5px; }
+  .c-icon { width: 38px; height: 38px; }
+  .c-sticker-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+}
+
+/* ---------- 平板與桌機：聊天室置中，不要讓氣泡被拉得過寬 ---------- */
+@media (min-width: 760px) {
+  body { background: #e9ebef; }
+  #chat, #admin {
+    max-width: 760px;
+    margin: 0 auto;
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+  .c-scroll { padding: 16px 20px 8px; }
+  .c-input { padding: 10px 14px; }
+  .bub { max-width: min(72%, 520px); }
+}
+@media (min-width: 760px) {
+  html[data-theme="dark"] body { background: #06070a; }
+}
+
+
+/* ══════════════════════════════════════════════
+   D. 管理儀表板
+   ══════════════════════════════════════════════ */
+
+#admin {
+  display: flex; flex-direction: column;
+  background: var(--bg); color: var(--txt);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif;
+}
+/* ⚠️ 跟 #chat 一樣，這裡絕對不可以寫 height —— 由 .screen 的 --app-h 控制 */
+
+.a-body { flex: 1 1 auto; overflow-y: auto; padding: 16px 16px 40px; }
+.a-step, .a-tools { margin: 0 0 26px; }
+.pa-edit { display: grid; gap: 10px; margin: 16px 0; text-align: left; }
+.pa-edit select { width: 100%; font: inherit; font-size: 16px; padding: 10px; color: var(--txt); background: var(--bg-soft); border: 1px solid var(--line); border-radius: 8px; }
+.a-home-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.a-home-actions .a-btn { min-width: 0; padding-inline: 10px; }
+.a-tools { border-top: 1px solid var(--line); padding-top: 22px; }
+.a-tools h3 { font-size: 15px; margin: 0 0 6px; }
+
+.a-lead { font-size: 13.5px; color: var(--txt-dim); line-height: 1.6; margin: 0 0 10px; }
+.a-hint { font-size: 12.5px; color: var(--txt-dim); line-height: 1.55; margin: 10px 0 0; }
+
+.a-ta {
+  min-height: 108px; max-height: 220px; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg-soft); color: var(--txt);
+  padding: 11px 13px; margin: 0 0 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 16px;                     /* 不可低於 16px，否則 iOS 會自動放大整頁 */
+  line-height: 1.7; white-space: pre-wrap; word-break: break-all;
+  -webkit-user-modify: read-write-plaintext-only;
+}
+.a-ta:empty::before { content: attr(aria-label); color: var(--txt-dim); opacity: .55; }
+.a-ta-sm { min-height: 72px; }
+
+.a-btn {
+  width: 100%; border: 0; border-radius: 10px;
+  background: var(--me); color: var(--me-txt);
+  font-size: 15px; font-weight: 500; padding: 12px;
+}
+.a-btn:active { opacity: .85; }
+.a-btn-2 { background: var(--bg-soft); color: var(--txt); border: 1px solid var(--line); }
+.a-btn[disabled] { opacity: .5; }
+
+.a-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.a-table th {
+  text-align: left; font-weight: 600; font-size: 11.5px; letter-spacing: .05em;
+  color: var(--txt-dim); padding: 0 8px 7px; white-space: nowrap;
+}
+.a-table td { padding: 10px 8px; border-top: 1px solid var(--line); vertical-align: middle; }
+.a-table .a-num { text-align: right; font-variant-numeric: tabular-nums; }
+.a-room { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--txt-dim); }
+.a-name { font-weight: 600; font-size: 13.5px; display: block; }
+.a-live { color: var(--ok, #2e9e63); font-weight: 600; }
+/* 儀表板標題旁的版號。三個版號對不起來就標紅 —— 那代表這台裝置跑著舊的那一份 */
+.a-ver { font-size: 11px; opacity: .55; font-weight: 400; white-space: nowrap; }
+.a-ver.stale { color: var(--danger); opacity: 1; font-weight: 600; }
+
+/* 「解不開幾則」的小標 */
+.a-bad {
+  display: block; font-size: 10.5px; font-weight: 400;
+  color: var(--danger); margin-top: 2px; white-space: nowrap;
+}
+.a-bad.ok { color: var(--txt-dim); opacity: .7; }
+
+/* 在線那一格：數字本身就是展開明細的按鈕 */
+.a-who-btn {
+  appearance: none; border: 0; background: transparent; padding: 2px 4px;
+  font: inherit; font-variant-numeric: tabular-nums;
+  color: var(--txt); border-bottom: 1px dashed var(--line);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.a-who-btn.a-live { color: var(--ok, #2e9e63); font-weight: 600; }
+.a-who-btn:disabled { opacity: .45; cursor: default; }
+
+/* 「有節點但心跳早就停了」—— 跟在線數字分開顯示，才看得出差在哪 */
+.a-ghost {
+  display: block; font-size: 10.5px; font-weight: 400;
+  color: var(--txt-dim); opacity: .8; margin-top: 2px; white-space: nowrap;
+}
+
+.a-who-row td { border-top: 0; padding-top: 0; }
+/* ══ 各房狀態：窄螢幕改成卡片（v54.1）══
+ *
+ * ⚠️ 表格在 320px 上塞不下五欄。實測（probe-adm）**沒有橫向溢出**，
+ *    壞的是「擠」出來的樣子：三個統計欄各留 40～64px 只裝一個字，
+ *    動作那一欄被壓到 65px —— 三顆鈕折成「第二道 / 檢查 清空」的爛梯形，
+ *    而「(不在名單上)」在房名欄被從中間切成「(不在名單 / 上)」。
+ *    → 所以這不是「調欄寬」能救的，是欄位本來就不該在窄機上並排。
+ *
+ * ⚠️ **HTML 仍然是表格**。改成 div 的話 `#admRows tr` / `td.a-num` 這些
+ *    選擇器全部失效，事件處理器與六支測試會一起壞掉（v54 的 `.a-check` 已經
+ *    示範過一次「動了共用的東西，紅在別的地方」）。這裡只換 display。
+ *
+ * ⚠️ 定位一律用語意 class（.a-c-room / .a-c-msg / …），**不要用 nth-child** ——
+ *    哪天欄位順序一動就整個錯位，而且不會有人發現。
+ */
+@media (max-width: 560px) {
+  .a-table { display: block; font-size: 13.5px; }
+  .a-table thead { display: none; }          /* 標題改成每一格自己的小標 */
+  .a-table tbody { display: block; }
+  .a-table tr {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 10px; align-items: start;
+    padding: 13px 0 15px; border-top: 1px solid var(--line);
+  }
+  .a-table td { display: block; padding: 0; border-top: 0; }
+  /* 房名那一格橫跨整列，才不會被切成「(不在名單 / 上)」 */
+  .a-table .a-c-room { grid-column: 1 / -1; }
+  /* 三個統計：小標在上、數字在下，左對齊（右對齊在卡片裡看起來像跑掉了） */
+  .a-table .a-c-msg, .a-table .a-c-last, .a-table .a-c-live { text-align: left; }
+  .a-table td[data-label]::before {
+    content: attr(data-label);
+    display: block; margin-bottom: 1px;
+    font-size: 10.5px; letter-spacing: .04em; font-weight: 600;
+    color: var(--txt-dim); opacity: .75;
+  }
+  /* 動作列：橫跨整列，三顆鈕等寬一排，「清空」推到最右邊 */
+  .a-table .a-c-act {
+    grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 2px;
+  }
+  .a-table .a-c-act .a-g2, .a-table .a-c-act .a-check {
+    flex: 1 1 0; min-width: 0; margin-right: 0; text-align: center;
+  }
+  .a-table .a-c-act .a-wipe { flex: 1 1 0; min-width: 0; margin-left: auto; }
+  /* 展開的名冊：整列寬 */
+  .a-table .a-who-row { display: block; padding: 0 0 14px; border-top: 0; }
+  .a-table .a-who-row td { display: block; }
+  /* 小標籤在卡片裡不必再擠成一行 */
+  .a-table .a-bad, .a-table .a-ghost, .a-table .a-flag { white-space: normal; }
+}
+
+.a-who {
+  background: var(--bg-soft); border: 1px solid var(--line); border-radius: 9px;
+  padding: 9px 11px; display: flex; flex-direction: column; gap: 6px;
+}
+.a-dev { display: flex; align-items: center; gap: 8px; font-size: 12.5px; min-width: 0; }
+.a-dev-dot {
+  flex: none; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--line);
+}
+.a-dev.on .a-dev-dot { background: var(--ok, #2e9e63); }
+/* ⚠️ 名字要 min-width:0 才收得住 —— 這一層是 flex 容器的子元素（見坑 #44 的同類問題） */
+.a-dev-name {
+  font-weight: 600; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.a-dev-name.anon { font-weight: 400; color: var(--txt-dim); opacity: .75; }
+.a-dev-id {
+  flex: none; font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px; color: var(--txt-dim); opacity: .8;
+}
+.a-dev-ago {
+  flex: none; margin-left: auto; font-size: 11px; color: var(--txt-dim);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.a-who-note { margin: 2px 0 0; font-size: 11px; color: var(--txt-dim); line-height: 1.5; }
+
+/* 房間那一列的「N 台沒看過」。
+   ⚠️ 一定要 display: block —— 少了它會變成一般的 inline span，
+      擠在「在線」那個數字旁邊然後從中間斷行，畫面上長成「0 ⚠ 1 台 / 沒看過」
+      （截圖時當場看到的）。旁邊的 .a-ghost 也是同一個理由。 */
+.a-flag {
+  display: block; font-size: 10.5px; font-weight: 700;
+  color: var(--warn, #d98324); margin-top: 2px; white-space: nowrap;
+}
+
+/* ── 裝置備註與刪除（v53，使用者選的 A1：全部攤開在同一行）──
+   ⚠️⚠️ `flex-wrap: wrap` 是必要的，不是保險 —— 但**壞掉的樣子跟直覺不一樣**，
+      實測過才知道：這一行裡「沒看過」標記、時間、按鈕都是 flex:none 又 nowrap，
+      不換行的話它們不會被擠出去，而是**把整個面板撐寬**。
+      320px（初代 iPhone SE）實測：有 wrap 時面板 275px、那一行 47px 高；
+      拿掉 wrap 之後面板變成 **418px**，比螢幕還寬 —— 整個儀表板開始左右捲動。
+   ⚠️ 所以測試量的是「儀表板會不會左右捲」，不是「按鈕有沒有跑出面板」。
+      後者永遠是綠的：面板自己會跟著長大，東西當然還在裡面（第一版就是這樣白測的）。 */
+.a-dev { flex-wrap: wrap; gap: 5px 8px; }
+.a-dev-act { margin-left: auto; display: flex; gap: 6px; align-items: center; flex: none; }
+/* ⚠️ 這一行本來 margin-left:auto 是給 .a-dev-ago 的；現在改由 .a-dev-act 靠右，
+      時間要把 auto 讓出來，不然兩個都想吃掉剩餘空間會打架。 */
+.a-dev .a-dev-ago { margin-left: 0; }
+
+/* ⚠️ 字級不可低於 16px —— iOS 一聚焦就會把整頁放大（同 .a-ta 那條規矩）。
+      這個欄位在儀表板上，放大之後整個表格會跑掉，比聊天室那邊更難救。 */
+.a-dev-note {
+  flex: 1 1 90px; min-width: 0;
+  border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--txt);
+  font: inherit; font-size: 16px; padding: 1px 5px;
+}
+.a-dev-note::placeholder { color: var(--txt-dim); opacity: .55; }
+.a-dev-note:hover { border-color: var(--line); }
+.a-dev-note:focus { outline: none; border-color: var(--me); background: var(--bg); }
+.a-dev-note.named { font-weight: 600; }
+
+/* 沒看過 —— 用橘色不用紅色：紅色在這個介面已經是「清空／危險」的意思了 */
+.a-dev-new {
+  flex: none; font-size: 10.5px; font-weight: 700; line-height: 1.6;
+  color: var(--warn, #d98324); border: 1px solid var(--warn, #d98324);
+  border-radius: 999px; padding: 0 6px; white-space: nowrap;
+}
+/* v59：「擋下 N 次」＝ 有人知道房間密碼、但不知道要加記號。
+   ⚠️ 顏色要比「沒看過」更重（實心紅底，不是外框橘字）——
+      「沒看過」很常見（換瀏覽器就會有），這個不常見，看到就該當一回事。 */
+.a-dev-blocked {
+  flex: none; font-size: 10.5px; font-weight: 700; line-height: 1.6;
+  color: #fff; background: #b02a4a; border: 1px solid #b02a4a;
+  border-radius: 999px; padding: 0 6px; white-space: nowrap;
+}
+html[data-theme="light"] .a-dev-blocked { background: #c0334f; border-color: #c0334f; }
+.a-dev-ok {
+  appearance: none; border: 1px solid var(--me); background: var(--me); color: var(--me-txt);
+  font: inherit; font-size: 11.5px; padding: 3px 9px; border-radius: 7px;
+  white-space: nowrap; -webkit-tap-highlight-color: transparent;
+}
+.a-dev-ok:active { opacity: .85; }
+/* ⚠️ v54.2 起這顆是「直接刪除，沒有復原」，而且沒看過的那一列也有它 ——
+      所以一定要夠大。原本 26×22px，在 320px 的手機上按錯的代價是
+      **永久刪掉一筆紀錄與備註**。28×28 是這一行塞得下的上限，實測過。 */
+.a-dev-del {
+  appearance: none; border: 1px solid var(--line); background: transparent; color: var(--txt-dim);
+  font: inherit; font-size: 12.5px; line-height: 1; padding: 0 8px; border-radius: 7px;
+  min-width: 30px; min-height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.a-dev-del:active { background: var(--line); color: var(--danger); }
+
+/* ── LINE 審核（v61）：儀表板的展開列 ──
+   沿用 .a-who / .a-dev 那一套；差別只在多了大頭貼與「待審 / 已核准」兩種狀態。
+   ⚠️ .a-dev 已經是 flex-wrap，320px 上這一行會換行是**預期的**（見上面 v53 那段）。 */
+.a-acl-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.a-acl-on {
+  appearance: none; border: 1px solid var(--line); background: var(--bg-soft); color: var(--txt);
+  font: inherit; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+  white-space: nowrap; -webkit-tap-highlight-color: transparent;
+}
+.a-acl-on.on { color: var(--me-txt); background: var(--me); border-color: var(--me); }
+.a-acl-on:disabled { opacity: .5; }
+.a-acl-note { font-size: 11px; color: var(--txt-dim); line-height: 1.5; flex: 1 1 200px; min-width: 0; }
+.a-acl-empty { font-size: 12px; color: var(--txt-dim); padding: 4px 0; }
+.a-acl-av {
+  flex: none; width: 26px; height: 26px; border-radius: 50%; overflow: hidden;
+  background: var(--line); color: var(--txt-dim); font-size: 12px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.a-acl-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.a-acl-name { flex: 1 1 80px; }
+.a-dev-meta { flex: none; font-size: 11px; color: var(--txt-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 狀態章：待審是橘框（跟「沒看過」同一個語意等級）、已核准是綠字 */
+.a-acl-st { display: inline-block; margin-top: 0; border: 1px solid var(--warn, #d98324); border-radius: 999px; padding: 0 6px; line-height: 1.6; }
+.a-acl-st.ok { color: var(--ok, #2e9e63); border-color: var(--ok, #2e9e63); }
+/* 撤銷是破壞性的（他會當場被踢），所以不用藍底 —— 用灰框，跟 ✕ 同一個等級 */
+.a-acl-ok.revoke { background: transparent; color: var(--txt); border-color: var(--line); }
+.a-acl-line.pending .a-dev-dot { background: var(--warn, #d98324); }
+.a-acl-line.ok .a-dev-dot { background: var(--ok, #2e9e63); }
+
+#admin { --warn: #d98324; }
+html[data-theme="dark"] #admin { --warn: #e0a355; }
+
+/* ⚠️ `.a-g2` 一起吃這一組樣式，但**不掛 `.a-check`** ——
+      `.a-check` 是「檢查」那顆鈕的行為標記，事件處理器與測試都靠它認人。
+      共用長相要走這裡，不是去多掛一個 class（v54 踩過，見 app.js 的註解）。 */
+.a-check, .a-g2 {
+  appearance: none; border: 1px solid var(--line); background: var(--bg-soft);
+  color: var(--txt-dim); font: inherit; font-size: 11.5px;
+  padding: 4px 9px; border-radius: 7px; margin-right: 6px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.a-check:disabled, .a-g2:disabled { opacity: .45; }
+.a-check:active, .a-g2:active { background: var(--line); }
+
+.a-wipe {
+  position: relative; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: transparent; color: var(--danger);
+  font-size: 12.5px; padding: 6px 11px; white-space: nowrap;
+}
+.a-wipe .a-hold {
+  position: absolute; inset: 0; background: var(--danger); opacity: .22;
+  transform: scaleX(0); transform-origin: left;
+}
+.a-wipe .a-hold.run { transition: transform 2s linear; transform: scaleX(1); }
+.a-out {
+  background: var(--bg-soft); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 13px; margin: 0 0 12px; overflow-x: auto;
+  font-family: ui-monospace, Menlo, monospace; font-size: 12px; line-height: 1.6;
+  white-space: pre; color: var(--txt);
+}

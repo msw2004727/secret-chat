@@ -1,0 +1,11 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+const src=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
+const nodes=new Map();const node=()=>({hidden:false,disabled:false,textContent:'',events:{},addEventListener(k,fn){this.events[k]=fn},setAttribute(){},replaceChildren(...c){this.children=c;this.textContent=''}});const $=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
+$('admin').hidden=$('chat').hidden=true;
+let user={uid:'line',getIdToken:async()=> 'token'},locked=0,cleared=0,signedOut=0,anon=0;
+const f={auth:{currentUser:user},authMod:{onAuthStateChanged(){},signOut:async()=>{signedOut++;user=null;f.auth.currentUser=null},signInAnonymously:async()=>{anon++;f.auth.currentUser={uid:'anon',isAnonymous:true}}}};
+const ctx=vm.createContext({$,Acl:{lineUser:async()=>user,cfg:()=>({api:'https://example.invalid'})},connect:async()=>f,withTimeout:async p=>p,fetch:async()=>({ok:true,json:async()=>({name:'小明',picture:'https://example.invalid/avatar'})}),document:{createElement:()=>node()},HomeSwitch:{lock:()=>locked++},dropAclStash:()=>cleared++,toast(){}});
+vm.runInContext(src.slice(src.indexOf('const LineHeader = {'),src.indexOf('\nconst Push = {'))+';globalThis.header=LineHeader;',ctx);
+await ctx.header.init();await ctx.header.refresh(f);assert.equal($('lineHeaderLogin').hidden,true);assert.equal($('lineHeaderAccount').hidden,false);assert.equal($('lineHeaderAvatar').title,'小明');
+await $('lineHeaderLogout').events.click();assert.equal(signedOut,1);assert.equal(anon,1);assert.equal(locked,1);assert.equal(cleared,1);assert.equal($('lineHeaderLogin').hidden,false);assert.equal($('lineHeaderAccount').hidden,true);
+console.log('PASS: authenticated profile display, logout clears site identity and hides avatar, homepage relocks, anonymous access restored.');

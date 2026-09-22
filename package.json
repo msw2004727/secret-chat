@@ -1,0 +1,10 @@
+{
+  "name": "secret-chat-cloud",
+  "private": true,
+  "engines": { "node": "22.x" },
+  "scripts": {
+    "test": "node scripts/check.mjs",
+    "build": "node scripts/build-hosting.mjs"
+  },
+  "devDependencies": { "firebase-tools": "15.27.0" }
+}

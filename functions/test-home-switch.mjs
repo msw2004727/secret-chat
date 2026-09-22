@@ -1,0 +1,12 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+const src=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
+const buttons=[{setAttribute(){},innerHTML:''},{setAttribute(){},innerHTML:''}];
+const ctx=vm.createContext({document:{querySelectorAll:()=>buttons},$:()=>null});
+vm.runInContext(src.slice(src.indexOf('const HomeSwitch = {'),src.indexOf('\nfunction initGate()'))+';globalThis.home=HomeSwitch',ctx);
+ctx.home.request=async(_,body)=>({unlocked:body.password==='2468'});assert.equal(ctx.home.unlocked,false);assert.equal(await ctx.home.unlock('bad'),false);assert.equal(await ctx.home.unlock('2468'),true);assert.equal((buttons[0].innerHTML.match(/<path /g)||[]).length,2);ctx.home.lock();assert.equal(ctx.home.unlocked,false);assert.equal(buttons[0].innerHTML,'關於');
+const guard=src.slice(src.indexOf('async function tryEnter(raw, onFail) {'),src.indexOf('  /* ⚠️ 先剝記號再推導。'))+'return "room-flow";}';vm.runInContext(guard,ctx);let searches=0;ctx.home.required=async()=>true;
+for(const raw of ['5678','0606,','12344321','wrong'])assert.equal(await ctx.tryEnter(raw,()=>{searches++;return 'search'}),'search');assert.equal(searches,4);
+await ctx.home.unlock('2468');assert.equal(await ctx.tryEnter('5678',()=> 'search'),'room-flow');ctx.home.lock();ctx.home.required=async()=>false;assert.equal(await ctx.tryEnter('5678',()=> 'search'),'room-flow');ctx.home.required=async()=>{throw Error('offline')};assert.equal(await ctx.tryEnter('5678',()=> 'search'),'search');
+const rules=JSON.parse(fs.readFileSync(new URL('../database.rules.json',import.meta.url),'utf8')).rules.settings.homeSwitch;
+for(const isAdmin of [false,true])assert.equal(rules['.write'],false);
+console.log('PASS: home switch defaults locked, wrong password, two SVG hearts, relock, all input paths hidden while locked, admin disabling protection, read failure closed, admin-only settings writes.');

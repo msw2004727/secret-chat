@@ -1,0 +1,111 @@
+{
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "*.local",
+        "test-*.mjs"
+      ]
+    }
+  ],
+  "hosting": {
+    "public": ".",
+    "cleanUrls": true,
+    "ignore": [
+      "firebase.json",
+      "database.rules.json",
+      "storage.rules",
+      "functions/**",
+      "**/.*",
+      "**/node_modules/**",
+      "*.md",
+      "*.txt",
+      "密碼產生器.html",
+      "位置金鑰工具.html",
+      "*.mjs",
+      "*.zip",
+      "**/*.md",
+      "**/*.txt",
+      "**/密碼產生器.html",
+      "**/位置金鑰工具.html",
+      "**/*.mjs",
+      "**/*.zip",
+      "備份/**",
+      "Claude outputs/**",
+      "cleanup-domain-public/**",
+      "cleanup-domain-firebase.json",
+      "firebase-debug*.log",
+      "database-debug*.log",
+      "ui-debug*.log",
+      "scripts/**",
+      "docs/**",
+      "domain-redirect/**",
+      "package.json",
+      "package-lock.json"
+    ],
+    "headers": [
+      {
+        "source": "/sw.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          },
+          {
+            "key": "Service-Worker-Allowed",
+            "value": "/"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(html|js|css|json)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+          }
+        ]
+      },
+      {
+        "source": "**/*.png",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=604800"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          }
+        ]
+      }
+    ],
+    "site": "daily-notes-7bb64"
+  }
+}

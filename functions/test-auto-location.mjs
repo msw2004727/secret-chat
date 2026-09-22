@@ -1,0 +1,11 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8'),store=new Map();let requests=0,writes=0,locate;
+const els=new Map();const $=id=>{if(!els.has(id))els.set(id,{checked:false,textContent:'',addEventListener(){}});return els.get(id)};
+const ctx=vm.createContext({CFG:{locationReport:true,locPub:'test',locCooldownSeconds:300},$,localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},Date,document:{querySelectorAll:()=>[]},window:{addEventListener(){}},clearTimeout(){},setTimeout(){},GEO_WAIT_MS:10000,LOC_TIMEOUT_MS:10000,LOC_LAST:'last',withTimeout:p=>p,navigator:{geolocation:{getCurrentPosition:resolve=>{requests++;locate=resolve}}},locSeal:async()=>({ek:'e',iv:'i',c:'c'}),connect:async()=>({db:{},ref:()=> 'loc',serverTimestamp:()=>123,push:async()=>{writes++}})});
+vm.runInContext(source.slice(source.indexOf('const Loc = {'),source.indexOf('/* ────────── 位置回報 · 儀表板那一側'))+';globalThis.Loc=Loc;globalThis.auto=AutoLocation;',ctx);ctx.Loc.flash=()=>{};
+assert.equal(ctx.auto.enabled(),false);await ctx.auto.run();assert.equal(requests,0);
+ctx.auto.set(true);const cancelled=ctx.auto.run();await new Promise(setImmediate);assert.equal(requests,1);ctx.auto.set(false);locate({coords:{latitude:25,longitude:121,accuracy:10}});await cancelled;assert.equal(writes,0);
+ctx.auto.attempted=false;ctx.auto.set(true);const enabled=ctx.auto.run();await new Promise(setImmediate);locate({coords:{latitude:25,longitude:121,accuracy:10}});await enabled;assert.equal(writes,1);const again=ctx.auto.run();await new Promise(setImmediate);locate({coords:{latitude:25,longitude:121,accuracy:10}});await again;assert.equal(requests,3);assert.equal(writes,2);
+ctx.auto.set(false);ctx.auto.attempted=false;await ctx.auto.run();assert.equal(requests,3);
+assert.equal((source.match(/AutoLocation\.run\(\)/g)||[]).length,1);
+console.log('PASS: default off never requests location, explicit opt-in, revoke while awaiting position prevents upload, each unlock reports again despite manual cooldown, opt-out prevents subsequent collection.');

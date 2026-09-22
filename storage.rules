@@ -1,0 +1,52 @@
+rules_version = '2';
+
+/* ============================================================
+ *  Cloud Storage 安全規則 —— 只放「已經加密過」的照片原圖
+ *
+ *  ⚠️ 這裡跟 Realtime Database 的規則一樣，擋得住的只有兩件事：
+ *       ① 沒登入的人（連匿名都沒有）
+ *       ② 亂猜路徑的人
+ *     真正保護內容的是「檔案上傳前就在瀏覽器裡加密過了」——
+ *     這個桶子裡沒有任何一個位元組是看得懂的。
+ *
+ *  ⚠️ 路徑刻意是 media/<房間位址>/<亂數>：
+ *     房間位址是密碼推導出來的 32 字，猜不到；亂數讓同一間房的檔案也列不出來。
+ *
+ *  ⚠️ 7 天自動刪除「不是」寫在這裡。
+ *     那是 Google Cloud Storage 的生命週期規則（主控台設定：
+ *     年齡 7 天 + 前置字元 media/ → 刪除物件）。
+ *     規則檔管的是「誰能存取」，生命週期管的是「什麼時候消失」，兩件事。
+ * ============================================================ */
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /media/{roomId}/{fileId} {
+
+      // 讀：登入過、而且路徑長度對得上（房間位址一定是 32 字）
+      allow read: if request.auth != null
+                  && roomId.size() == 32
+                  && fileId.size() >= 16;
+
+      // 寫：再多兩道 —— 大小上限，以及「一定要是不透明的二進位」。
+      // 加密後的東西沒有 MIME 可言，所以只收 application/octet-stream；
+      // 這順便擋掉「有人把這個桶子當免費圖床用」。
+      //
+      // ⚠️ 上限 64 MB 是為了 v23 的影片（app 端限 50 MB，這裡留餘裕給加密後的膨脹）。
+      //    規則分不出「這是照片還是影片」，所以照片理論上也能塞到 64 MB ——
+      //    真正在管照片的是 config.js 的 photoMaxUploadMB。
+      //    這道規則的職責是「擋住把桶子當免費空間用的人」，不是執行 app 的業務邏輯。
+      allow write: if request.auth != null
+                   && roomId.size() == 32
+                   && fileId.size() >= 16
+                   && (request.resource == null
+                       || (request.resource.size < 64 * 1024 * 1024
+                           && request.resource.contentType == 'application/octet-stream'));
+    }
+
+    // 其餘路徑一律封死。沒有這一條的話，別人可以拿你的桶子當圖床。
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

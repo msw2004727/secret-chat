@@ -1,0 +1,36 @@
+name: Root domain redirect
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_domain:
+        description: 'Type 02251121.com to deploy the root redirect only'
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: firebase-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && inputs.confirm_domain == '02251121.com'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: daily-notes-7bb64
+          workload_identity_provider: projects/731968413005/locations/global/workloadIdentityPools/github-secret-chat/providers/github
+          service_account: github-deploy@daily-notes-7bb64.iam.gserviceaccount.com
+      - run: npx --no-install firebase deploy --config domain-redirect/firebase.json --only hosting --project daily-notes-7bb64 --non-interactive

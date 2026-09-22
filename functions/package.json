@@ -1,0 +1,14 @@
+{
+  "name": "sc-push",
+  "description": "秘密聊天 — 新訊息推播（只做一件事：有新訊息時通知「此刻不在房裡」的裝置）",
+  "private": true,
+  "engines": {
+    "node": "22"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^14.3.0",
+    "firebase-functions": "^7.3.2",
+    "web-push": "^3.6.7"
+  }
+}

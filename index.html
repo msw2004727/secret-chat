@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<!-- data-theme 直接寫在這裡，不靠 JS 設定 —— 否則載入瞬間會先閃一下淺色。
+     預設 dark；使用者切過的話 app.js 會依 localStorage 改寫。 -->
+<html lang="zh-Hant" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
+     不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
+<meta name="sc-shell" content="v61.15">
+<title>Google</title>
+
+<!-- 分頁圖示 -->
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+
+<!-- 加到手機主畫面時的名稱與圖示偽裝 -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Google">
+<meta name="application-name" content="Google">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff">
+
+<!-- iOS Safari 會依照頁面宣告的 color-scheme 決定「它自己那條輸入輔助列」的配色
+     —— 就是鍵盤上方那條顯示網域與上下箭頭、打勾的白色橫條。
+     偽裝首頁一律 light（本來就是白的、要跟真 Google 一致），
+     進聊天室時 app.js 會改成使用者選的那個（預設 dark），那條橫條就跟著變深色。 -->
+<meta name="color-scheme" content="light">
+
+<link rel="stylesheet" href="style.css">
+
+<script>
+/* ⚠️ 這段必須是同步的、而且放在最前面 —— 它是密碼外洩的第一道防線。
+   app.js 是模組，會等 HTML 解析完才執行；在那之前如果使用者已經按下 Enter，
+   表單就會以瀏覽器原生方式送出，密碼會被塞進網址列變成 ?q=xxxxx。
+   這裡在 document 上用捕獲階段攔截所有表單送出，DOM 還沒建好就已經生效。 */
+(function () {
+  document.addEventListener('submit', function (e) { e.preventDefault(); }, true);
+
+  // 萬一網址上已經帶了任何參數，立刻抹掉，不讓它留在畫面與這一筆歷史紀錄上
+  // ⚠️ v61：從 LINE 跳回來時參數（code / state）是要用的 —— 抹掉之前先留在記憶體
+  //    （window.__sq，只在這個變數裡、不落地），app.js 讀走就清空。
+  if (location.search) {
+    try { window.__sq = location.search; } catch (err) {}
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch (err) {}
+  }
+})();
+</script>
+</head>
+<body>
+
+<!-- ═══════════════════ 畫面一：偽裝首頁 ═══════════════════ -->
+<div id="gate" class="screen">
+
+  <header class="g-top">
+    <!-- 桌機版左側 -->
+    <div class="g-top-left g-desk">
+      <button type="button" class="g-link g-home-switch" data-home-switch>關於</button>
+      <a href="https://store.google.com/" class="g-link">商店</a>
+    </div>
+
+    <!-- 手機版左側：關於／首頁開關 + 全部／圖片分頁 -->
+    <div class="g-mtop-left g-mob">
+      <button type="button" class="g-link g-home-switch" data-home-switch>關於</button>
+      <span class="g-tab is-active">全部</span>
+      <span class="g-tab">圖片</span>
+    </div>
+
+    <div class="g-top-right">
+      <a href="https://mail.google.com/" class="g-link g-desk">Gmail</a>
+      <a href="https://www.google.com/imghp" class="g-link g-desk">圖片</a>
+
+      <!-- 通知鈴鐺。頁面載入時完全不連線 —— 只有你「點一下」才會去問有沒有新訊息。
+           沒有開啟未讀提示的裝置，點下去什麼都不會發生（跟真的 Google 一樣）。
+           有新訊息時只加一顆小紅點，外觀與真的 Google 通知徽章一致，不做動畫。 -->
+      <button class="g-plain g-bell" id="gBell" aria-label="通知">
+        <svg viewBox="0 0 24 24" width="21" height="21"><path fill="#3c4043" d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2Zm6-6v-5a6 6 0 0 0-5-5.91V4a1 1 0 1 0-2 0v1.09A6 6 0 0 0 6 11v5l-1.7 1.7a1 1 0 0 0 .7 1.7h14a1 1 0 0 0 .7-1.7L18 16Z"/></svg>
+        <span class="g-bell-dot" id="gBellDot" hidden></span>
+      </button>
+
+      <button class="g-apps" aria-label="Google 應用程式">
+        <svg viewBox="0 0 24 24" width="24" height="24"><path fill="#5f6368" d="M6 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm6 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm6 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM6 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm6 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm6 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM6 20a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm6 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm6 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg>
+      </button>
+
+      <a class="g-signin" id="lineHeaderLogin" href="https://accounts.google.com/">登入</a>
+      <div id="lineHeaderAccount" class="line-header-account" hidden>
+        <span id="lineHeaderAvatar" class="line-header-avatar" role="img" aria-label="LINE 頭像"></span>
+        <button type="button" id="lineHeaderLogout" class="line-header-logout">登出</button>
+      </div>
+    </div>
+  </header>
+
+  <dialog id="homeSwitchDialog" class="home-switch-dialog" aria-labelledby="homeSwitchTitle">
+    <h2 id="homeSwitchTitle">首頁開關</h2>
+    <input id="homeSwitchPassword" type="password" inputmode="numeric" maxlength="16" autocomplete="off" aria-label="首頁開關密碼" enterkeyhint="done">
+    <div class="home-location-row">
+      <label><input type="checkbox" id="homeAutoLocation">每次解鎖向管理員回報位置</label>
+      <button type="button" class="location-settings-link" data-location-settings>設定</button>
+    </div>
+    <p id="homeSwitchError" role="status"></p>
+    <div class="home-switch-actions">
+      <button type="button" id="homeSwitchCancel">取消</button>
+      <button type="button" id="homeSwitchConfirm">確認</button>
+    </div>
+  </dialog>
+
+  <dialog id="autoLocationDialog" class="home-switch-dialog" aria-labelledby="autoLocationTitle">
+    <h2 id="autoLocationTitle">位置回報設定</h2>
+    <label class="location-choice"><input type="checkbox" id="autoLocationChoice">每次解鎖向管理員回報位置</label>
+    <p class="location-help">僅在你主動開啟後生效，可隨時取消。這項選擇只記在目前瀏覽器，每次首頁開關密碼驗證成功後回報一次；僅開啟網站不回報，也不持續追蹤。需允許瀏覽器定位；回報會顯示於管理員的位置紀錄。</p>
+    <p id="autoLocationStatus" role="status"></p>
+    <div class="home-switch-actions"><button type="button" id="autoLocationClose">關閉</button></div>
+  </dialog>
+
+  <main class="g-main">
+    <div class="g-logo" id="gLogo" aria-label="Google"></div>
+
+    <div class="g-searchwrap" id="gateForm">
+      <div class="g-search" id="gSearch">
+        <svg class="g-ico-search" viewBox="0 0 24 24" width="20" height="20"><path fill="#9aa0a6" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5Zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14Z"/></svg>
+
+        <!-- 這裡刻意「不是」 <input>。
+             瀏覽器的自動填入只認得表單欄位，對 contenteditable 完全不作用，
+             所以打過的密碼不會被記住、也不會跳出建議清單。 -->
+        <div id="gateInput" class="g-input" contenteditable="true" role="textbox"
+             aria-label="搜尋" spellcheck="false" autocapitalize="off" autocorrect="off"
+             enterkeyhint="search" inputmode="text"
+             data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></div>
+        <button type="button" class="g-ico-btn" id="gClear" aria-label="清除" hidden>
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#70757a" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+        <span class="g-divider" id="gDivider" hidden></span>
+
+        <!-- 手機版才有的 AI 搜尋圖示 -->
+        <button type="button" class="g-ico-btn g-mob" aria-label="AI 搜尋">
+          <svg viewBox="0 0 24 24" width="22" height="22">
+            <circle cx="10.5" cy="10.5" r="5.6" fill="none" stroke="#3c4043" stroke-width="1.9"/>
+            <path fill="#3c4043" d="m14.7 14.9 5 5-1.4 1.4-5-5z"/>
+            <path fill="#3c4043" d="m18.6 2 .85 2.15L21.6 5l-2.15.85L18.6 8l-.85-2.15L15.6 5l2.15-.85z"/>
+          </svg>
+        </button>
+
+        <button type="button" class="g-ico-btn" aria-label="語音搜尋">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <path fill="#4285f4" d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z"/>
+            <path fill="#34a853" d="M11 18.92A7 7 0 0 1 5 12h2a5 5 0 0 0 10 0h2a7 7 0 0 1-6 6.92V22h-2v-3.08Z"/>
+          </svg>
+        </button>
+        <button type="button" class="g-ico-btn" aria-label="以圖搜尋">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <path fill="#4285f4" d="M4 8V6a2 2 0 0 1 2-2h2v2H6v2H4Z"/>
+            <path fill="#ea4335" d="M20 8V6h-2V4h2a2 2 0 0 1 2 2v2h-2Z"/>
+            <path fill="#fbbc04" d="M4 16v2a2 2 0 0 0 2 2h2v-2H6v-2H4Z"/>
+            <path fill="#34a853" d="M20 16v2h-2v2h2a2 2 0 0 0 2-2v-2h-2Z"/>
+            <circle cx="13" cy="12" r="3.1" fill="#4285f4"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="g-buttons g-desk">
+        <button type="button" class="g-btn" id="gSubmit">Google 搜尋</button>
+        <button type="button" class="g-btn" id="gLucky">好手氣</button>
+      </div>
+
+      <p class="g-lang g-desk">Google 提供： <a href="#" class="g-langlink">English</a></p>
+    </div>
+  </main>
+
+  <footer class="g-foot">
+    <div class="g-foot-row g-foot-country">台灣</div>
+
+    <div class="g-foot-row g-foot-links g-desk">
+      <div class="g-foot-left">
+        <a href="#">關於</a><a href="#">廣告</a><a href="#">商業</a><a href="#">Google 搜尋服務的運作方式</a>
+      </div>
+      <div class="g-foot-right">
+        <a href="#">隱私權</a><a href="#">條款</a><a href="#" data-location-settings>設定</a>
+      </div>
+    </div>
+
+    <div class="g-foot-row g-foot-mob g-mob">
+      <a href="#">深色主題：關閉</a><a href="#" data-location-settings>設定</a><a href="#">隱私權</a><a href="#">服務條款</a>
+    </div>
+  </footer>
+
+  <div id="gateHint" class="g-hint" hidden></div>
+</div>
+
+
+<!-- ═══════════════════ 畫面二：聊天室 ═══════════════════ -->
+<div id="chat" class="screen" hidden>
+
+  <header class="c-bar">
+    <button class="c-icon" id="btnLeave" aria-label="離開" title="離開（Esc）">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2Z"/></svg>
+    </button>
+
+    <div class="c-title">
+      <span class="c-dot" id="peerDot" data-on="false"></span>
+      <span id="peerText">不在線</span>
+    </div>
+
+    <!-- 思念：只有私人房才有。按一下 +1，粉色愛心從按鈕周圍往上飄。
+         ⚠️ 數字不可逆，只有一鍵清除或儀表板遠端清空才會歸零。
+         ⚠️ 這個計數在雲端是「明文」的 —— 要原子累加，伺服器就得看得懂它。
+            使用者已知悉並同意。 -->
+    <button class="c-heart" id="btnHeart" aria-label="思念 +1" title="思念 +1" hidden>
+      <!-- 長按 5 秒的進度（v52）。由左往右填滿，0.4 秒後才出現 ——
+           不然輕點也會閃一下。⚠️ 一定要排在最前面：它是 absolute 疊在底層的。 -->
+      <span class="c-hold-fill" aria-hidden="true"></span>
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+        <path fill="currentColor" d="M12 20.7 4.9 13.9C2.6 11.7 2.7 8 5.1 6a4.6 4.6 0 0 1 6.2.3l.7.7.7-.7a4.6 4.6 0 0 1 6.2-.3c2.4 2 2.5 5.7.2 7.9L12 20.7Z"/>
+      </svg>
+      <span class="c-heart-n" id="heartNum">0</span>
+      <!-- 按下去短暫浮出的「+1」，以及點數字時的「你 19 · 對方 23」 -->
+      <span class="c-heart-pop" id="heartPop" hidden></span>
+    </button>
+    <!-- 飄浮的愛心都生在這裡面。⚠️ 它是 pointer-events:none，不會擋到底下的按鈕 -->
+    <div class="c-heart-field" id="heartField" aria-hidden="true"></div>
+
+    <!-- 友誼（多人房版的思念）。跟上面那顆是同一個模組、同一個資料節點，
+         只有圖案、顏色與文案不同。⚠️ 兩顆一次只會出現一顆，由 applyRoomMode() 決定。 -->
+    <button class="c-heart c-friend" id="btnFriend" aria-label="友誼 +1" title="友誼 +1" hidden>
+      <!-- 長按 5 秒的進度（v52）。由左往右填滿，0.4 秒後才出現 ——
+           不然輕點也會閃一下。⚠️ 一定要排在最前面：它是 absolute 疊在底層的。 -->
+      <span class="c-hold-fill" aria-hidden="true"></span>
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+        <g fill="currentColor" opacity=".5">
+          <circle cx="4.2" cy="8.2" r="2.5"/>
+          <path d="M4.2 11.9c-2.4 0-4.2 1.5-4.2 3.5v.8h8.4v-.8c0-2-1.8-3.5-4.2-3.5Z"/>
+          <circle cx="19.8" cy="8.2" r="2.5"/>
+          <path d="M19.8 11.9c-2.4 0-4.2 1.5-4.2 3.5v.8H24v-.8c0-2-1.8-3.5-4.2-3.5Z"/>
+        </g>
+        <circle cx="12" cy="7.4" r="3.6" fill="currentColor"/>
+        <path fill="currentColor" d="M12 12.6c-3.6 0-6.4 2.2-6.4 5.1v1.1h12.8v-1.1c0-2.9-2.8-5.1-6.4-5.1Z"/>
+      </svg>
+      <span class="c-heart-n" id="friendNum">0</span>
+      <!-- 按下去短暫浮出的「+1」，以及長按時的「你 19 · 大家 47」 -->
+      <span class="c-heart-pop" id="friendPop" hidden></span>
+    </button>
+    <div class="c-heart-field" id="friendField" aria-hidden="true"></div>
+
+    <!-- 閒置倒數：歸零就上鎖 -->
+    <div class="c-count" id="idleCount" aria-label="閒置倒數">15</div>
+
+    <!-- 設定面板：搖晃保護、未讀提示、深淺色、閒置秒數都收在這裡。
+         上方列本來擠了 6 顆按鈕，狀態文字在窄螢幕會被切掉。 -->
+    <!-- 記事本：只有私人房才有。點開要先過九宮格（跟載入舊訊息同一組密碼）。 -->
+    <button class="c-icon" id="btnNotes" aria-label="記事本" title="記事本" hidden>
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"
+              d="M7 3.6h10a1.6 1.6 0 0 1 1.6 1.6v13.6a1.6 1.6 0 0 1-1.6 1.6H7A1.6 1.6 0 0 1 5.4 18.8V5.2A1.6 1.6 0 0 1 7 3.6Z"/>
+        <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+              d="M8.7 8.4h6.6M8.7 12h6.6M8.7 15.6h4"/>
+        <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+              d="M5.4 7.2H3.2M5.4 12H3.2M5.4 16.8H3.2"/>
+      </svg>
+    </button>
+
+    <button class="c-icon" id="btnSettings" aria-label="設定" title="設定">
+      <svg viewBox="0 0 24 24" width="21" height="21">
+        <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"
+              d="M19.4 13.6a7.6 7.6 0 0 0 0-3.2l1.8-1.3-1.8-3.1-2.1.8a7.6 7.6 0 0 0-2.8-1.6L14.2 2h-3.6l-.3 2.2a7.6 7.6 0 0 0-2.8 1.6l-2.1-.8-1.8 3.1 1.8 1.3a7.6 7.6 0 0 0 0 3.2l-1.8 1.3 1.8 3.1 2.1-.8a7.6 7.6 0 0 0 2.8 1.6l.3 2.2h3.6l.3-2.2a7.6 7.6 0 0 0 2.8-1.6l2.1.8 1.8-3.1-1.8-1.3Z"/>
+      </svg>
+    </button>
+
+    <button class="c-icon c-danger" id="btnWipe" aria-label="清除對話" title="長按 2 秒清除雙方對話">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z"/></svg>
+      <span class="c-hold" id="wipeHold"></span>
+    </button>
+  </header>
+
+  <!-- 斷線橫幅。Firebase 離線時 push() 會先寫進本機快取，訊息看起來已經送出，
+       其實還沒到伺服器 —— 不明講的話關掉分頁就永久消失了。 -->
+  <div class="c-offline" id="offlineBar" hidden>連線中斷，訊息會在恢復後自動送出</div>
+
+  <!-- 多人房常駐提示：講明「只保留最近 48 小時」，不要讓人以為訊息會一直在 -->
+  <div class="c-openbar" id="openBar" hidden>多人聊天室 · 訊息只保留最近 <b id="openBarH">48</b> 小時</div>
+
+  <!-- 隱身常駐提示（v56）。使用者選的是「一直看得到的小標記」。
+       ⚠️⚠️ 它原本放在 .c-bar 的 .c-title 裡（在線文字旁邊），量出來不行：
+          `.c-title` 是 flex: 1 1 auto，跟一排固定寬度的按鈕擠同一列 ——
+          帶字的標記要 47px，塞進去之後「正在輸入…」那句從 62px 掉到 8px，
+          **320 到 414 每一個寬度都一樣**，等於把使用者選的另一項
+          （「照常看得到對方的狀態」）換掉了。
+       ⚠️ 所以改成跟 .c-openbar 同一套的整行細帶：不跟任何東西搶橫向空間、
+          永遠不會被截斷、而且寫得下完整的一句話 ——
+          「隔幾天再進來忘記自己還開著」本來就是這個標記要防的事，
+          一個 21px 的圖示防不住。
+       ⚠️ 代價是多吃約 24px 的垂直空間，但只在隱身時。 -->
+  <div class="c-stealthbar" id="stealthBar" hidden>
+    <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M12 6c3.8 0 7 2.5 8.4 6-.5 1.2-1.2 2.3-2.1 3.1l-1.4-1.4c.6-.5 1.1-1.1 1.4-1.7C17.1 9.6 14.7 8 12 8c-.6 0-1.2.1-1.7.2L8.8 6.7C9.8 6.2 10.9 6 12 6ZM3.3 4.3 5.6 6.6C4 7.7 2.7 9.2 2 11c1.7 4.2 5.5 7 10 7 1.6 0 3.1-.4 4.4-1l2.3 2.3 1.4-1.4L4.7 2.9 3.3 4.3ZM7 8l1.5 1.5c-.3.5-.5 1-.5 1.5 0 1.7 1.3 3 3 3 .5 0 1-.2 1.5-.5L14 15c-.7.3-1.3.5-2 .5-2.5 0-4.5-2-4.5-4.5 0-.7.2-1.3.5-2Z"/></svg>
+    <span>隱身進房 · 不留在線、已讀、已送達、正在輸入</span>
+  </div>
+
+  <!-- 置頂公告（v45）。一間房只有一則，新的蓋掉舊的，內容跟訊息一樣是加密的。
+       ⚠️ 收合時最多兩行，點一下展開全文並露出「下架公告／收起」。
+       ⚠️ 那圈流動光芒是 .c-ann::before 的 conic 漸層在轉，只從 1px 的縫隙露出來。 -->
+  <div class="c-annslot" id="annSlot" hidden>
+    <div class="c-ann" id="annBox" role="button" tabindex="0" aria-expanded="false">
+      <div class="c-ann-in">
+        <!-- ⚠️ 下架鈕、圖釘、文字「一定要在同一個元素裡」，而且中間不可以有空白字元。
+             它們是行內元素、跟著文字一起排版 —— 這樣第二行才會從最左邊（下架鈕的位置）
+             開始，而不是在圖釘底下留一塊空白。分成左右兩欄的話那塊空白拿不掉。 -->
+        <div class="c-ann-text" id="annLine"><button type="button" class="c-ann-drop" id="annDrop">下架</button><span class="c-ann-pin" aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none"><path d="M9 3.2h6M10.1 3.2v5.9c0 1-.55 1.9-1.45 2.35L7 12.3v1.9h10v-1.9l-1.65-.85c-.9-.45-1.45-1.35-1.45-2.35V3.2" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 14.2v6.6" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/></svg></span><span id="annText"></span></div>
+        <span class="c-ann-chev" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+            <path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 植物：成長計量條（v55）══
+       ⚠️ 位置很講究：它在**標題列底下**，跟思念膠囊（在 .c-bar 裡）不同層，不會重疊。
+          真正會跟它排隊的是 #offlineBar、#openBar、#annSlot ——
+          320×568 上這四條全開會吃掉 213px，訊息區只剩 355px。
+          所以這一條做得很矮（26px），而且公告展開時會收成一條細線（見 .c-plantbar.slim）。
+       ⚠️ 它是 <button>，所以點它**不會**被算進「連點兩下＝緊急退出」（排除清單裡有 button）。
+          全畫面只有這一顆跟植物有關的可點元素，植物本身是 pointer-events:none 的背景。 -->
+  <button type="button" class="c-plantbar" id="plantBar" hidden aria-label="照顧植物">
+    <span class="c-pb-ic" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M5 19c0-7 5-12 14-12 0 8-5 12-14 12Zm0 0c2-4 5-6 9-7"
+        stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span class="c-pb-lv" id="plantLv">第 1 階 · 種子</span>
+    <span class="c-pb-track"><span class="c-pb-fill" id="plantFill"></span></span>
+    <!-- ⚠️ v58：成長（＝經驗值）以前**畫面上完全沒有寫出來過**，只有中間那條槓。
+         第 3 階之後一次照顧只讓槓走 1.6px、滿級之後 0px，
+         而右邊唯一會跳的數字是「果實」（思念 ÷ 25，跟照顧無關）——
+         於是「澆水好像沒加分」是完全合理的結論。使用者選的是寫法 B：兩個都標字。
+         ⚠️ 標籤與數字**分開兩個 span**：paint() 每分鐘跑一次，
+            只改數字那一格，不要每次重建 innerHTML。 -->
+    <span class="c-pb-grow" id="plantGrow"><span class="t">成長</span><span id="plantGrowN">0</span></span>
+    <span class="c-pb-fruit" id="plantFruit" hidden><span class="t">果實</span><span id="plantFruitN">0</span></span>
+  </button>
+
+  <div class="c-scroll" id="scroller">
+    <!-- 往上翻的狀態列：捲到頂會自動載入，這裡同時提供一個一定按得到的按鈕，
+         免得自動載入沒觸發時，畫面看起來就像「舊訊息不見了」 -->
+    <div class="c-loadmore" id="loadMore" hidden>
+      <span class="c-spin" id="loadSpin" hidden></span>
+      <button type="button" class="c-loadbtn" id="btnLoadOlder" hidden>載入更早的訊息</button>
+      <button type="button" class="c-loadend" id="loadEnd" hidden>已經是最早的訊息了 · 再檢查一次</button>
+    </div>
+    <div class="c-top" id="topSentinel"></div>
+    <!-- 未讀超過這次載入的範圍時的提醒，避免以為「就這些」 -->
+    <div class="c-manyunread" id="manyUnread" hidden>還有更早的未讀訊息沒載進來</div>
+    <!-- 「你不在的時候，對方想念了你 N 次」。只在進房那一次出現，不寫進對話。 -->
+    <div class="c-missed" id="heartMissed" hidden></div>
+    <div class="c-list" id="msgList"></div>
+    <div id="bottomAnchor"></div>
+    <div class="c-empty" id="emptyState" hidden>還沒有訊息</div>
+  </div>
+
+  <!-- 互動後的回饋（使用者指定：訊息區上方、接近公告下方）。
+       ⚠️⚠️ **一定要掛在 #chat 底下，不可以放進 .c-scroll 裡。**
+          `.c-scroll > *:not(.c-plantbg) { position: relative }` 那條的權重比
+          `.c-plantsay` 高，會把它從 absolute 打回 relative ——
+          結果它變成一般內容：**把訊息往下推，而且跟著捲走**。
+          （第一版就是這樣，而且「位置」那條測試照樣綠，因為它剛好是第一個子元素。） -->
+  <div class="c-plantsay" id="plantSay" hidden aria-live="polite"></div>
+
+  <!-- ══ 植物：扇形選單（v55）══
+       ⚠️ 那層黑幕要**吞掉點擊**。少了它，點歪會落到訊息區 ——
+          而那正好會被算進「連點兩下＝緊急退出」，使用者會莫名其妙被彈回偽裝首頁。 -->
+  <!-- ⚠️ v57：每一顆免費鈕下面多一顆粉色的「消耗思念」鈕。
+       它們是**兄弟**不是父子 —— button 不能包 button，而兩顆都要能各自按。
+       ⚠️⚠️ v57.1：兩顆一起包進 .c-pf-slot，由**這一層**負責定位（--x/--y）。
+          v57 是兩顆各自 absolute、粉色那顆寫死往下推 84px ——
+          但免費鈕的高度是**會變的**（冷卻時多一行「還要 N 分」，+11.4px），
+          所以一進入冷卻，那行字就壓在粉色藥丸上（實測 390 寬重疊 3.4px、
+          矮螢幕 5.4px，四種寬度全中）。改成同一欄裡由上往下排，
+          兩顆之間永遠隔著 gap，文字再長也撞不到。
+       ⚠️ 粉色那顆**不寫剩餘時間**（使用者選的畫法 A）：藥丸自己由左往右填滿，
+          滿了才按得下去。免費那顆維持原樣寫「還要 N 分」。 -->
+  <div class="c-plantfan" id="plantFan" hidden>
+    <div class="c-pf-scrim" id="plantFanScrim"></div>
+    <div class="c-pf-items">
+     <div class="c-pf-slot" style="--x:19%;--y:0px">
+      <button type="button" class="c-pf-item" data-act="w">
+        <span class="c-pf-ic"><svg viewBox="0 0 24 24" width="24" height="24" fill="none"><path
+          d="M12 3s5.5 6.4 5.5 10A5.5 5.5 0 0 1 6.5 13C6.5 9.4 12 3 12 3Z"
+          stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="c-pf-lb">澆水</span><span class="c-pf-cd"></span>
+      </button>
+      <button type="button" class="c-pf-pay" data-act="w" disabled>
+        <span class="c-pf-juice" aria-hidden="true"></span>
+        <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M12 20.7 4.9 13.9C2.6 11.7 2.7 8 5.1 6a4.6 4.6 0 0 1 6.2.3l.7.7.7-.7a4.6 4.6 0 0 1 6.2-.3c2.4 2 2.5 5.7.2 7.9L12 20.7Z"/></svg><span class="c-pf-cost">300</span>
+      </button>
+     </div>
+     <div class="c-pf-slot" style="--x:50%;--y:-26px">
+      <button type="button" class="c-pf-item" data-act="s">
+        <span class="c-pf-ic"><svg viewBox="0 0 24 24" width="24" height="24" fill="none"><path
+          d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10ZM12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.5 4.5l2 2M17.5 17.5l2 2M19.5 4.5l-2 2M6.5 17.5l-2 2"
+          stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="c-pf-lb">曬太陽</span><span class="c-pf-cd"></span>
+      </button>
+      <button type="button" class="c-pf-pay" data-act="s" disabled>
+        <span class="c-pf-juice" aria-hidden="true"></span>
+        <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M12 20.7 4.9 13.9C2.6 11.7 2.7 8 5.1 6a4.6 4.6 0 0 1 6.2.3l.7.7.7-.7a4.6 4.6 0 0 1 6.2-.3c2.4 2 2.5 5.7.2 7.9L12 20.7Z"/></svg><span class="c-pf-cost">500</span>
+      </button>
+     </div>
+     <div class="c-pf-slot" style="--x:81%;--y:0px">
+      <button type="button" class="c-pf-item" data-act="t">
+        <span class="c-pf-ic"><svg viewBox="0 0 24 24" width="24" height="24" fill="none"><path
+          d="M4 20h16M7 20V9M12 20V7M17 20v-4M7 9 4.5 6.5M7 9l2.5-2.5M12 7 9.5 4.5M12 7l2.5-2.5"
+          stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="c-pf-lb">鬆土</span><span class="c-pf-cd"></span>
+      </button>
+      <button type="button" class="c-pf-pay" data-act="t" disabled>
+        <span class="c-pf-juice" aria-hidden="true"></span>
+        <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M12 20.7 4.9 13.9C2.6 11.7 2.7 8 5.1 6a4.6 4.6 0 0 1 6.2.3l.7.7.7-.7a4.6 4.6 0 0 1 6.2-.3c2.4 2 2.5 5.7.2 7.9L12 20.7Z"/></svg><span class="c-pf-cost">700</span>
+      </button>
+     </div>
+    </div>
+  </div>
+
+  <!-- 往上翻舊訊息時的「回到最新」浮動鈕 -->
+  <button type="button" class="c-jump" id="btnJump" hidden aria-label="回到最新訊息">
+    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 16.5 5.5 10l1.4-1.4L12 13.7l5.1-5.1L18.5 10 12 16.5Z"/></svg>
+  </button>
+
+  <!-- 單則訊息的長按選單。中文字，離開房間時一定要收掉。 -->
+  <div class="c-msgmenu" id="msgMenu" hidden>
+    <button type="button" class="c-mm-item" id="mmReply">回覆</button>
+    <button type="button" class="c-mm-item" id="mmCopy">複製</button>
+    <button type="button" class="c-mm-item" id="mmSave">收藏</button>
+    <!-- ⚠️ 只有文字訊息會出現。跑不動圖，讓人按下去才發現沒反應更糟。 -->
+    <button type="button" class="c-mm-item c-mm-ann" id="mmNotice">設為公告</button>
+    <button type="button" class="c-mm-item c-mm-danger" id="mmDelete">刪除</button>
+  </div>
+
+  <!-- 表情選擇器：點氣泡右下角那顆小圓鈕才展開。
+       ⚠️ 刻意不做「連點兩下送愛心」—— 連點兩下已經是緊急退出的手勢（panicTaps: 2），會打架。 -->
+  <div class="c-rxpick" id="rxPicker" hidden></div>
+
+
+  <!-- 設定面板：全部存在這台裝置，不上雲端、跟房間無關（未讀提示除外，那是每間房各自的） -->
+  <div class="c-settings" id="settingsPanel" hidden>
+    <div class="c-stickers-head">
+      <span>設定</span>
+      <button class="c-mini" id="btnCloseSettings">收合</button>
+    </div>
+
+    <div class="c-set-list">
+      <label class="c-set-row">
+        <span class="c-set-label">首頁解鎖回報位置<small>向管理員回報，可隨時關閉</small></span>
+        <span class="c-sw"><input type="checkbox" id="setAutoLocation"><span class="c-sw-t"></span></span>
+      </label>
+      <label class="c-set-row">
+        <!-- 圖示顯示「目前是什麼」：深色→月亮，淺色→太陽 -->
+        <span class="c-set-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path class="th-moon" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"
+                  d="M20.5 13.2A8.6 8.6 0 1 1 11 3.5A7 7 0 0 0 20.5 13.2Z"/>
+            <circle class="th-sun" cx="12" cy="12" r="4.1" fill="none" stroke="currentColor" stroke-width="1.7"/>
+            <g class="th-sun" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+              <line x1="12" y1="2.6" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="21.4"/>
+              <line x1="2.6" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="21.4" y2="12"/>
+              <line x1="5.4" y1="5.4" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="18.6" y2="18.6"/>
+              <line x1="5.4" y1="18.6" x2="6.8" y2="17.2"/><line x1="17.2" y1="6.8" x2="18.6" y2="5.4"/>
+            </g>
+          </svg>
+        </span>
+        <span class="c-set-label">深色模式<small>只影響聊天室，偽裝首頁永遠是白的</small></span>
+        <span class="c-sw"><input type="checkbox" id="setTheme"><span class="c-sw-t"></span></span>
+      </label>
+
+      <label class="c-set-row">
+        <span class="c-set-label">搖晃與翻面保護<small>連甩幾下、或翻面朝下就退回偽裝首頁</small></span>
+        <span class="c-sw"><input type="checkbox" id="setShake"><span class="c-sw-t"></span></span>
+      </label>
+
+      <label class="c-set-row">
+        <span class="c-set-label">讓對方看到我正在輸入<small>即時廣播你當下的動作，比已讀更敏感</small></span>
+        <span class="c-sw"><input type="checkbox" id="setTyping"><span class="c-sw-t"></span></span>
+      </label>
+
+      <label class="c-set-row" id="setWatchRow">
+        <span class="c-set-label">這間房的未讀提示<small>回首頁點鈴鐺就看得到有沒有新訊息（緊急退出不會關掉它）</small></span>
+        <span class="c-sw"><input type="checkbox" id="setWatch"><span class="c-sw-t"></span></span>
+      </label>
+
+      <!-- 新訊息推播。預設關；按下去先跳說明，不直接叫系統的權限視窗
+           （系統只問得到一次，問壞了就永久按不動）。 -->
+      <div class="c-set-row" id="setPushRow" hidden>
+        <span class="c-set-label">這間房的新訊息推播
+          <small id="setPushSub">關閉中</small>
+        </span>
+        <button type="button" class="c-set-btn" id="btnPushHelp">說明</button>
+        <span class="c-sw"><input type="checkbox" id="setPush"><span class="c-sw-t"></span></span>
+      </div>
+
+      <!-- 對方上線通知（v25）。跟新訊息推播共用同一筆訂閱，
+           所以推播沒開的時候這一列按不動 —— 沒有訂閱就沒有東西可以送。
+           ⚠️ 只有私人房有：多人房沒有「對方」可言。 -->
+      <div class="c-set-row" id="setOnlineRow" hidden>
+        <span class="c-set-label">對方上線時通知我
+          <small id="setOnlineSub">關閉中</small>
+        </span>
+        <span class="c-sw"><input type="checkbox" id="setOnline"><span class="c-sw-t"></span></span>
+      </div>
+
+      <!-- 多人房專用：這台裝置記住的身分。按「登出」之後下次進來要重打個人密碼 -->
+      <div class="c-set-row" id="setNickRow" hidden>
+        <span class="c-set-label">我在這間房的身分<small id="setNickSub">—</small></span>
+        <button type="button" class="c-set-btn" id="btnForgetNick">登出</button>
+      </div>
+
+      <!-- v60：相簿。⚠️ 放在「照片暫存」旁邊 —— 兩個都是在講照片，
+           而且使用者清完暫存最可能的下一個念頭就是「那我之前傳的圖呢」。 -->
+      <div class="c-set-row" id="setAlbumRow">
+        <span class="c-set-label">相簿<small id="setAlbumSub">這間房傳過的照片，從新到舊</small></span>
+        <button type="button" class="c-set-btn" id="btnAlbum">打開</button>
+      </div>
+
+      <div class="c-set-row" id="setCacheRow">
+        <span class="c-set-label">照片暫存<small id="setCacheInfo">看過的原圖留在這台裝置，再看就不用重抓</small></span>
+        <button type="button" class="c-set-btn" id="btnClearCache">清除</button>
+      </div>
+
+      <div class="c-set-row c-set-col">
+        <span class="c-set-label">氣泡顏色<small>只改你自己看到的樣子，對方那邊不受影響</small></span>
+        <div class="c-accent" id="setAccent" role="group" aria-label="氣泡顏色"></div>
+      </div>
+
+      <div class="c-set-row c-set-col">
+        <span class="c-set-label">閒置多久上鎖<small>沒有滑動、打字、點擊就開始倒數</small></span>
+        <div class="c-seg" id="setIdle" role="group" aria-label="閒置秒數">
+          <button type="button" data-v="10">10 秒</button>
+          <button type="button" data-v="15">15 秒</button>
+          <button type="button" data-v="30">30 秒</button>
+          <button type="button" data-v="60">1 分</button>
+          <button type="button" data-v="180">3 分</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="c-stickers-tip">這些設定只存在這台裝置，換手機要重設一次</p>
+  </div>
+
+  <!-- 相簿面板（v60）
+       ⚠️ 縮圖是**內嵌在訊息裡**的（body.d 是 data URL），所以相簿不用另外抓圖，
+          但也因此不可以一次把整間房掃完 —— 那在手機上是幾十 MB 的事。
+          一次翻一頁，不夠再按「載入更多」。 -->
+  <div class="c-album" id="albumPanel" hidden>
+    <div class="c-stickers-head">
+      <span>相簿<small class="c-alb-n" id="albumCount"></small></span>
+      <button class="c-mini" id="btnCloseAlbum">收合</button>
+    </div>
+    <div class="c-album-grid" id="albumGrid"></div>
+    <div class="c-album-foot">
+      <span class="c-album-tip" id="albumTip"></span>
+      <button type="button" class="c-mini" id="btnAlbumMore" hidden>載入更多</button>
+    </div>
+  </div>
+
+  <!-- 貼圖面板 -->
+  <div class="c-stickers" id="stickerPanel" hidden>
+    <!-- ⚠️ 分頁列是「取代」原本的「我的貼圖」標題列（v48），不是加在它上面。
+         面板只有 min(46dvh, 320px) 高，多疊一列會吃掉快一整排格子。
+         ⚠️ 分頁寫死在這裡、不是從 assets.js 產生的：內建圖庫載不進來的時候，
+            分頁還是要在（只是裡面顯示一句話）。分頁忽然消失比空白難懂得多。 -->
+    <div class="c-stk-tabs" id="stkTabs" role="tablist">
+      <button type="button" class="c-stk-tab" data-k="mine" role="tab" aria-selected="true">其他</button>
+      <button type="button" class="c-stk-tab" data-k="joy"  role="tab" aria-selected="false">喜</button>
+      <button type="button" class="c-stk-tab" data-k="mad"  role="tab" aria-selected="false">怒</button>
+      <button type="button" class="c-stk-tab" data-k="sad"  role="tab" aria-selected="false">哀</button>
+      <button type="button" class="c-stk-tab" data-k="fun"  role="tab" aria-selected="false">樂</button>
+      <span class="c-stk-sp"></span>
+      <!-- ⚠️「＋ 新增」只在「其他」那一頁出現。內建那四頁加不了東西，
+           留著一顆按了沒反應的鈕，比「這裡沒有這顆鈕」難懂得多（同 v46 公告那條坑）。 -->
+      <button class="c-mini" id="btnAddSticker">＋ 新增</button>
+      <button class="c-mini" id="btnCloseStickers">收合</button>
+    </div>
+    <div class="c-sticker-grid" id="stickerGrid"></div>
+    <!-- ⚠️ 這一行的文字會跟著分頁換。停在內建那四頁時顯示的是**授權要求的出處標示**，
+         不可以拿掉（見 授權-Twemoji.txt）。 -->
+    <p class="c-stickers-tip" id="stkTip">貼圖只存在你自己的裝置，長按可刪除</p>
+  </div>
+
+  <!-- 回覆時的引用條 -->
+  <div class="c-replybar" id="replyBar" hidden>
+    <div class="c-replybar-txt">
+      <span class="c-replybar-who" id="replyWho">回覆</span>
+      <span class="c-replybar-snip" id="replySnip"></span>
+    </div>
+    <button type="button" class="c-replybar-x" id="replyCancel" aria-label="取消回覆">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+    </button>
+  </div>
+
+  <!-- ⚠️⚠️ 背景植物。兩件事都不可以動：
+       ① `pointer-events: none` 是**安全設計不是美觀** —— 觸控直接穿過去，
+          所以植物永遠不會被點到。少了它，「戳一下植物」就等於
+          panicTaps:2 / panicTapWindowMs:500 / panicTapRadius:44 那個
+          「同一處 500ms 內點兩下＝緊急退出」的手勢。
+       ② **它一定要在 `.c-scroll` 外面。** 放進捲動區裡的話，絕對定位是貼著
+          **內容**而不是貼著看得到的那一塊 —— 它會跟著訊息一起捲走。
+          實測 320×568、14 則訊息：捲到最底時整株往上飄了 167px 卡在訊息中間，
+          訊息再多一點就整個捲出畫面。使用者原本以為是「太淡看不見」，
+          其實是**它根本不在那裡**。（跟 #plantSay 同一顆坑。）
+       ⚠️ 擺在 .c-input **前面** —— 輸入列是不透明的，排在後面才蓋得住植物底部，
+          而植物的可見範圍就剛好停在輸入列上緣。 -->
+  <!-- 土線（v55.2）。使用者的話：「我要植物是種在文字輸入框上，也就是貼著文字輸入框，
+       輸入框上方本身就是土底，所以要幫我畫一條土色的水平線在對話框上方」。
+       ⚠️ 它是**獨立元素**不是 SVG 的一部分 —— 土要貫穿整個聊天室的寬度，
+          而植物只有 260px 寬。畫在 SVG 裡的話土會跟著植物一起變窄、一起晃。 -->
+  <div class="c-plantsoil" id="plantSoil" aria-hidden="true"></div>
+  <div class="c-plantbg" id="plantBg" aria-hidden="true"></div>
+
+  <div class="c-input" id="sendForm">
+    <!-- 附件：展開後選「圖片」或「影片」，跟貼圖是兩回事。
+         兩種都是原檔加密後放 Cloud Storage、點開才下載、7 天過期。
+         ⚠️ 沒有「檔案」選項是刻意的 —— 7 天就消失，拿來傳文件很容易變成事故。
+         ⚠️ v39 起這一顆在左邊、貼圖在右邊（使用者要求對調）。
+            圖案與功能是一起搬的 —— 只換圖不換位置的話，
+            「＋」按下去會開貼圖面板，圖跟行為對不起來。 -->
+    <button type="button" class="c-photo" id="btnPlus" aria-label="附件" title="附件"
+            aria-haspopup="true" aria-expanded="false">
+      <svg viewBox="0 0 24 24" width="22" height="22">
+        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              d="M12 5.5v13M5.5 12h13"/>
+      </svg>
+    </button>
+    <!-- 這一串屬性是在告訴作業系統與密碼管理器「這裡沒有東西可以填」。
+         少了它們，Android／iOS 會把這個框當成可能的帳密欄位，
+         在鍵盤上方浮出「鑰匙／信用卡／地址」那排自動填入圖示。
+         name 也刻意不給，原生送出時序列化不出任何欄位。 -->
+    <textarea id="msgInput" class="c-text" rows="1" placeholder="輸入訊息" maxlength="4000"
+              autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"
+              enterkeyhint="send" inputmode="text" aria-label="輸入訊息"
+              data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></textarea>
+    <!-- 閱後即焚的開關（v50）。私人房才會出現 —— 多人房由 Burn.paint() 直接藏起來。
+         ⚠️ 亮著的時候送出去的訊息才會燒。這顆鈕就是唯一的提示，
+            所以「亮」一定要明顯（橘色＋外圈呼吸光＋火苗會搖）。 -->
+    <button type="button" class="c-icon" id="btnBurn" aria-label="閱後即焚" aria-pressed="true" hidden>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"
+              d="M2.9 9.4h12.4a1 1 0 0 1 1 1v8.2a1 1 0 0 1-1 1H2.9a1 1 0 0 1-1-1v-8.2a1 1 0 0 1 1-1Z"/>
+        <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
+              d="m2.3 10.1 6.8 4.6 6.8-4.6"/>
+        <path class="bn-fl" fill="currentColor"
+              d="M19 1.6c.2 1.3 1.1 2 1.8 2.9.8 1 1.3 2 1.3 3.2a3.2 3.2 0 0 1-6.4 0c0-1.4.6-2.4 1.4-3.3.1.9.5 1.5 1.1 1.8.4-1.6-.3-3-.2-4.6Z"/>
+      </svg>
+    </button>
+    <button type="button" class="c-icon" id="btnStickers" aria-label="貼圖">
+      <svg viewBox="0 0 24 24" width="22" height="22">
+        <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"
+              d="M13.6 3.2H6.4A3.2 3.2 0 0 0 3.2 6.4v11.2a3.2 3.2 0 0 0 3.2 3.2h4.9l9.5-9.5V6.4a3.2 3.2 0 0 0-3.2-3.2h-4Z"/>
+        <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"
+              d="M11.3 20.8v-4.4a5 5 0 0 1 5-5h4.5"/>
+        <circle cx="8.6" cy="9.4" r="1.15" fill="currentColor"/>
+        <circle cx="14.2" cy="9.4" r="1.15" fill="currentColor"/>
+      </svg>
+    </button>
+    <button type="button" class="c-send" id="btnSend" aria-label="送出" disabled>
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 20.5 21 12 3 3.5 3 10l12 2-12 2v6.5Z"/></svg>
+    </button>
+    <!-- 「＋」展開的附件選單。蓋在輸入列上方，點外面就收。
+         ⚠️ 只有兩項。「檔案」評估過不做 —— 見 btnPlus 那邊的說明。 -->
+    <div class="c-plus" id="plusMenu" hidden>
+      <button type="button" class="c-plus-item" id="plusPhoto">
+        <span class="c-plus-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <rect x="3" y="5" width="18" height="14" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <circle cx="8.4" cy="10" r="1.5" fill="currentColor"/>
+            <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"
+                  d="m4.2 17.2 4.3-4.3 3.2 3.2 3.1-3.1 4.9 4.9"/>
+          </svg>
+        </span>
+        <span class="c-plus-txt">圖片<small>保留比例，縮到 2048px</small></span>
+      </button>
+      <button type="button" class="c-plus-item" id="plusVideo">
+        <span class="c-plus-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <rect x="3" y="6" width="12.5" height="12" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"
+                  d="M15.5 11.2 21 8.2v7.6l-5.5-3z"/>
+          </svg>
+        </span>
+        <!-- ⚠️ 這裡刻意「不寫數字」——上限由 app.js 從 config 讀出來填。
+             在 HTML 裡放第二份數字的話，改了 config 卻忘了改這裡，
+             選單就會對使用者說謊。 -->
+        <span class="c-plus-txt">影片<small id="plusVideoSub">上限讀取中…</small></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 照片上傳進度。刻意做在輸入列上方而不是泡泡上 ——
+       泡泡要等訊息真的送出才會出現（先上傳完才送訊息，對方才不會點到還沒到的檔案）。 -->
+  <div class="c-upbar" id="upBar" hidden>
+    <span class="c-uptext" id="upText">上傳中</span>
+    <span class="c-uptrack"><span class="c-upfill" id="upFill"></span></span>
+  </div>
+
+
+  <input type="file" id="fileInput" accept="image/*" hidden multiple>
+  <!-- 相簿選檔用。⚠️ 這幾個是全站唯二的 <input>，不是文字欄位，沒有自動填入問題 -->
+  <input type="file" id="photoInput" accept="image/*" hidden multiple
+         data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other">
+  <!-- ⚠️ 影片刻意「不加 multiple」—— 一次一支。
+       連傳兩支 50 MB 的檔案，手機記憶體與對方的等待時間都不划算。 -->
+  <input type="file" id="videoInput" accept="video/*" hidden
+         data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other">
+
+  <!-- 失焦遮罩：解除必須重新驗證 -->
+  <!-- 閒置遮罩的解鎖：跟「載入更早的訊息」用同一組九宮格。
+       ⚠️ 這裡刻意連 contenteditable 都不留 —— 整個聊天室現在只剩下訊息輸入框
+          一個可打字的地方，密碼完全不經過輸入法，也不會被任何自動填入碰到。 -->
+  <div class="c-veil" id="veil" hidden>
+    <div class="c-pad-box">
+      <svg class="c-pad-lock" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path fill="currentColor" d="M12 17a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm6-7h-1V7a5 5 0 0 0-10 0v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2ZM9 7a3 3 0 0 1 6 0v3H9V7Z"/>
+      </svg>
+      <div class="c-pad-sub" id="veilSub">輸入密碼解鎖</div>
+      <div class="c-pad-dots" id="veilDots" aria-label="已輸入位數"></div>
+      <div class="c-pad-grid" id="veilGrid">
+        <button type="button" class="c-key" data-k="1">1</button>
+        <button type="button" class="c-key" data-k="2">2</button>
+        <button type="button" class="c-key" data-k="3">3</button>
+        <button type="button" class="c-key" data-k="4">4</button>
+        <button type="button" class="c-key" data-k="5">5</button>
+        <button type="button" class="c-key" data-k="6">6</button>
+        <button type="button" class="c-key" data-k="7">7</button>
+        <button type="button" class="c-key" data-k="8">8</button>
+        <button type="button" class="c-key" data-k="9">9</button>
+        <button type="button" class="c-key c-key-fn" data-k="del" aria-label="刪除">⌫</button>
+        <button type="button" class="c-key" data-k="0">0</button>
+        <button type="button" class="c-key c-key-go" data-k="go" aria-label="解鎖">解鎖</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 歷史訊息鎖 ═══
+       往上翻舊訊息＝把雲端的歷史整份拉下來，所以第一次要再確認一次房間密碼。
+       兩個目的：
+         ① 省流量：不會有人不小心把整份歷史從雲端拖下來
+         ② 拿到你已解鎖手機的人，也只翻得到最近 30 則
+       刻意做成九宮格而不是輸入框：沒有 <input> 就沒有自動填入、
+       不會叫出輸入法、也不會在系統的鍵盤紀錄裡留下痕跡。 -->
+  <!-- ── 記事本 ──
+       ⚠️ 記事跟訊息用同一把房間金鑰加密，也就是說「同一間房的兩個人共用」。
+          房間密碼本來就是兩個人共有的，同一間房裡做不出「只有我看得到」的東西。
+       ⚠️ 記事不會自動過期。訊息會（多人房 48 小時）、照片原圖會（7 天），
+          但記事本的意義就是留著，所以只有手動刪得掉。 -->
+  <div class="c-notes" id="notesPanel" hidden>
+
+    <!-- 清單 -->
+    <header class="nt-head" id="ntListHead">
+      <button type="button" class="c-icon" id="ntBack" aria-label="返回">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2Z"/></svg>
+      </button>
+      <span class="nt-name">記事本<small id="ntCount"></small></span>
+      <button type="button" class="c-icon" id="ntNew" aria-label="新增記事">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z"/></svg>
+      </button>
+    </header>
+    <div class="nt-list" id="ntList"></div>
+
+    <!-- 編輯 -->
+    <header class="nt-head" id="ntEditHead" hidden>
+      <button type="button" class="c-icon" id="ntCloseEdit" aria-label="返回清單">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2Z"/></svg>
+      </button>
+      <span class="nt-name" id="ntTitle">新記事</span>
+      <button type="button" class="c-icon c-danger" id="ntDel" aria-label="刪除這則記事">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z"/></svg>
+      </button>
+    </header>
+    <div class="nt-edit" id="ntEdit" hidden>
+      <!-- ⚠️ 這一層 wrapper 是必要的（v47）：「下面還有」的提示要貼在**文字區**的下緣，
+           不是整個編輯畫面的下緣。少了它，提示會蓋到底下那條「已儲存」上面。 -->
+      <div class="nt-wrap">
+      <textarea id="ntBody" class="nt-body" placeholder="寫點什麼…第一行會變成標題" maxlength="20000"
+                autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"
+                data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></textarea>
+      <!-- 「下面還有」的提示（v47）。只有在真的還有內容看不到時才出現。
+           ⚠️ pointer-events: none —— 它蓋在文字上方，會吃掉點擊的話
+              使用者就點不到那一區的文字（跟 v45 吐司那條坑同一類）。 -->
+      <div class="nt-more" id="ntMore" hidden aria-hidden="true">
+        <span class="nt-more-pill">
+          還有內容
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none">
+            <path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </div>
+      </div>
+      <div class="nt-foot">
+        <span id="ntSaved"></span>
+        <span id="ntDelHint"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 第二道密碼（v54）═══
+       進房之後、看到訊息之前擋在這裡。使用者看完預覽選的是「兩段式」：
+       第一頁只有警語，按了「我是受邀者，繼續」才出現九宮格。
+
+       ⚠️⚠️ 這一關出現的時候**房間金鑰已經在記憶體裡，畫面上是一整片中文**。
+          所以它一定要被 keyGateOpen() 認得 —— 緊急退出、Esc、閒置、連點、
+          晃動翻面、切 App 六道保護都是靠那個函式判斷「現在有沒有敏感畫面開著」。
+          漏掉的話這六道在這一關全部是空包彈（坑 #75 就是這樣被發現的）。
+
+       ⚠️ 警語每一句都要是真的：
+          ‧ 「可能構成」不是「已構成」—— 是否「無故」要看個案，
+             而且看到這一頁的大概率是受邀者本人，不可以直接指控他違法
+          ‧ 只寫「已記錄裝置識別碼與存取時間」—— v53 之後真的有記這兩樣。
+             **沒有記 IP 與位置，所以不可以寫**
+          ‧ 沒有「將移送法辦」—— 刑法 §358～360 是告訴乃論，要自己去告
+       ⚠️ 圖騰是盾牌＋鑰匙孔，**不是國徽也不是警徽**。冒用官方標誌是另一個問題。 -->
+  <div class="c-pad" id="g2Gate" hidden>
+    <div class="c-pad-box" id="g2Box">
+
+      <!-- 第一頁：警語 -->
+      <div id="g2Step1">
+        <div class="g2-seal" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="46" height="46">
+            <circle cx="32" cy="32" r="30" fill="none" stroke="currentColor" stroke-width="1" opacity=".28"/>
+            <circle cx="32" cy="32" r="26.5" fill="none" stroke="currentColor" stroke-width=".7" opacity=".18" stroke-dasharray="1.5 3"/>
+            <path d="M32 12 46 17.5v12.8c0 9.4-5.9 17.9-14 20.7-8.1-2.8-14-11.3-14-20.7V17.5L32 12Z"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <circle cx="32" cy="29" r="4.2" fill="currentColor"/>
+            <path d="M32 32.6v7.2" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="c-pad-title">這是私人空間</div>
+        <p class="g2-lead">本房間僅限受邀者使用。若您並非受邀者，請立即離開。</p>
+
+        <div class="g2-body">
+          <div class="g2-law">
+            <p class="g2-law-h">
+              <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 4v16M7 20h10M6 8h12M12 5.6 6 8m6-2.4L18 8M6 8 3 14.5h6L6 8Zm12 0-3 6.5h6L18 8Z"/>
+              </svg>未經授權進入的法律責任</p>
+            <!-- ⚠️ .c-nb 只包「不可以被切開」的東西：法條全名、條號、刑期、金額。
+                 整段都包的話，片段塞不進當前行會整塊掉下去，右邊空一大片（實測 127px）；
+                 而「三年以下有期徒刑」也要切成兩段，不然上一行會空 94px。
+                 目前最大留白 36px，下限由「第 358 條」決定 —— 法條號切開就不成其為引用。 -->
+            <p>未經同意而輸入他人密碼、或破解本頁的保護措施進入，可能構成<b
+              class="c-nb">《中華民國刑法》</b><b class="c-nb">第 358 條</b>（入侵電腦或其相關設備罪），最高<b
+              class="c-nb">三年以下</b><b class="c-nb">有期徒刑</b>，得併科<b
+              class="c-nb">三十萬元</b><b class="c-nb">以下</b><b class="c-nb">罰金。</b></p>
+            <p>若進一步取得、刪除或變更此處資料並致生損害，可能另構成<b
+              class="c-nb">同法</b><b class="c-nb">第 359 條</b>，最高<b
+              class="c-nb">五年以下</b><b class="c-nb">有期徒刑</b>，得併科<b
+              class="c-nb">六十萬元</b><b class="c-nb">以下</b><b class="c-nb">罰金。</b></p>
+          </div>
+          <p class="g2-log">
+            <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+              <rect x="7" y="2.5" width="10" height="19" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+              <circle cx="12" cy="18" r="1" fill="currentColor"/>
+            </svg>
+            <span>本系統已記錄您的<b>裝置識別碼</b>與<b>存取時間</b>。</span>
+          </p>
+        </div>
+
+        <button type="button" class="g2-go" id="g2Next">我是受邀者，繼續</button>
+        <button type="button" class="c-pad-cancel" id="g2Cancel1">離開</button>
+      </div>
+
+      <!-- 第二頁：九宮格 -->
+      <div id="g2Step2" hidden>
+        <div class="c-pad-title">請輸入閱讀密碼</div>
+        <div class="c-pad-sub" id="g2Sub">僅限受邀者</div>
+        <div class="c-pad-dots" id="g2Dots" aria-label="已輸入位數"></div>
+        <div class="c-pad-grid" id="g2Grid">
+          <button type="button" class="c-key" data-k="1">1</button>
+          <button type="button" class="c-key" data-k="2">2</button>
+          <button type="button" class="c-key" data-k="3">3</button>
+          <button type="button" class="c-key" data-k="4">4</button>
+          <button type="button" class="c-key" data-k="5">5</button>
+          <button type="button" class="c-key" data-k="6">6</button>
+          <button type="button" class="c-key" data-k="7">7</button>
+          <button type="button" class="c-key" data-k="8">8</button>
+          <button type="button" class="c-key" data-k="9">9</button>
+          <button type="button" class="c-key c-key-fn" data-k="del" aria-label="刪除">⌫</button>
+          <button type="button" class="c-key" data-k="0">0</button>
+          <button type="button" class="c-key c-key-go" data-k="go" aria-label="進入">進入</button>
+        </div>
+        <button type="button" class="g2-back" id="g2Back">← 回上一頁看說明</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 一次送出多少次思念／友誼（v52）。長按那顆膠囊 5 秒叫出來。
+       ⚠️ 這裡跟其他九宮格不一樣：**數字是看得見的**。
+          其他幾個顯示圓點是為了不讓旁邊的人看到密碼，這裡沒有秘密要藏，
+          而且這個數字不可逆 —— 送出前一定要看得到自己打了什麼。
+       ⚠️ 「送出後會變成 N」那一行不是裝飾：計數只能往上加，沒有 undo。 -->
+  <div class="c-pad" id="hnGate" hidden>
+    <div class="c-pad-box">
+      <div class="c-pad-title" id="hnTitle">一次送出幾次思念</div>
+      <div class="c-pad-sub">單次最多 999</div>
+      <div class="c-hn-big" id="hnBig">0</div>
+      <div class="c-hn-after" id="hnAfter">&nbsp;</div>
+      <div class="c-hn-warn" id="hnWarn">&nbsp;</div>
+      <div class="c-pad-grid" id="hnGrid">
+        <button type="button" class="c-key" data-k="1">1</button>
+        <button type="button" class="c-key" data-k="2">2</button>
+        <button type="button" class="c-key" data-k="3">3</button>
+        <button type="button" class="c-key" data-k="4">4</button>
+        <button type="button" class="c-key" data-k="5">5</button>
+        <button type="button" class="c-key" data-k="6">6</button>
+        <button type="button" class="c-key" data-k="7">7</button>
+        <button type="button" class="c-key" data-k="8">8</button>
+        <button type="button" class="c-key" data-k="9">9</button>
+        <button type="button" class="c-key c-key-fn" data-k="del" aria-label="刪除">⌫</button>
+        <button type="button" class="c-key" data-k="0">0</button>
+        <button type="button" class="c-key c-key-go" id="hnGo" data-k="go" aria-label="送出" disabled>送出</button>
+      </div>
+      <button type="button" class="c-pad-cancel" id="hnCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- 記事本的九宮格。跟載入舊訊息同一組密碼，但解鎖狀態分開記，
+       所以開過舊訊息不代表記事本也開了。 -->
+  <div class="c-pad" id="ntGate" hidden>
+    <div class="c-pad-box">
+      <div class="c-pad-title">記事本</div>
+      <div class="c-pad-sub" id="ntSub">輸入房間密碼開啟</div>
+      <div class="c-pad-dots" id="ntDots" aria-label="已輸入位數"></div>
+      <div class="c-pad-grid" id="ntGrid">
+        <button type="button" class="c-key" data-k="1">1</button>
+        <button type="button" class="c-key" data-k="2">2</button>
+        <button type="button" class="c-key" data-k="3">3</button>
+        <button type="button" class="c-key" data-k="4">4</button>
+        <button type="button" class="c-key" data-k="5">5</button>
+        <button type="button" class="c-key" data-k="6">6</button>
+        <button type="button" class="c-key" data-k="7">7</button>
+        <button type="button" class="c-key" data-k="8">8</button>
+        <button type="button" class="c-key" data-k="9">9</button>
+        <button type="button" class="c-key c-key-fn" data-k="del" aria-label="刪除">⌫</button>
+        <button type="button" class="c-key" data-k="0">0</button>
+        <button type="button" class="c-key c-key-go" data-k="go" aria-label="開啟">開啟</button>
+      </div>
+      <button type="button" class="c-pad-cancel" id="ntCancel">取消</button>
+    </div>
+  </div>
+
+  <div class="c-pad" id="padGate" hidden>
+    <div class="c-pad-box">
+      <div class="c-pad-title">載入更早的訊息</div>
+      <div class="c-pad-sub" id="padSub">請輸入這個房間的密碼</div>
+      <div class="c-pad-dots" id="padDots" aria-label="已輸入位數"></div>
+      <div class="c-pad-grid" id="padGrid">
+        <button type="button" class="c-key" data-k="1">1</button>
+        <button type="button" class="c-key" data-k="2">2</button>
+        <button type="button" class="c-key" data-k="3">3</button>
+        <button type="button" class="c-key" data-k="4">4</button>
+        <button type="button" class="c-key" data-k="5">5</button>
+        <button type="button" class="c-key" data-k="6">6</button>
+        <button type="button" class="c-key" data-k="7">7</button>
+        <button type="button" class="c-key" data-k="8">8</button>
+        <button type="button" class="c-key" data-k="9">9</button>
+        <button type="button" class="c-key c-key-fn" data-k="del" aria-label="刪除">⌫</button>
+        <button type="button" class="c-key" data-k="0">0</button>
+        <button type="button" class="c-key c-key-go" data-k="go" aria-label="確認">確認</button>
+      </div>
+      <button type="button" class="c-pad-cancel" id="padCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ 畫面三：管理儀表板 ═══════════════════
+     只有輸入 admin 密碼才會到這裡。
+     ⚠️ 雲端不存任何東西：房間密碼是你當場貼上的，只活在記憶體，關掉分頁就沒了。
+        所以就算有人破解了 admin 密碼，看到的也是一個空的儀表板。 -->
+<div id="admin" class="screen" hidden>
+
+  <dialog id="admHomeDialog" class="home-switch-dialog" aria-labelledby="admHomeTitle">
+    <h2 id="admHomeTitle">修改首頁開關密碼</h2>
+    <p id="admHomeHelp" style="color:inherit"></p>
+    <input id="admHomeSecret" type="password" inputmode="numeric" maxlength="16" autocomplete="off" aria-label="密碼">
+    <input id="admHomeRepeat" type="password" inputmode="numeric" maxlength="16" autocomplete="off" aria-label="再次輸入新密碼" placeholder="再次輸入新密碼" style="margin-top:12px">
+    <p id="admHomeError" role="status"></p>
+    <div class="home-switch-actions"><button type="button" id="admHomeCancel">取消</button><button type="button" id="admHomeSave">確認</button></div>
+  </dialog>
+
+  <header class="c-bar">
+    <button class="c-icon" id="admBack" aria-label="離開" title="離開（Esc）">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2Z"/></svg>
+    </button>
+    <div class="c-title"><span id="admTitle">管理儀表板</span><span class="a-ver" id="admVer"></span></div>
+    <!-- ⚠️ v33 起這一格是「幾秒後自動重查」，不是閒置倒數。
+         儀表板已經沒有閒置自動退出了（使用者的決定：那個畫面只有他會用，
+         而且掃描要花好幾秒，掃到一半被踢掉最惱人）。
+         其他保護 —— Esc、連點、晃動、切 App —— 在這裡照樣有效。 -->
+    <div class="c-count" id="admCount" aria-label="自動更新倒數" title="幾秒後自動重查"></div>
+    <button class="c-icon" id="admRefresh" aria-label="重新整理" title="重新查詢">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35Z"/></svg>
+    </button>
+  </header>
+
+  <div class="a-body">
+
+    <div class="a-step">
+      <div class="a-home-actions">
+        <button type="button" class="a-btn" id="admHomeSwitch" disabled>首頁開關：讀取中</button>
+        <button type="button" class="a-btn" id="admHomePassword">修改首頁開關密碼</button>
+      </div>
+      <p class="a-hint">開：先點「關於」輸入首頁開關密碼，才能使用房號。關：可直接輸入房號。</p>
+    </div>
+
+    <div class="a-step" id="admInputStep">
+      <p class="a-lead">貼上房間密碼，一行一組。<strong>不會存在任何地方</strong>，關掉分頁就消失。</p>
+      <div id="admPws" class="a-ta" contenteditable="true" role="textbox" aria-label="房間密碼清單"
+           spellcheck="false" autocapitalize="off" autocorrect="off" inputmode="text"
+           data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></div>
+      <button type="button" class="a-btn" id="admScan">查詢各房狀態</button>
+      <p class="a-hint" id="admHint"></p>
+    </div>
+
+    <div class="a-result" id="admResult" hidden>
+      <table class="a-table">
+        <thead>
+          <tr><th>房間</th><th class="a-num">訊息</th><th>最後活動</th><th class="a-num">在線</th><th></th></tr>
+        </thead>
+        <tbody id="admRows"></tbody>
+      </table>
+      <p class="a-hint">點「在線」的數字可以展開<b>成員名冊</b> —— 包含從沒發過言的人。暱稱是在這台電腦上解開的，雲端只看得到一串代號加密文。</p>
+      <p class="a-hint">「清空」會刪掉那間房雙方的全部訊息，長按 2 秒才會執行。</p>
+    </div>
+
+    <!-- 第二道密碼的設定盤（v54）。從房間那一列的「第二道」按鈕叫出來。
+       ⚠️ 這裡輸入的是**要設定的新密碼**，不是驗證 —— 所以不重複輸入兩次，
+          而是直接顯示打了幾位並要求至少 4 位。打錯了就再設一次，沒有損失。 -->
+  <!-- ══ 儀表板：植物的數值與歸零（v55）══
+       ⚠️ 歸零要長按 2 秒，跟「清空」同一套防誤觸 —— 它會把整株砍回第 1 階，沒有復原。 -->
+  <div class="c-pad" id="plantAdm" hidden>
+    <div class="c-pad-box">
+      <div class="c-pad-title" id="paTitle">植物</div>
+      <div class="c-pad-sub" id="paSub">這間房的目前數值</div>
+      <div class="pa-body" id="paBody"></div>
+      <div id="paEdit" class="pa-edit" hidden>
+        <label for="paStage">調整成長階段</label>
+        <select id="paStage" aria-label="植物成長階段"></select>
+        <button type="button" class="a-btn" id="paApply">套用階段</button>
+        <p class="pa-k">調整到該階段起點，之後繼續自然成長；照顧紀錄與果實保留。</p>
+      </div>
+      <button type="button" class="a-wipe pa-reset" id="paReset">
+        歸零回第 1 階（長按 2 秒）<span class="a-hold"></span>
+      </button>
+      <button type="button" class="c-pad-cancel" id="paCancel">關閉</button>
+    </div>
+  </div>
+
+  <div class="c-pad" id="g2Set" hidden>
+    <div class="c-pad-box">
+      <div class="c-pad-title" id="g2SetTitle">設定第二道密碼</div>
+      <div class="c-pad-sub" id="g2SetSub">至少 4 位數字</div>
+      <div class="c-pad-dots" id="g2SetDots" aria-label="已輸入位數"></div>
+      <div class="c-pad-grid" id="g2SetGrid">
+        <button type="button" class="c-key" data-k="1">1</button>
+        <button type="button" class="c-key" data-k="2">2</button>
+        <button type="button" class="c-key" data-k="3">3</button>
+        <button type="button" class="c-key" data-k="4">4</button>
+        <button type="button" class="c-key" data-k="5">5</button>
+        <button type="button" class="c-key" data-k="6">6</button>
+        <button type="button" class="c-key" data-k="7">7</button>
+        <button type="button" class="c-key" data-k="8">8</button>
+        <button type="button" class="c-key" data-k="9">9</button>
+        <button type="button" class="c-key c-key-fn" data-k="del" aria-label="刪除">⌫</button>
+        <button type="button" class="c-key" data-k="0">0</button>
+        <button type="button" class="c-key c-key-go" data-k="go" aria-label="設定">設定</button>
+      </div>
+      <button type="button" class="a-btn a-btn-2 g2-off" id="g2SetOff" hidden>關閉這道</button>
+      <button type="button" class="c-pad-cancel" id="g2SetCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- ═══ 位置回報（v41）═══
+         ⚠️ 整區預設 hidden，由 LocAdm.paint() 依 config 的 locationReport 決定要不要顯示。
+         ⚠️ 沒有「貼金鑰」這一步 —— 私鑰放在 config.js（已用 admin 密碼鎖過），
+            進儀表板時用你剛打的密碼自動解開。換裝置不必做任何設定。 -->
+    <div class="a-loc" id="admLoc" hidden>
+      <h3>位置回報</h3>
+      <p class="a-lead">對方按下偽裝首頁那顆大頭針時送出的座標。<span id="locCount"></span></p>
+
+      <p class="a-hint" id="locErr" hidden></p>
+
+      <!-- 有新回報就推播這台裝置（v42）。
+           ⚠️ 通知文字與 tag 都跟聊天分開，寫死在 sw.js 裡。
+           ⚠️ 這個開關「只綁這台裝置」—— 換手機要在那台上再開一次。 -->
+      <div class="c-set-row a-loc-push" id="locPushRow" hidden>
+        <span class="c-set-label">有新位置回報就通知我
+          <small id="locPushSub">關閉中</small>
+        </span>
+        <span class="c-sw"><input type="checkbox" id="locPushSw"><span class="c-sw-t"></span></span>
+      </div>
+
+      <div class="a-loc-list" id="locList" hidden></div>
+      <button type="button" class="a-loc-more" id="locMore" hidden>載入更早的</button>
+
+      <!-- 一鍵清空。長按 2 秒才執行，跟各房的「清空」同一套防誤觸。
+           ⚠️ 清掉就是永遠沒了，雲端與畫面都不留。 -->
+      <div class="a-loc-wipe" id="locWipeRow" hidden>
+        <button type="button" class="a-wipe" id="locWipe">清空全部位置回報<span class="a-hold"></span></button>
+        <span class="a-hint" id="locWipeHint">長按 2 秒才會執行</span>
+      </div>
+    </div>
+
+    <div class="a-tools">
+      <h3>產生新密碼的指紋</h3>
+      <p class="a-lead">一行一組新密碼，輸出整段貼回 <code>config.js</code> 的 <code>passwords</code>。</p>
+      <div id="admGenIn" class="a-ta a-ta-sm" contenteditable="true" role="textbox" aria-label="新密碼"
+           spellcheck="false" autocapitalize="off" autocorrect="off"
+           data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></div>
+      <button type="button" class="a-btn a-btn-2" id="admGen">產生指紋</button>
+      <pre class="a-out" id="admGenOut" hidden></pre>
+      <button type="button" class="a-btn a-btn-2" id="admCopy" hidden>複製整段</button>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- 多人房的暱稱設定：進房前擋在最上層。
+     ⚠️ 暱稱用 contenteditable，不用 <input> —— 跟搜尋框同一個理由：
+        沒有輸入框就沒有密碼管理員的自動填入、也不會被瀏覽器記進表單歷史。 -->
+<div id="nickGate" class="n-gate" hidden>
+  <div class="n-box">
+    <div class="n-title">多人聊天室</div>
+    <div class="n-sub">這組個人密碼還沒有人用過。<br>取一個別人看得到的暱稱，選一個顏色。</div>
+    <div class="n-field">
+      <div id="nickInput" class="n-input" contenteditable="true" role="textbox"
+           aria-label="暱稱" spellcheck="false" autocorrect="off" autocapitalize="off"
+           data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></div>
+      <span class="n-count" id="nickCount">0/12</span>
+    </div>
+    <div class="n-colors" id="nickColors" role="radiogroup" aria-label="暱稱顏色"></div>
+    <div class="n-note">暱稱包在加密內容裡，雲端看不到誰是誰。這台裝置會記住你的身分；換裝置時打一樣的個人密碼就會接回來。</div>
+    <div class="n-actions">
+      <button type="button" class="n-btn" id="nickCancel">取消</button>
+      <button type="button" class="n-btn n-go" id="nickGo" disabled>進入聊天室</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 多人房的個人密碼登入（v27）──
+     房間密碼決定「進不進得來」，個人密碼決定「你是誰」。
+     ⚠️ 警語不可以拿掉：這道推導是快的，同房的人試得出來。
+        使用者知道並接受（自用小眾工具），但畫面上一定要講。 -->
+<div class="c-pad" id="memGate" hidden>
+  <div class="c-pad-box">
+    <div class="c-pad-title">輸入身分辨識密碼</div>
+    <!-- ⚠️ 每個語意片段包成一個 .c-nb（inline-block）：
+             片段內部不會斷、片段之間才會斷。中文沒有空格，不包的話
+             瀏覽器會在任兩個字之間換行，出現「換手機也還／是同一個人」這種切法。
+         ⚠️ 不要改用寫死的 <br> —— 寬螢幕會留一堆空白，窄螢幕照樣爆。 -->
+    <!-- ⚠️ 這裡的字 app.js 進場時會用 SUB0 整段重畫（say() 走 textContent，
+             HTML 寫死的 span 會被洗掉）。留在這裡是「JS 還沒跑」時的樣子，
+             所以兩邊的字要一致，不然改了一邊會看到舊句子閃一下。 -->
+    <div class="c-pad-sub" id="memSub"><span class="c-nb">請輸入您的身分辨識密碼 4 碼後</span><span class="c-nb">即可進入聊天室，</span><span class="c-nb">若您為第一次登入</span><span class="c-nb">請先設置身分專屬密碼。</span></div>
+    <div class="c-pad-dots" id="memDots" aria-label="已輸入位數"></div>
+    <div class="c-pad-grid" id="memGrid">
+      <button type="button" class="c-key" data-k="1">1</button>
+      <button type="button" class="c-key" data-k="2">2</button>
+      <button type="button" class="c-key" data-k="3">3</button>
+      <button type="button" class="c-key" data-k="4">4</button>
+      <button type="button" class="c-key" data-k="5">5</button>
+      <button type="button" class="c-key" data-k="6">6</button>
+      <button type="button" class="c-key" data-k="7">7</button>
+      <button type="button" class="c-key" data-k="8">8</button>
+      <button type="button" class="c-key" data-k="9">9</button>
+      <button type="button" class="c-key c-key-fn" data-k="del" aria-label="刪除">⌫</button>
+      <button type="button" class="c-key" data-k="0">0</button>
+      <button type="button" class="c-key c-key-go" data-k="go" aria-label="進入">進入</button>
+    </div>
+    <!-- ⚠️ 警語要「一句接著說」，不能看起來像分成兩段。
+             片段切太大（例如整句只切兩塊）的話，第二塊塞不進第一行就整塊掉下去，
+             第一行右邊會空掉一大片 —— 讀起來就變成兩則獨立的提醒。
+             所以切成小片段：填得滿，而且斷點一定落在詞與詞之間。
+             量過（320／360／375／390／414）：非末行右邊最多只留 20px，
+             而且沒有任何一個片段自己被切成兩行。 -->
+    <p class="c-pad-warn"><span class="c-nb">⚠️ 第一次</span><span class="c-nb">設置密碼</span><span class="c-nb"><b>別跟房間密碼相同</b>，</span><b><span class="c-nb">忘記就</span><span class="c-nb">回不去</span><span class="c-nb">這個身分。</span></b></p>
+    <button type="button" class="c-pad-cancel" id="memCancel">取消，回首頁</button>
+  </div>
+</div>
+
+<!-- ── 推播：開啟前的說明 ──
+     ⚠️ 一定要先講清楚會發生什麼再叫系統視窗。
+        使用者按了「不允許」之後，瀏覽器會永久記住，App 再也問不到第二次。 -->
+<div id="pushAsk" class="n-gate" hidden>
+  <div class="n-box">
+    <div class="n-title">開啟之前先看一下</div>
+    <div class="n-sub">
+      開了之後，這台裝置在<b>沒有開著聊天室的時候</b>收到新訊息，鎖定畫面會跳出一則通知，長這樣：
+      <br>（<b>最多每 3 分鐘通知你一次</b>，中間的訊息不會另外再跳 —— 一則都不會少，打開就看得到。）
+    </div>
+
+    <div class="p-sample">
+      <div class="p-sample-cap">鎖定畫面上會出現</div>
+      <div class="p-notif">
+        <img src="icon-192.png" alt="" width="34" height="34">
+        <div>
+          <div class="p-notif-top"><b>Google</b><span>現在</span></div>
+          <div class="p-notif-body">有 1 項新動態</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="n-note">
+      <b>訊息內容不會出現在通知裡</b> —— 伺服器解不開你們的密文，只知道「有東西進來了」。<br>
+      隨時可以關掉，關掉就立刻停止。<br>
+      ⚠️ 接下來系統會問你要不要允許。<b>這個問題只會問一次</b>，按了不允許就要自己進設定改回來。
+    </div>
+
+    <div class="n-actions">
+      <button type="button" class="n-btn" id="pushAskCancel">取消</button>
+      <button type="button" class="n-btn n-go" id="pushAskGo">繼續</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 推播：怎麼開、怎麼關（說明頁）──
+     使用者誤觸「不允許」之後唯一的活路。步驟預設收起來，點標題才展開。 -->
+<div id="pushHelp" class="n-gate" hidden>
+  <div class="n-box p-help">
+    <div class="n-title">推播通知怎麼開、怎麼關</div>
+    <div class="n-sub" id="pushHelpState"></div>
+
+    <div class="p-acc" id="pushAcc">
+
+      <details class="p-item" data-k="ios">
+        <summary>iPhone / iPad：第一次要做的事</summary>
+        <ol>
+          <li>用 <b>Safari</b> 打開這個網站（不能用 Chrome，iOS 只有 Safari 裝得起來）</li>
+          <li>點下方中間的<b>分享</b>鈕（方框加向上箭頭）</li>
+          <li>往下滑，選<b>「加入主畫面」</b> → 右上角「加入」</li>
+          <li><b>從主畫面那個圖示打開</b>（很重要：Safari 分頁裡開的不算）</li>
+          <li>進聊天室 → 設定 → 打開「這間房的新訊息推播」</li>
+          <li>系統問「要不要允許通知」時選<b>允許</b></li>
+        </ol>
+        <p class="p-warn">⚠️ 主畫面版是獨立的環境，貼圖庫、配色、未讀清單都不會跟 Safari 共用。</p>
+      </details>
+
+      <details class="p-item" data-k="iosfix">
+        <summary>iPhone：誤按「不允許」怎麼救</summary>
+        <p>App 沒辦法再問你第二次，要自己去系統設定改：</p>
+        <ol>
+          <li>打開 iPhone 的<b>「設定」</b></li>
+          <li>往下找到<b>「Google」</b>（就是你加到主畫面的那個）</li>
+          <li>點<b>「通知」</b> → 把<b>「允許通知」</b>打開</li>
+          <li>回到聊天室，設定裡那顆開關就按得動了</li>
+        </ol>
+        <p class="p-warn">⚠️ 如果設定裡找不到「Google」，通常是還沒從主畫面版打開過一次。先開一次再回來找。</p>
+      </details>
+
+      <details class="p-item" data-k="android">
+        <summary>Android / 電腦</summary>
+        <ol>
+          <li><b>不需要加到主畫面</b>，一般瀏覽器分頁就收得到</li>
+          <li>進聊天室 → 設定 → 打開開關 → 選「允許」</li>
+        </ol>
+        <p>按到「封鎖」的話：網址列左邊那個鎖頭圖示 → 網站設定 → 通知 → 改成「允許」。</p>
+      </details>
+
+      <details class="p-item" data-k="off">
+        <summary>怎麼關掉</summary>
+        <ol>
+          <li><b>只關這間房</b>：設定裡把開關關掉就好，立刻生效。</li>
+          <li><b>整台裝置都不要</b>：按下面那顆紅色的 <span class="p-pill">停用</span>。</li>
+          <li><b>徹底移除</b>：iPhone 長按主畫面圖示 → 移除 App；電腦到瀏覽器的網站設定把通知改回「詢問」。</li>
+        </ol>
+      </details>
+
+      <details class="p-item" data-k="what">
+        <summary>會看到什麼？會洩漏什麼？</summary>
+        <p>通知永遠是同一句固定文字（Google · 有 1 項新動態），<b>不會有訊息內容</b> ——
+           訊息是端對端加密的，伺服器解不開。</p>
+        <p>代價是：雲端會多一筆「這台裝置的推播位址」，那是明文的，沒辦法加密（伺服器要讀得懂才發得出去）。
+           它只透露「這間房有幾台裝置開了推播」，看不到你們在講什麼。</p>
+        <p class="p-warn">⚠️ 人在聊天室裡的時候不會推播，只有你不在的時候才會通知你。</p>
+      </details>
+
+    </div>
+
+    <div class="n-actions">
+      <button type="button" class="n-btn n-danger" id="pushKill">停用</button>
+      <button type="button" class="n-btn n-go" id="pushHelpClose">知道了</button>
+    </div>
+  </div>
+</div>
+
+<!-- 輕量吐司提示 -->
+<div id="toast" class="toast" hidden></div>
+
+<!-- 圖片放大檢視 -->
+<!-- 圖片放大檢視。照片會先顯示縮圖，原圖抓回來再蓋上去；
+     原圖過期（7 天）時下面那條會說明，畫面上留著縮圖不會變空白。 -->
+<div id="lightbox" class="lightbox" hidden>
+  <img id="lightboxImg" alt="">
+  <!-- 影片播放器。⚠️ playsinline 一定要有，不然 iPhone 會搶進全螢幕原生播放器，
+       跳出來的時候整個燈箱狀態會亂掉。 -->
+  <video id="lightboxVideo" class="lb-video" playsinline controls preload="auto" hidden></video>
+  <span class="lb-spin"></span>
+  <div class="lb-note" id="lightboxNote" hidden></div>
+  <!-- 影片放不出來（多半是 Windows 桌機 Chrome 少了 HEVC 解碼器）時的退路 -->
+  <a id="lightboxSave" class="lb-save" download hidden>儲存影片</a>
+</div>
+
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
