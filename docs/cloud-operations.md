@@ -4,20 +4,21 @@
 
 - 公開原始碼： https://github.com/msw2004727/secret-chat
 - Codex 雲端： https://chatgpt.com/codex/cloud
-- 雲端環境設定： https://chatgpt.com/codex/cloud/settings/environments
+- 已建立的 secret-chat 環境： https://chatgpt.com/codex/cloud/settings/environment/6ab24152122c81918d805e7c58313691
 - 部署紀錄： https://github.com/msw2004727/secret-chat/actions
 - Firebase 專案： `daily-notes-7bb64`
 
 用其他電腦或手機瀏覽器登入有權限的 ChatGPT 帳號，選擇此儲存庫的雲端環境。不要選擇依賴家中電腦的 Remote 任務。一般聊天與本機資料夾不會自動成為雲端專案。
 
-Codex setup script：
+Codex 使用 Node 22。開發環境只需安裝 functions 的測試依賴；Firebase CLI 由 GitHub 部署流程安裝。基本設定命令：
 
 ```sh
-npm ci
-npm ci --prefix functions
+npm ci --prefix functions --prefer-offline --no-audit --no-fund --progress=false
+npm test
+npm run build
 ```
 
-需要 Node 22。Codex 環境不需要正式 Firebase 或 LINE 密鑰。新的任務可閱讀 AGENTS.md 與本文件了解專案約束。
+已儲存的環境另會比對 functions/package.json 與 lockfile 的雜湊；快取依賴未改變時不重複安裝。Codex 環境不需要正式 Firebase 或 LINE 密鑰。新的任務可閱讀 AGENTS.md 與本文件了解專案約束。
 
 ## 部署
 
