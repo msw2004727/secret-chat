@@ -17,7 +17,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.16";
+const APP_VERSION = "v61.17";
 
 /* 表情回應。五個就好 —— 再多會變成選單，失去「一秒回一個」的意義。
    雲端存的是這裡的單字母代號（h/u/l/c/p），不是表情符號本身。
@@ -883,7 +883,7 @@ const QuickEntry = {
   async submit() {
     if (this.busy || !this.buf) return;
     this.busy = true;
-    const raw = this.buf + ($("quickRoomStealth").checked ? STEALTH_MARK : ENTER_MARK);
+    const raw = this.buf + ENTER_MARK;
     this.buf = ""; this.paint("驗證中…");
     try {
       const k = await deriveKeys(peelStealth(raw).pw);
@@ -910,7 +910,6 @@ const QuickEntry = {
       this.taps.push(now);
       if (this.taps.length < 3) return;
       this.taps = []; this.buf = "";
-      $("quickRoomStealth").checked = false;
       this.paint(); dialog.showModal();
     });
     $("quickRoomGrid").addEventListener("click", (e) => {
