@@ -18,3 +18,8 @@ ctx.navigator.userAgent='Windows';ctx.navigator.platform='Win32';await a.hop('te
 console.log('PASS: iPhone App login allowed, cross-tab encrypted recovery with real AES-GCM, wrong-state rejection, expiry, missing session feedback, no mid-login reload, desktop flow unchanged.');
 ctx.HomeSwitch.unlocked=false;const oldEntered=entered;await a.hop('',true);ctx.window.__sq='?code=returned&state='+new URL(assigned).searchParams.get('state');await a.resume();assert.equal(entered,oldEntered);assert.equal(ctx.HomeSwitch.unlocked,false);
 console.log('PASS: standalone LINE login does not enter a room or unlock homepage protection.');
+ctx.HomeSwitch.quickEntry=true;await a.hop('test-room');ctx.HomeSwitch.quickEntry=false;
+ctx.window.__sq='?code=returned&state='+new URL(assigned).searchParams.get('state');
+ctx.tryEnter=async()=>{assert.equal(ctx.HomeSwitch.quickEntry,true);assert.equal(ctx.HomeSwitch.unlocked,false);entered++};
+await a.resume();assert.equal(entered,oldEntered+1);assert.equal(ctx.HomeSwitch.quickEntry,false);assert.equal(ctx.HomeSwitch.unlocked,false);
+console.log('PASS: encrypted quick-entry LINE round trip preserves room flow without unlocking homepage, then clears temporary bypass.');

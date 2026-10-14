@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.15">
+<meta name="sc-shell" content="v61.16">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -107,6 +107,28 @@
       <button type="button" id="homeSwitchCancel">取消</button>
       <button type="button" id="homeSwitchConfirm">確認</button>
     </div>
+  </dialog>
+
+  <dialog id="quickRoomDialog" class="home-switch-dialog" aria-labelledby="quickRoomTitle">
+    <h2 id="quickRoomTitle">快速進入</h2>
+    <p id="quickRoomSub" role="status">請輸入房間密碼</p>
+    <div id="quickRoomDots" class="c-pad-dots" aria-label="已輸入位數"></div>
+    <div id="quickRoomGrid" class="c-pad-grid">
+      <button type="button" class="c-key" data-k="1">1</button>
+      <button type="button" class="c-key" data-k="2">2</button>
+      <button type="button" class="c-key" data-k="3">3</button>
+      <button type="button" class="c-key" data-k="4">4</button>
+      <button type="button" class="c-key" data-k="5">5</button>
+      <button type="button" class="c-key" data-k="6">6</button>
+      <button type="button" class="c-key" data-k="7">7</button>
+      <button type="button" class="c-key" data-k="8">8</button>
+      <button type="button" class="c-key" data-k="9">9</button>
+      <button type="button" class="c-key c-key-fn" data-k="del" aria-label="刪除">⌫</button>
+      <button type="button" class="c-key" data-k="0">0</button>
+      <button type="button" class="c-key c-key-go" data-k="go">進入</button>
+    </div>
+    <label class="location-choice"><input type="checkbox" id="quickRoomStealth">隱身進入</label>
+    <div class="home-switch-actions"><button type="button" id="quickRoomCancel">取消</button></div>
   </dialog>
 
   <dialog id="autoLocationDialog" class="home-switch-dialog" aria-labelledby="autoLocationTitle">

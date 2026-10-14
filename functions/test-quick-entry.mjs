@@ -1,0 +1,18 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const src=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
+const nodes=new Map();
+const $=id=>{if(!nodes.has(id))nodes.set(id,{hidden:false,open:false,checked:false,textContent:'',events:{},addEventListener(k,f){this.events[k]=f},showModal(){this.open=true},close(){this.open=false;this.events.close?.()}});return nodes.get(id)};
+let now=0,entries=0,rawEntry='',activeAtEntry=false,derive;
+const home={unlocked:false,quickEntry:false};
+const ctx=vm.createContext({$,Date:{now:()=>now},HomeSwitch:home,CFG:{passwords:[{fingerprint:'valid'}]},STEALTH_MARK:'.',ENTER_MARK:',',peelStealth:raw=>({pw:raw.slice(0,-1)}),deriveKeys:async pw=>derive?await derive:({fingerprint:pw==='2468'?'valid':'bad'}),tryEnter:async raw=>{entries++;rawEntry=raw;activeAtEntry=home.quickEntry},toast(){}});
+vm.runInContext(src.slice(src.indexOf('const QuickEntry = {'),src.indexOf('\nfunction initGate()'))+';globalThis.quick=QuickEntry;',ctx);
+const q=ctx.quick;q.init();const tap=()=>{$('gLogo').events.click();now+=100};
+tap();tap();assert.equal($('quickRoomDialog').open,false);now+=1000;tap();assert.equal($('quickRoomDialog').open,false);tap();tap();assert.equal($('quickRoomDialog').open,true);
+q.buf='1111';await q.submit();assert.equal(entries,0);assert.equal($('quickRoomDialog').open,true);assert.match($('quickRoomSub').textContent,/不正確/);assert.equal(q.buf,'');
+q.buf='2468';await q.submit();assert.equal(entries,1);assert.equal(rawEntry,'2468,');assert.equal(activeAtEntry,true);assert.equal(home.unlocked,false);assert.equal(home.quickEntry,false);assert.equal($('quickRoomDialog').open,false);
+tap();tap();tap();$('quickRoomStealth').checked=true;q.buf='2468';await q.submit();assert.equal(rawEntry,'2468.');assert.equal(entries,2);
+tap();tap();tap();q.buf='2468';let resolve;derive=new Promise(r=>resolve=r);const pending=q.submit();q.close();resolve({fingerprint:'valid'});await pending;assert.equal(entries,2);assert.equal(home.quickEntry,false);
+assert.equal(src.slice(src.indexOf('const QuickEntry = {'),src.indexOf('\nfunction initGate()')).includes('AutoLocation'),false);
+console.log('PASS: triple tap timing, wrong room password, normal/stealth entry, transient homepage bypass, cancellation while deriving, no location reporting.');

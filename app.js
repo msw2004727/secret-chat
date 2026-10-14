@@ -17,7 +17,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.15";
+const APP_VERSION = "v61.16";
 
 /* 表情回應。五個就好 —— 再多會變成選單，失去「一秒回一個」的意義。
    雲端存的是這裡的單字母代號（h/u/l/c/p），不是表情符號本身。
@@ -581,6 +581,28 @@ const Media = {
 };
 
 
+// 原生相簿也會觸發 visibilitychange；只在使用者主動選檔期間保留房間，
+// 背景畫面仍用密碼遮罩保護。逾時或離房後選到的檔案不再送出。
+const FilePicker = {
+  pending: null,
+  active() {
+    return !!(this.pending && Date.now() - this.pending.at < 120000 &&
+      this.pending.key === S.key && !$("chat").hidden);
+  },
+  open(id) {
+    const input = $(id);
+    if (!input || $("chat").hidden) return;
+    this.pending = { id, key: S.key, at: Date.now() };
+    try { input.click(); } catch (_) { this.pending = null; toast("無法開啟選檔視窗，請重試"); }
+  },
+  take(input) {
+    const valid = this.active() && this.pending.id === input.id;
+    const files = valid ? [...(input.files || [])] : [];
+    this.pending = null; input.value = "";
+    return files;
+  },
+};
+
 /* 把圖片檔解成點陣圖。
    ⚠️ `imageOrientation: "from-image"` 一定要帶 ——
       少了它，iPhone 橫拍的照片會變成躺著的（EXIF 裡的旋轉資訊被忽略）。
@@ -774,6 +796,7 @@ function realSearch(q) {
 // 首頁入口遮掩；實際身分與房間權限仍由 LINE / 資料庫規則驗證。
 const HomeSwitch = {
   unlocked: false,
+  quickEntry: false, // 僅限這次九宮格進房，不代表首頁密碼驗證成功。
   async required() {
     const f = await connect();
     const snap = await withTimeout(f.get(f.ref(f.db, "settings/homeSwitch")), 8000);
@@ -847,9 +870,66 @@ const HomeSwitch = {
   },
 };
 
+const QuickEntry = {
+  buf: "", busy: false, taps: [],
+  paint(message = "請輸入房間密碼") {
+    $("quickRoomDots").textContent = "●".repeat(this.buf.length);
+    $("quickRoomSub").textContent = message;
+  },
+  close() {
+    this.buf = ""; this.taps = []; this.paint();
+    if ($("quickRoomDialog").open) $("quickRoomDialog").close();
+  },
+  async submit() {
+    if (this.busy || !this.buf) return;
+    this.busy = true;
+    const raw = this.buf + ($("quickRoomStealth").checked ? STEALTH_MARK : ENTER_MARK);
+    this.buf = ""; this.paint("驗證中…");
+    try {
+      const k = await deriveKeys(peelStealth(raw).pw);
+      if (!CFG.passwords.some((p) => p.fingerprint === k.fingerprint)) {
+        if ($("quickRoomDialog").open) this.paint("房間密碼不正確，請重新輸入");
+        return;
+      }
+      // 取消後即使推導完成，也不能繼續登入。
+      if (!$("quickRoomDialog").open) return;
+      this.close();
+      HomeSwitch.quickEntry = true;
+      await tryEnter(raw, () => toast("無法進入，請重新輸入房間密碼"));
+    } catch (_) {
+      if ($("quickRoomDialog").open) this.paint("暫時無法驗證，請稍後再試");
+      else toast("暫時無法進入，請稍後再試");
+    } finally { HomeSwitch.quickEntry = false; this.busy = false; }
+  },
+  init() {
+    const dialog = $("quickRoomDialog"), logo = $("gLogo");
+    logo.addEventListener("click", () => {
+      if (this.busy || $("gate").hidden || dialog.open) return;
+      const now = Date.now();
+      this.taps = this.taps.filter((at) => now - at <= 900);
+      this.taps.push(now);
+      if (this.taps.length < 3) return;
+      this.taps = []; this.buf = "";
+      $("quickRoomStealth").checked = false;
+      this.paint(); dialog.showModal();
+    });
+    $("quickRoomGrid").addEventListener("click", (e) => {
+      if (this.busy) return;
+      const key = e.target.closest("[data-k]")?.dataset.k;
+      if (key === "go") { this.submit(); return; }
+      if (key === "del") this.buf = this.buf.slice(0, -1);
+      else if (/^\d$/.test(key) && this.buf.length < 24) this.buf += key;
+      this.paint();
+    });
+    $("quickRoomCancel").addEventListener("click", () => this.close());
+    dialog.addEventListener("close", () => { this.buf = ""; this.taps = []; this.paint(); });
+  },
+};
+
 function initGate() {
   paintLogo();
   HomeSwitch.init();
+  QuickEntry.init();
   AutoLocation.init();
 
   const box = $("gSearch"), input = $("gateInput"), clear = $("gClear"), divider = $("gDivider");
@@ -1011,7 +1091,7 @@ async function decoyLog(roomId) {
 }
 
 async function tryEnter(raw, onFail) {
-  if (!HomeSwitch.unlocked) {
+  if (!HomeSwitch.unlocked && !HomeSwitch.quickEntry) {
     try { if (await HomeSwitch.required()) return onFail(); }
     catch (_) { return onFail(); }
   }
@@ -1412,7 +1492,7 @@ const Acl = {
     let challenge, stash;
     try {
       challenge = await s256b64url(verifier);
-      stash = await sealWithState(state, JSON.stringify({ raw, verifier, at: Date.now(), homeUnlocked: HomeSwitch.unlocked, loginOnly }));
+      stash = await sealWithState(state, JSON.stringify({ raw, verifier, at: Date.now(), homeUnlocked: HomeSwitch.unlocked, quickEntry: HomeSwitch.quickEntry === true, loginOnly }));
       sessionStorage.setItem(ACL_STASH, stash);
       // 同瀏覽器的新分頁也能接回登入；只留密文，解密 state 不存在本機。
       try { localStorage.setItem(ACL_STASH, JSON.stringify({ stash, at: Date.now() })); } catch (_) {}
@@ -1462,7 +1542,7 @@ const Acl = {
     const loginOnly = payload.loginOnly === true;
     if (!raw && !loginOnly) { onFail(); return true; }
     // 只有通過 state 解密的這一次 LINE 往返能恢復首頁開關。
-    if (!loginOnly && payload.homeUnlocked !== true) {
+    if (!loginOnly && payload.homeUnlocked !== true && payload.quickEntry !== true) {
       try { if (await HomeSwitch.required()) { onFail(); return true; } }
       catch (_) { onFail(); return true; }
     }
@@ -1500,7 +1580,9 @@ const Acl = {
     }
     HomeSwitch.unlocked = payload.homeUnlocked === true;
     HomeSwitch.paint();
-    await tryEnter(raw, onFail);       // 現在有身分了，走正常的進房流程（gate 會直接 ok）
+    HomeSwitch.quickEntry = payload.quickEntry === true;
+    try { await tryEnter(raw, onFail); }
+    finally { HomeSwitch.quickEntry = false; }
     return true;
   },
   deny() { dropAclStash(); location.replace("/pending.html"); },
@@ -8203,7 +8285,7 @@ function bindChatUI() {
     if (grid.classList.contains("editing")) { grid.classList.remove("editing"); return; }
     $("stickerPanel").hidden = true;
   });
-  $("btnAddSticker").addEventListener("click", () => $("fileInput").click());
+  $("btnAddSticker").addEventListener("click", () => FilePicker.open("fileInput"));
 
   /* 閱後即焚的開關（v50）。⚠️ 跟送出鈕同一個理由擋掉預設行為：
         焦點一離開輸入框，手機的螢幕鍵盤就收起來（v44 的教訓）。 */
@@ -8221,7 +8303,7 @@ function bindChatUI() {
   });
 
   $("fileInput").addEventListener("change", async (e) => {
-    const files = [...e.target.files].slice(0, 12);
+    const files = FilePicker.take(e.target).slice(0, 12);
     e.target.value = "";
     if (!files.length) return;
     toast("處理中…");
@@ -8310,17 +8392,18 @@ function bindChatUI() {
     if (plusMenu && !plusMenu.hidden && !plusMenu.contains(e.target) && e.target !== plus) closePlus();
   }, true);
 
-  $("plusPhoto")?.addEventListener("click", () => { closePlus(); $("photoInput")?.click(); });
-  $("plusVideo")?.addEventListener("click", () => { closePlus(); $("videoInput")?.click(); });
+  $("plusPhoto")?.addEventListener("click", () => { closePlus(); FilePicker.open("photoInput"); });
+  $("plusVideo")?.addEventListener("click", () => { closePlus(); FilePicker.open("videoInput"); });
+  for (const id of ["photoInput", "videoInput", "fileInput"]) {
+    $(id)?.addEventListener("cancel", () => { FilePicker.pending = null; });
+  }
 
   $("photoInput")?.addEventListener("change", async (e) => {
-    const files = [...(e.target.files || [])];
-    e.target.value = "";                         // 清掉才能連續選同一張
+    const files = FilePicker.take(e.target);
     if (files.length) await sendPhotos(files);
   });
   $("videoInput")?.addEventListener("change", async (e) => {
-    const file = (e.target.files || [])[0];
-    e.target.value = "";
+    const file = FilePicker.take(e.target)[0];
     if (file) await sendVideo(file);
   });
 
@@ -9217,6 +9300,7 @@ async function renderStickerGrid(want) {
 }
 
 function leaveChat() {
+  FilePicker.pending = null;
   HomeSwitch.lock();
   // 1. 解除這一輪房間的所有訂閱，避免舊房的狀態滲進下一輪
   (S.subs || []).forEach((off) => { try { off(); } catch (_) {} });
@@ -10179,8 +10263,8 @@ function initDisguise() {
   const veil = $("veil");
 
   /* 只是視窗失焦（點到別的視窗）→ 蓋毛玻璃，解除要重新輸入密碼 */
-  const cover = () => {
-    if (!CFG.blurOnBlur || $("chat").hidden || !veil.hidden) return;
+  const cover = (force = false) => {
+    if ((!force && !CFG.blurOnBlur) || $("chat").hidden || !veil.hidden) return;
     VeilPad.reset();
     Notes.flush();                       // 遮罩蓋上前先把還沒存的記事存掉
     closeLightbox();                     // 放大中的圖片也要一起收掉
@@ -10210,6 +10294,7 @@ function initDisguise() {
      這樣手機的 App 切換器截到的畫面是乾淨的 Google 頁，不是模糊的聊天室。 */
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) return;
+    if (FilePicker.active()) { cover(true); return; }
     if (CFG.hideOnAppSwitch) panicExit(false);
     else cover();
   });
