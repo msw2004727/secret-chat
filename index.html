@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.20">
+<meta name="sc-shell" content="v61.21">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -651,8 +651,8 @@
        輸入框上方本身就是土底，所以要幫我畫一條土色的水平線在對話框上方」。
        ⚠️ 它是**獨立元素**不是 SVG 的一部分 —— 土要貫穿整個聊天室的寬度，
           而植物只有 260px 寬。畫在 SVG 裡的話土會跟著植物一起變窄、一起晃。 -->
-  <div class="c-plantsoil" id="plantSoil" aria-hidden="true"></div>
-  <div class="c-plantbg" id="plantBg" aria-hidden="true"></div>
+  <div class="c-plantsoil" id="plantSoil" aria-hidden="true" hidden></div>
+  <div class="c-plantbg" id="plantBg" aria-hidden="true" hidden></div>
 
   <div class="c-input" id="sendForm">
     <!-- 附件：展開後選「圖片」或「影片」，跟貼圖是兩回事。
