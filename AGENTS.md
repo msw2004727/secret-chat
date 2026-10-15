@@ -1,7 +1,7 @@
 # Project instructions
 
 - Respond in Traditional Chinese unless asked otherwise.
-- Canonical source: public repository `msw2004727/secret-chat`. Work on a branch and open a PR. Do not merge or publish until the user authorizes that specific change; merging to main deploys automatically.
+- Canonical source: public repository `msw2004727/secret-chat`. Work on a branch and open a PR. The user has given standing authorization to merge and deploy requested changes after review, appropriate tests, build, and PR checks pass; do not ask for deployment confirmation each time. Merging to main deploys automatically. Discussion-only or read-only requests do not authorize modifications or deployment, and this authorization does not cover unrelated changes.
 - Run `npm ci`, `npm ci --prefix functions`, `npm test`, and `npm run build` as needed. Node 22 is the cloud runtime.
 - Preserve all existing room fingerprints in config.js, including room-5. Do not regenerate appSalt or encryption keys. Never delete database records to repair a source/config issue.
 - Preserve LINE application login and review-off anonymous room access. Do not disable LINE App login to work around browser callbacks.
