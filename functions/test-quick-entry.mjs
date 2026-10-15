@@ -6,7 +6,7 @@ const nodes=new Map();
 const $=id=>{if(!nodes.has(id))nodes.set(id,{hidden:false,open:false,checked:false,textContent:'',events:{},addEventListener(k,f){this.events[k]=f},showModal(){this.open=true},close(){this.open=false;this.events.close?.()}});return nodes.get(id)};
 let now=0,entries=0,rawEntry='',activeAtEntry=false,derive;
 const home={unlocked:false,quickEntry:false};
-const ctx=vm.createContext({$,Date:{now:()=>now},HomeSwitch:home,CFG:{passwords:[{fingerprint:'valid'}]},STEALTH_MARK:'.',ENTER_MARK:',',peelStealth:raw=>({pw:raw.slice(0,-1)}),deriveKeys:async pw=>derive?await derive:({fingerprint:pw==='2468'?'valid':'bad'}),tryEnter:async raw=>{entries++;rawEntry=raw;activeAtEntry=home.quickEntry},toast(){}});
+const ctx=vm.createContext({$,Date:{now:()=>now},HomeSwitch:home,TermsEntry:{busy:false,paintForget(){}},CFG:{passwords:[{fingerprint:'valid'}]},STEALTH_MARK:'.',ENTER_MARK:',',peelStealth:raw=>({pw:raw.slice(0,-1)}),deriveKeys:async pw=>derive?await derive:({fingerprint:pw==='2468'?'valid':'bad'}),tryEnter:async raw=>{entries++;rawEntry=raw;activeAtEntry=home.quickEntry},toast(){}});
 vm.runInContext(src.slice(src.indexOf('const QuickEntry = {'),src.indexOf('\nfunction initGate()'))+';globalThis.quick=QuickEntry;',ctx);
 const q=ctx.quick;q.init();const tap=()=>{$('gLogo').events.click();now+=100};
 tap();tap();assert.equal($('quickRoomDialog').open,false);now+=1000;tap();assert.equal($('quickRoomDialog').open,false);tap();tap();assert.equal($('quickRoomDialog').open,true);

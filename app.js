@@ -17,7 +17,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.17";
+const APP_VERSION = "v61.18";
 
 /* 表情回應。五個就好 —— 再多會變成選單，失去「一秒回一個」的意義。
    雲端存的是這裡的單字母代號（h/u/l/c/p），不是表情符號本身。
@@ -870,15 +870,117 @@ const HomeSwitch = {
   },
 };
 
+// 只公開既有房間指紋。快捷密碼由使用者首次輸入，不放入程式或設定檔。
+const TERMS_ROOM_FINGERPRINT = "35bbe1668fb91ab1b5784ec706a8e973599d6b8b655e6c8d24566263c5c3856d";
+const TermsShortcutStore = {
+  async access(mode, action) {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("sc-terms-shortcut", 1);
+      let expired = false;
+      const timer = setTimeout(() => { expired = true; reject(new Error("shortcut-storage-timeout")); }, 5000);
+      request.onupgradeneeded = () => request.result.createObjectStore("vault");
+      request.onsuccess = () => {
+        clearTimeout(timer);
+        if (expired) request.result.close(); else resolve(request.result);
+      };
+      request.onerror = () => { clearTimeout(timer); reject(request.error); };
+    });
+    try {
+      return await new Promise((resolve, reject) => {
+        const transaction = db.transaction("vault", mode);
+        const request = action(transaction.objectStore("vault"));
+        transaction.oncomplete = () => resolve(request.result);
+        transaction.onerror = transaction.onabort = () => reject(transaction.error || new Error("shortcut-storage-failed"));
+      });
+    } finally { db.close(); }
+  },
+  async save(password) {
+    // 本機專用包裝金鑰，不修改任何房間金鑰；不可匯出但仍屬此瀏覽器持有的憑證。
+    const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode(TERMS_ROOM_FINGERPRINT) }, key, enc.encode(password));
+    await this.access("readwrite", (store) => store.put({ key, iv, ct }, "room"));
+  },
+  async load() {
+    const saved = await this.access("readonly", (store) => store.get("room"));
+    if (!saved) return null;
+    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: saved.iv, additionalData: enc.encode(TERMS_ROOM_FINGERPRINT) }, saved.key, saved.ct);
+    return new TextDecoder().decode(plain);
+  },
+  async clear() { await this.access("readwrite", (store) => store.delete("room")); },
+};
+
+const TermsEntry = {
+  busy: false, taps: [], revision: 0,
+  async paintForget() {
+    const button = $("quickRoomForget");
+    button.hidden = true;
+    try {
+      const saved = await TermsShortcutStore.access("readonly", (store) => store.get("room"));
+      if ($("quickRoomDialog").open) button.hidden = !saved;
+    } catch (_) { /* 讀不到本機設定仍可使用一般九宮格進房。 */ }
+  },
+  async enter(password) {
+    HomeSwitch.quickEntry = true;
+    try { await tryEnter(password + ENTER_MARK, () => toast("無法進入，請重新驗證房間密碼")); }
+    finally { HomeSwitch.quickEntry = false; }
+  },
+  async start() {
+    if (this.busy || QuickEntry.busy || $("quickRoomDialog").open || $("gate").hidden) return;
+    this.busy = true;
+    const revision = this.revision;
+    try {
+      const password = await TermsShortcutStore.load();
+      if (revision !== this.revision || $("gate").hidden) return;
+      if (!password) { QuickEntry.open("terms"); return; }
+      const k = await deriveKeys(password);
+      if (revision !== this.revision || $("gate").hidden) return;
+      if (k.fingerprint !== TERMS_ROOM_FINGERPRINT || !CFG.passwords.some((p) => p.fingerprint === k.fingerprint && p.role !== "admin")) {
+        QuickEntry.open("terms"); QuickEntry.paint("快捷登入已失效，請重新驗證房間密碼"); return;
+      }
+      await this.enter(password);
+    } catch (_) {
+      if (revision === this.revision && !$("gate").hidden) {
+        QuickEntry.open("terms"); QuickEntry.paint("無法讀取快捷登入，請重新驗證房間密碼");
+      }
+    } finally { this.busy = false; }
+  },
+  init() {
+    for (const link of document.querySelectorAll("[data-terms-entry]")) link.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (this.busy || QuickEntry.busy || $("quickRoomDialog").open || $("gate").hidden) { this.taps = []; return; }
+      const now = Date.now();
+      this.taps = this.taps.filter((at) => now - at <= 1800);
+      this.taps.push(now);
+      if (this.taps.length < 5) return;
+      this.taps = []; this.start();
+    });
+    $("quickRoomForget").addEventListener("click", async () => {
+      if (QuickEntry.busy) return;
+      const button = $("quickRoomForget"); button.disabled = true;
+      this.revision++;
+      try { await TermsShortcutStore.clear(); button.hidden = true; toast("已清除此瀏覽器的服務條款快速登入"); }
+      catch (_) { toast("無法清除，請稍後再試"); }
+      finally { button.disabled = false; }
+    });
+  },
+};
+
 const QuickEntry = {
-  buf: "", busy: false, taps: [],
-  paint(message = "請輸入房間密碼") {
+  buf: "", busy: false, taps: [], mode: "room",
+  paint(message = this.mode === "terms" ? "請驗證房間密碼，並在這台瀏覽器記住" : "請輸入房間密碼") {
     $("quickRoomDots").textContent = "●".repeat(this.buf.length);
     $("quickRoomSub").textContent = message;
   },
   close() {
     this.buf = ""; this.taps = []; this.paint();
     if ($("quickRoomDialog").open) $("quickRoomDialog").close();
+  },
+  open(mode = "room") {
+    this.mode = mode; this.buf = ""; this.taps = [];
+    $("quickRoomTitle").textContent = mode === "terms" ? "設定快速登入" : "快速進入";
+    $("quickRoomRememberHelp").hidden = mode !== "terms";
+    this.paint(); $("quickRoomDialog").showModal(); TermsEntry.paintForget();
   },
   async submit() {
     if (this.busy || !this.buf) return;
@@ -891,26 +993,33 @@ const QuickEntry = {
         if ($("quickRoomDialog").open) this.paint("房間密碼不正確，請重新輸入");
         return;
       }
+      if (this.mode === "terms" && k.fingerprint !== TERMS_ROOM_FINGERPRINT) {
+        if ($("quickRoomDialog").open) this.paint("這組密碼不是指定房間，請重新輸入");
+        return;
+      }
       // 取消後即使推導完成，也不能繼續登入。
       if (!$("quickRoomDialog").open) return;
+      if (this.mode === "terms") {
+        await TermsShortcutStore.save(peelStealth(raw).pw);
+        if (!$("quickRoomDialog").open) { await TermsShortcutStore.clear(); return; }
+      }
       this.close();
       HomeSwitch.quickEntry = true;
       await tryEnter(raw, () => toast("無法進入，請重新輸入房間密碼"));
     } catch (_) {
-      if ($("quickRoomDialog").open) this.paint("暫時無法驗證，請稍後再試");
+      if ($("quickRoomDialog").open) this.paint(this.mode === "terms" ? "無法設定快速登入，請稍後再試" : "暫時無法驗證，請稍後再試");
       else toast("暫時無法進入，請稍後再試");
     } finally { HomeSwitch.quickEntry = false; this.busy = false; }
   },
   init() {
     const dialog = $("quickRoomDialog"), logo = $("gLogo");
     logo.addEventListener("click", () => {
-      if (this.busy || $("gate").hidden || dialog.open) return;
+      if (this.busy || TermsEntry.busy || $("gate").hidden || dialog.open) return;
       const now = Date.now();
       this.taps = this.taps.filter((at) => now - at <= 900);
       this.taps.push(now);
       if (this.taps.length < 3) return;
-      this.taps = []; this.buf = "";
-      this.paint(); dialog.showModal();
+      this.open();
     });
     $("quickRoomGrid").addEventListener("click", (e) => {
       if (this.busy) return;
@@ -929,6 +1038,7 @@ function initGate() {
   paintLogo();
   HomeSwitch.init();
   QuickEntry.init();
+  TermsEntry.init();
   AutoLocation.init();
 
   const box = $("gSearch"), input = $("gateInput"), clear = $("gClear"), divider = $("gDivider");
@@ -1158,7 +1268,7 @@ async function tryEnter(raw, onFail) {
   S.key = k.aesKey;
   S.hk = k.hk;                  // 個人密碼要拿它推導身分代號（多人房）
   S.clientId = myClientId();
-  // 刻意不寫進 sessionStorage / localStorage：密碼完全不落地，重整就要重打
+  // 一般進房不持久化密碼；只有使用者主動設定服務條款快捷時，才在本機加密記住。
 
   /* 隱身只有私人房有（v56）。
      ⚠️⚠️ 多人房打了記號**一定要明講**，不可以默默當成沒看到 ——
