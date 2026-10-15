@@ -17,7 +17,9 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.20";
+const APP_VERSION = "v61.21";
+// 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
+const ROOM_EXTRAS_ENABLED = false;
 
 /* 表情回應。五個就好 —— 再多會變成選單，失去「一秒回一個」的意義。
    雲端存的是這裡的單字母代號（h/u/l/c/p），不是表情符號本身。
@@ -2299,6 +2301,7 @@ const HOLD_MS = 5000;      // 按滿多久才叫出輸入盤
 const HOLD_TAP_MS = 400;   // 比這個短就是輕點，會 +1
 
 function bindHeart() {
+  if (!ROOM_EXTRAS_ENABLED) return;
   /* ⚠️ 兩顆按鈕都要綁。只綁當前那顆的話，換房型之後新的那顆是死的 ——
         而且 bindChatUI() 一輩子只跑一次（S.uiBound），沒有第二次機會補綁。 */
   const btns = [$("btnHeart"), $("btnFriend")].filter(Boolean);
@@ -2435,6 +2438,7 @@ const HeartNum = {
 };
 
 function bindHeartNum() {
+  if (!ROOM_EXTRAS_ENABLED) return;
   $("hnGrid")?.addEventListener("click", (e) => {
     const b = e.target.closest("[data-k]");
     if (!b || b.disabled) return;
@@ -2530,6 +2534,7 @@ const Heart = {
        在下一間房對著已經不存在的泡泡繼續倒數。 */
     Burn.reset();
     clearTimeout(this.timer); this.timer = null;
+    if (!ROOM_EXTRAS_ENABLED) return;
     const f = $(Bond.cur().field);
     if (f) { f.replaceChildren(); this.alive = 0; }
     const list = $("msgList");
@@ -2589,6 +2594,7 @@ const Heart = {
      ⚠️ 錨點不在目前這一頁的標記「不畫」，不要退而求其次塞在最上面 ——
         位置錯掉比暫時不出現更糟。往上捲載到那一則之後它自己會補上。 */
   placeMarks() {
+    if (!ROOM_EXTRAS_ENABLED) return;
     const list = $("msgList");
     if (!list) return;
     this.commitMark();
@@ -2654,6 +2660,7 @@ const Heart = {
   },
 
   paint() {
+    if (!ROOM_EXTRAS_ENABLED) return;
     const n = $(Bond.cur().num);
     if (n) n.textContent = String(this.mine + this.peer);
   },
@@ -2721,6 +2728,7 @@ const Heart = {
   },
 
   tap() {
+    if (!ROOM_EXTRAS_ENABLED) return;
     if (!S.bumpHeart) return;                 // 還沒連上線
     this.mine++;
     this.paint();
@@ -2739,6 +2747,7 @@ const Heart = {
         使用者知道自己打了幾。
      ⚠️ 一樣走 pending／flush 那條路，跟連點合併成同一次 increment。 */
   bulk(n) {
+    if (!ROOM_EXTRAS_ENABLED) return;
     const add = Math.max(1, Math.min(999, Math.floor(Number(n) || 0)));
     if (!S.bumpHeart) return;
     this.mine += add;
@@ -2754,7 +2763,7 @@ const Heart = {
     const n = this.pending;
     this.pending = 0;
     clearTimeout(this.timer); this.timer = null;
-    if (!n || !S.bumpHeart) return;
+    if (!ROOM_EXTRAS_ENABLED || !n || !S.bumpHeart) return;
     S.bumpHeart(n).catch((err) => console.error("計數寫入失敗", err));
   },
 
@@ -2771,6 +2780,7 @@ const Heart = {
   },
 
   onData(map) {
+    if (!ROOM_EXTRAS_ENABLED) return;
     const all = map || {};
     this.raw = all;                      // v57：付費照顧要知道對方那格在哪、有多少
     let mine = 0, peer = 0;
@@ -2825,8 +2835,9 @@ const Heart = {
      ⚠️ 只抹一半的話下次進來會拿「舊的大數字」去比新的小數字，
         算出負的差額（或永遠不顯示）。 */
   wiped() {
-    const k = this.key();
     if (S.roomId) ReadMark.forget(S.roomId);   // 對話都清了，「讀到哪」也不該留
+    if (!ROOM_EXTRAS_ENABLED) return;
+    const k = this.key();
     S.marks = [];
     if (S.dropMarks) S.dropMarks().catch(() => {});
     this.reset();
@@ -4747,9 +4758,9 @@ function applyRoomMode() {
      ⚠️ 一次只能顯示一顆，另一顆要確實藏起來，
         不然上方列會同時出現兩個膠囊把狀態文字擠掉。 */
   const heart = $("btnHeart"), friend = $("btnFriend");
-  if (heart) heart.hidden = open;
-  if (friend) friend.hidden = !open;
-  Bond.applyMode();
+  if (heart) heart.hidden = !ROOM_EXTRAS_ENABLED || open;
+  if (friend) friend.hidden = !ROOM_EXTRAS_ENABLED || !open;
+  if (ROOM_EXTRAS_ENABLED) Bond.applyMode();
 
   /* 歷史訊息鎖：v26 起兩種房型都有，規則相同。
      ⚠️ 多人房的密碼是全房共用的，所以這道鎖擋不住同房的人 ——
@@ -4927,7 +4938,7 @@ async function enterChat() {
   $("chat").hidden = false;
 
   // 先綁好介面再連線 —— 這樣連線期間輸入框就是活的，不會有「打了字送不出去」的空窗
-  if (!S.uiBound) { bindChatUI(); bindPlant(); S.uiBound = true; }
+  if (!S.uiBound) { bindChatUI(); if (ROOM_EXTRAS_ENABLED) bindPlant(); S.uiBound = true; }
   $("peerText").textContent = "連線中";
   $("msgInput").focus();
   renderStickerGrid();
@@ -4940,7 +4951,7 @@ async function enterChat() {
   });
   /* 植物（v55）。⚠️ 同樣**不 await** —— 它是裝飾，慢一點出現無所謂，
      但絕對不可以因為它讀不到就讓人進不了房。 */
-  Plant.load(`rooms/${S.roomId}`);
+  if (ROOM_EXTRAS_ENABLED) Plant.load(`rooms/${S.roomId}`);
   maskUrl();
   restoreShake();
   syncWatchUI();
@@ -5224,7 +5235,7 @@ async function enterChat() {
         後者兩個人同時按會互相蓋掉，數字會憑空消失。多人房人更多，更不能省。
      ⚠️ 多人房的「peer」是「除了我以外的所有人加起來」，不是某一個人 ——
         onData 的分法（不是我 → 算對方）本來就成立，不必改。 */
-  {
+  if (ROOM_EXTRAS_ENABLED) {
     const me = bondId();
     const heartRef = ref(db, `${base}/heart`);
     const mineRef = ref(db, `${base}/heart/${me}`);
@@ -5543,8 +5554,8 @@ async function enterChat() {
       remove(ref(db, `${base}/typing`)),
       remove(ref(db, `${base}/rx`)),
       remove(ref(db, `${base}/meta/last`)),
-      /* 思念的計數要一起歸零 —— 使用者明確說「只會隨著清除對話而清除」。 */
-      remove(ref(db, `${base}/heart`)),
+      /* 啟用時思念隨對話歸零；停用時不寫入或刪除既有計數。 */
+      ...(ROOM_EXTRAS_ENABLED ? [remove(ref(db, `${base}/heart`))] : []),
       /* 置頂公告也一起清（v45，使用者決定的）——
          清除是「這段對話當作沒發生過」，留一則公告在最上面很突兀。 */
       remove(ref(db, `${base}/notice`)),
@@ -5699,6 +5710,7 @@ function anchorUnread() {
   /* ⚠️ 順序很重要：先宣告「訊息載完了」，placeMarks() 才敢建立標記。
         這個函式跑在 settle 裡（列表安靜下來 450ms 之後），
         是唯一能確定「錨點算得準」的時機。 */
+  if (!ROOM_EXTRAS_ENABLED) { anchorUnreadInner(); return; }
   Heart.listed = true;
   try { anchorUnreadInner(); } finally { Heart.placeMarks(); }
 }
@@ -6163,6 +6175,7 @@ const Plant = {
   },
 
   async load(base) {
+    if (!ROOM_EXTRAS_ENABLED) return;
     this.reset();
     /* ⚠️ 只有私人房有植物（使用者指定）。多人房不做 —— 一群人共養一株，
           「誰照顧的」會變得沒有意義，而且 heart 在多人房是友誼不是思念。 */
@@ -6220,7 +6233,7 @@ const Plant = {
   },
 
   paint(force) {
-    if (!this.on) return;
+    if (!ROOM_EXTRAS_ENABLED || !this.on) return;
     const bar = $("plantBar"), bg = $("plantBg");
     if (!bar || !bg) return;
     bar.hidden = false;
@@ -6283,7 +6296,7 @@ const Plant = {
   },
 
   openFan() {
-    if (!this.on) return;
+    if (!ROOM_EXTRAS_ENABLED || !this.on) return;
     const fan = $("plantFan");
     if (!fan) return;
     fan.querySelectorAll(".c-pf-item").forEach((b) => {
@@ -6343,6 +6356,7 @@ const Plant = {
   },
 
   async act(kind) {
+    if (!ROOM_EXTRAS_ENABLED) return;
     const cfg = PLANT_ACTS[kind];
     if (!cfg || !this.on) return;
     const ms = this.left(kind);
@@ -6383,6 +6397,7 @@ const Plant = {
    *    整筆會被拒絕 —— **失敗方向是安全的**（什麼都沒發生），提示重試就好。
    */
   async pay(kind) {
+    if (!ROOM_EXTRAS_ENABLED) return;
     const cfg = PLANT_ACTS[kind];
     const cost = PLANT_PAY[kind];
     if (!cfg || !cost || !this.on) return;
@@ -6457,6 +6472,7 @@ const Plant = {
 };
 
 function bindPlant() {
+  if (!ROOM_EXTRAS_ENABLED) return;
   /* 輸入列的高度 → --c-in-h，背景植物靠它決定要從哪裡開始往上長。
      ⚠️ 輸入列會跟著多行文字長高，所以要用 ResizeObserver 一直跟著 ——
         寫死一個數字的話，打了三行字之後植物的土線就被輸入列吃掉了。 */
@@ -10671,7 +10687,7 @@ async function admRefreshRooms() {
           get(query(ref(db, `${base}/m`), orderByKey(), limitToLast(1))),
           get(ref(db, `${base}/mem`)),
           get(ref(db, `${base}/gate2`)),
-          get(ref(db, `${base}/pet`)),
+          ROOM_EXTRAS_ENABLED ? get(ref(db, `${base}/pet`)) : { val: () => null },
           get(ref(db, `acl/${r.roomId}`)).catch(() => null),   // v61（跟「查詢」那一份同步改）
         ]);
         r.acl = admAclNorm(aclSnap && aclSnap.val());
@@ -10745,7 +10761,7 @@ async function admScan() {
           get(query(ref(db, `${base}/m`), orderByKey(), limitToLast(1))),
           get(ref(db, `${base}/mem`)),
           get(ref(db, `${base}/gate2`)),
-          get(ref(db, `${base}/pet`)),
+          ROOM_EXTRAS_ENABLED ? get(ref(db, `${base}/pet`)) : { val: () => null },
           /* LINE 審核（v61）：整個 acl/<房號> 一次抓（on / req / ok 都是小節點）。
              ⚠️ 只有管理員讀得到 req 與整份 ok —— 這裡是管理員，規則會放行。
              ⚠️ 這一段在「查詢」與「自動重查」**各有一份**（同 gate2 那顆坑）。 */
@@ -10824,7 +10840,7 @@ async function admWho(i, force) {
     const [pSnap, mSnap, hSnap, sSnap] = await Promise.all([
       get(ref(db, `${base}/p`)),
       get(ref(db, `${base}/mem`)),
-      get(ref(db, `${base}/heart`)),
+      ROOM_EXTRAS_ENABLED ? get(ref(db, `${base}/heart`)) : { val: () => null },
       get(ref(db, `${base}/seen`)),
     ]);
     const presence = pSnap.val() || {};
@@ -11104,13 +11120,15 @@ function admRender() {
 
     /* 植物（v55）：看數值與歸零。
        ⚠️ 跟 .a-g2 同一條規矩 —— **不可以掛 .a-check**，那是「檢查」的行為標記。 */
-    const pl = document.createElement("button");
-    pl.type = "button";
-    pl.className = "a-g2 a-plant";
-    pl.dataset.i = String(i);
-    pl.textContent = "植物";
-    pl.title = "看這間房植物的目前數值，或把它歸零回第 1 階";
-    c5.appendChild(pl);
+    if (ROOM_EXTRAS_ENABLED) {
+      const pl = document.createElement("button");
+      pl.type = "button";
+      pl.className = "a-g2 a-plant";
+      pl.dataset.i = String(i);
+      pl.textContent = "植物";
+      pl.title = "看這間房植物的目前數值，或把它歸零回第 1 階";
+      c5.appendChild(pl);
+    }
 
     /* LINE 審核（v61）：開著是藍色實線。點一下展開申請名單與開關。
        ⚠️ 跟 .a-g2 / .a-plant 同一條規矩 —— 不可以掛 .a-check。 */
@@ -11222,7 +11240,7 @@ function admWhoRow(r) {
     const meta = document.createElement("span");
     meta.className = "a-dev-ago";
     const bits = [];
-    if (w.member) bits.push(`友情 ${w.hearts}`);
+    if (ROOM_EXTRAS_ENABLED && w.member) bits.push(`友情 ${w.hearts}`);
     /* ⚠️ v55.3 起這裡有兩個「台」，一定要講清楚是哪一種 ——
           `devices` 是**此刻**有幾台在線（p/ 分組來的，離開就歸零），
           `devUsed` 是**累計**用過幾台（seen 的 dv，永久）。
@@ -11331,6 +11349,7 @@ function admWhoRow(r) {
 const AdmPlant = { i: -1 };
 
 async function admPlantOpen(i) {
+  if (!ROOM_EXTRAS_ENABLED) return;
   const r = Adm.rooms[i];
   if (!r) return;
   AdmPlant.i = i;
@@ -11403,6 +11422,7 @@ async function admPlantOpen(i) {
 /* 歸零 ＝ 把整個 pet 節點刪掉。下次有人進房會重新種一株（b 重寫、次數歸零）。
    ⚠️ 沒有復原。⚠️ 思念換來的果實**不受影響** —— 那是 heart，另一個節點。 */
 async function admPlantSetStage() {
+  if (!ROOM_EXTRAS_ENABLED) return;
   const i = AdmPlant.i, r = Adm.rooms[i], stage = Number($("paStage").value);
   if (!r || !Number.isInteger(stage) || stage < 1 || stage > PLANT_STEPS.length) return;
   const button = $("paApply");
@@ -11424,6 +11444,7 @@ async function admPlantSetStage() {
 }
 
 async function admPlantReset() {
+  if (!ROOM_EXTRAS_ENABLED) return;
   const r = Adm.rooms[AdmPlant.i];
   if (!r) return;
   try {
@@ -11746,8 +11767,8 @@ async function admWipe(i) {
       remove(ref(db, `${base}/typing`)),
       remove(ref(db, `${base}/rx`)),
       remove(ref(db, `${base}/meta/last`)),
-      // 清空對話保留 nt（記事本）；思念計數仍依原本規則歸零。
-      remove(ref(db, `${base}/heart`)),
+      // 清空對話保留 nt（記事本），停用中的思念計數也不變動。
+      ...(ROOM_EXTRAS_ENABLED ? [remove(ref(db, `${base}/heart`))] : []),
       remove(ref(db, `${base}/notice`)),
 
     ]);
@@ -11880,22 +11901,24 @@ function bindAdmin() {
   $("admRefresh").addEventListener("click", admScan);
   /* 第二道密碼的設定盤（v54） */
   G2SetPad.bind();
-  $("paCancel")?.addEventListener("click", () => { $("plantAdm").hidden = true; });
-  $("paApply")?.addEventListener("click", admPlantSetStage);
-  /* 歸零：長按 2 秒（使用者指定），跟「清空」同一套防誤觸。
-     ⚠️ 這一顆在面板裡，不在 #admRows 表格裡 —— 表格那道 pointerdown 監聽吃不到它，
-        所以要自己綁一份。少了這一段會變成「按了完全沒反應」。 */
-  {
-    const b = $("paReset");
-    let timer = null;
-    const stop = () => { clearTimeout(timer); timer = null; b?.querySelector(".a-hold")?.classList.remove("run"); };
-    b?.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      b.querySelector(".a-hold")?.classList.add("run");
-      timer = setTimeout(() => { stop(); admPlantReset(); }, 2000);
-    });
-    ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => b?.addEventListener(ev, stop));
-    b?.addEventListener("click", (e) => { e.preventDefault(); if (!timer) toast("按住 2 秒才會歸零"); });
+  if (ROOM_EXTRAS_ENABLED) {
+    $("paCancel")?.addEventListener("click", () => { $("plantAdm").hidden = true; });
+    $("paApply")?.addEventListener("click", admPlantSetStage);
+    /* 歸零：長按 2 秒（使用者指定），跟「清空」同一套防誤觸。
+       ⚠️ 這一顆在面板裡，不在 #admRows 表格裡 —— 表格那道 pointerdown 監聽吃不到它，
+          所以要自己綁一份。少了這一段會變成「按了完全沒反應」。 */
+    {
+      const b = $("paReset");
+      let timer = null;
+      const stop = () => { clearTimeout(timer); timer = null; b?.querySelector(".a-hold")?.classList.remove("run"); };
+      b?.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        b.querySelector(".a-hold")?.classList.add("run");
+        timer = setTimeout(() => { stop(); admPlantReset(); }, 2000);
+      });
+      ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => b?.addEventListener(ev, stop));
+      b?.addEventListener("click", (e) => { e.preventDefault(); if (!timer) toast("按住 2 秒才會歸零"); });
+    }
   }
   $("g2SetCancel")?.addEventListener("click", () => { $("g2Set").hidden = true; G2SetPad.reset(); });
   $("g2SetOff")?.addEventListener("click", admG2Off);

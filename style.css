@@ -46,6 +46,11 @@ body {
 }
 
 [hidden] { display: none !important; }
+
+/* 植物與思念／友誼已停用，載入與換房期間也不顯示其容器或動畫。 */
+#btnHeart, #btnFriend, #heartField, #friendField, #heartMissed,
+#plantBar, #plantSay, #plantFan, #plantSoil, #plantBg, #plantAdm, #hnGate,
+.a-plant, .c-missed { display: none !important; }
 button { font: inherit; cursor: pointer; }
 
 /* 桌機 / 手機專屬元素，預設先藏起手機版 */
