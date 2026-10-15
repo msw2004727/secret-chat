@@ -1,16 +1,18 @@
 /* ============================================================
  *  Service Worker — 只做一件事：讓偽裝首頁瞬間開、沒網路也開得起來
  *
- *  ⚠️ 策略刻意選「網路優先」而不是「快取優先」。
- *     快取優先會出現「改了程式重新部署卻沒生效」的鬼故事，
- *     而這個專案改版很頻繁，那個坑踩下去很難查。
- *     網路優先＝有網路一定拿到最新的，沒網路才用快取墊底。
+ *  HTML 與未版本化網址採網路優先，確保進站取得新版外殼。
+ *  建置產生的內容雜湊檔名採快取優先；內容改變必定換檔名，
+ *  因此不需要每次重新下載，也不會拿舊程式配新外殼。
  *
  *  ⚠️ 只碰同源的靜態檔。Firebase 的 SDK 與資料庫連線完全不攔截 ——
  *     攔了會讓即時訂閱出問題，而且沒有任何好處。
  * ============================================================ */
 
-const VERSION = "sc-v61.22";
+const VERSION = "sc-v61.23";
+// The build fills this with content-addressed assets only. HTML/config aliases,
+// callbacks and application requests keep the network-first path below.
+const IMMUTABLE = new Set([]);
 const SHELL = [
   "./",
   "./index.html",
@@ -30,7 +32,7 @@ self.addEventListener("install", (e) => {
     caches.open(VERSION)
       .then((c) => c.addAll(SHELL))
       .then(() => self.skipWaiting())          // 新版本立刻接手，不要等所有分頁關掉
-      .catch(() => self.skipWaiting())         // 有任何一個檔案抓不到也不要卡住安裝
+      // 外殼未完整快取時安裝失敗，保留舊版 worker 的離線副本。
   );
 });
 
@@ -51,6 +53,23 @@ self.addEventListener("fetch", (e) => {
   if (url.origin !== self.location.origin) return;
   // OAuth 回傳含一次性 code/state，不可寫入離線快取。
   if (url.searchParams.has("code") || url.searchParams.has("state") || url.searchParams.has("error")) return;
+
+  if (IMMUTABLE.has(url.pathname)) {
+    e.respondWith((async () => {
+      let cache;
+      try {
+        cache = await caches.open(VERSION);
+        const hit = await cache.match(req);
+        if (hit) return hit;
+      } catch (_) { /* 私密模式／儲存空間不足時，照常從網路載入。 */ }
+      const response = await fetch(req);
+      if (cache && response.ok && response.type === "basic") {
+        try { await cache.put(req, response.clone()); } catch (_) {}
+      }
+      return response;
+    })());
+    return;
+  }
 
   e.respondWith(
     fetch(req)

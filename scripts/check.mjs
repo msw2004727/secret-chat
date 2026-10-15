@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 const run = args => { const result = spawnSync(process.execPath,args,{stdio:'inherit'}); if(result.status !== 0) process.exit(result.status || 1); };
-for (const file of ['app.js','assets.js','config.js','sw.js','functions/index.js']) run(['--check',file]);
+for (const file of ['app.js','chat-performance.js','assets.js','config.js','sw.js','functions/index.js']) run(['--check',file]);
 for (const file of readdirSync('functions').filter(f=>/^test-.*\.mjs$/.test(f)).sort()) run([`functions/${file}`]);
 const firebase=JSON.parse(readFileSync('firebase.json','utf8'));
 assert.equal(firebase.hosting.site,'daily-notes-7bb64');
