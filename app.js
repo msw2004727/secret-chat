@@ -17,7 +17,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.19";
+const APP_VERSION = "v61.20";
 
 /* 表情回應。五個就好 —— 再多會變成選單，失去「一秒回一個」的意義。
    雲端存的是這裡的單字母代號（h/u/l/c/p），不是表情符號本身。
@@ -2068,7 +2068,7 @@ const Push = {
  * 同一間房裡做不出「只有我看得到」的東西。這件事已經跟使用者確認過。
  *
  * ⚠️ 記事不會自動過期。訊息會（多人房 48 小時）、照片原圖會（7 天），
- *    但記事本的意義就是留著。只有手動刪、或儀表板遠端清空會動到它。
+ *    但記事本的意義就是留著。只有在記事本內手動刪除才會動到它，清空對話會保留。
  * ⚠️ 只有私人房有。多人房人多、進出隨意、又沒有歷史訊息鎖，
  *    共用記事本等於「誰進來都能改能刪」。
  * ⚠️ 同時編輯：後存的蓋過先存的，不做合併。兩個人同時改同一則的機率極低。
@@ -5550,7 +5550,7 @@ async function enterChat() {
       remove(ref(db, `${base}/notice`)),
       /* ⚠️ 這裡刻意「不刪」 nt（記事本）。
          一鍵清除清的是對話；記事本是拿來留的東西，一起清掉會讓人不敢按這顆鈕。
-         要清記事只能一則一則刪，或用儀表板遠端清空整間房。 */
+         要清記事只能在記事本內一則一則刪；儀表板清空對話也保留記事。 */
     ]);
     await remove(mRef);
     await Promise.all(blobs.map((b) => dropMediaBlob(b)));
@@ -11746,8 +11746,7 @@ async function admWipe(i) {
       remove(ref(db, `${base}/typing`)),
       remove(ref(db, `${base}/rx`)),
       remove(ref(db, `${base}/meta/last`)),
-      // 儀表板的清空是「整間房歸零」，記事本與思念計數也要一起帶走
-      remove(ref(db, `${base}/nt`)),
+      // 清空對話保留 nt（記事本）；思念計數仍依原本規則歸零。
       remove(ref(db, `${base}/heart`)),
       remove(ref(db, `${base}/notice`)),
 
