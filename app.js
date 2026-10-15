@@ -17,7 +17,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.21";
+const APP_VERSION = "v61.22";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -794,6 +794,45 @@ function realSearch(q) {
   // 密碼不對 → 就是一次普通的搜尋，偽裝完整閉環
   location.replace("https://www.google.com/search?q=" + encodeURIComponent(q));
 }
+
+// 錯誤畫面只是入口遮罩。每次開站讀取一次公開布林設定，不訂閱或記錄裝置。
+const ErrorCover = {
+  enabled: true, dismissed: false, taps: [],
+  sync() {
+    const inside = $("chat")?.hidden === false || $("admin")?.hidden === false;
+    const visible = this.enabled && !this.dismissed && !inside;
+    document.documentElement.dataset.errorCover = visible ? "visible" : "hidden";
+    for (const screen of document.querySelectorAll(".screen")) screen.inert = visible;
+  },
+  setEnabled(enabled) {
+    this.enabled = enabled;
+    try { localStorage.setItem("sc-error-cover-enabled", String(enabled)); } catch (_) {}
+    this.sync();
+  },
+  dismiss() {
+    this.dismissed = true; this.taps = []; this.sync();
+    if ($("gate")?.hidden === false) $("gateInput")?.focus();
+  },
+  async readEnabled() {
+    const url = String(CFG.firebase.databaseURL).replace(/\/$/, "") + "/settings/errorCover.json";
+    const response = await withTimeout(fetch(url, { cache: "no-store" }), 8000);
+    if (!response.ok) throw new Error("error-cover-read-failed");
+    const value = await response.json();
+    if (value !== null && typeof value !== "boolean") throw new Error("error-cover-setting-invalid");
+    return value !== false;
+  },
+  init() {
+    try { this.enabled = localStorage.getItem("sc-error-cover-enabled") !== "false"; } catch (_) {}
+    this.sync();
+    $("errorCoverLogo").addEventListener("click", () => {
+      const now = Date.now();
+      this.taps = this.taps.filter((at) => now - at <= 900);
+      this.taps.push(now);
+      if (this.taps.length >= 3) this.dismiss();
+    });
+    this.readEnabled().then((enabled) => this.setEnabled(enabled)).catch(() => { /* 離線沿用上次開關，仍可三連點進入。 */ });
+  },
+};
 
 // 首頁入口遮掩；實際身分與房間權限仍由 LINE / 資料庫規則驗證。
 const HomeSwitch = {
@@ -1603,7 +1642,7 @@ const Acl = {
     let challenge, stash;
     try {
       challenge = await s256b64url(verifier);
-      stash = await sealWithState(state, JSON.stringify({ raw, verifier, at: Date.now(), homeUnlocked: HomeSwitch.unlocked, quickEntry: HomeSwitch.quickEntry === true, loginOnly }));
+      stash = await sealWithState(state, JSON.stringify({ raw, verifier, at: Date.now(), homeUnlocked: HomeSwitch.unlocked, quickEntry: HomeSwitch.quickEntry === true, coverPassed: typeof ErrorCover !== "undefined" && ErrorCover.dismissed, loginOnly }));
       sessionStorage.setItem(ACL_STASH, stash);
       // 同瀏覽器的新分頁也能接回登入；只留密文，解密 state 不存在本機。
       try { localStorage.setItem(ACL_STASH, JSON.stringify({ stash, at: Date.now() })); } catch (_) {}
@@ -1681,6 +1720,7 @@ const Acl = {
     if (!res || typeof res.token !== "string") { onFail(); return true; }
     try { await withTimeout(f.authMod.signInWithCustomToken(f.auth, res.token), 12000); }
     catch (_) { onFail(); return true; }
+    if (payload.coverPassed === true && typeof ErrorCover !== "undefined") ErrorCover.dismiss();
     if (loginOnly) {
       HomeSwitch.unlocked = payload.homeUnlocked === true;
       HomeSwitch.paint();
@@ -10468,6 +10508,7 @@ function initDisguise() {
 /* ────────────────────────── 12. 啟動 ────────────────────────── */
 
 (function boot() {
+  ErrorCover.init();
   if (!window.isSecureContext) {
     console.warn("需要 https 或 localhost 才能使用加密功能");
   }
@@ -10506,6 +10547,7 @@ const admRefreshMs = () => Math.max(0, Number(CFG.adminRefreshSeconds) || 0) * 1
 
 async function enterAdmin(password, pathId, adminKey) {
   admHomeSwitchLoad();
+  admErrorCoverLoad();
   $("gate").hidden = true;
   $("chat").hidden = true;
   $("admin").hidden = false;
@@ -11840,7 +11882,32 @@ async function admHomeSwitchLoad() {
   } catch (_) { button.textContent = "首頁開關：讀取失敗"; }
 }
 
+async function admErrorCoverLoad() {
+  const button = $("admErrorCover");
+  button.disabled = true;
+  try {
+    const on = await ErrorCover.readEnabled();
+    ErrorCover.setEnabled(on);
+    button.dataset.on = String(on);
+    button.textContent = "錯誤畫面：" + (on ? "開" : "關");
+    button.setAttribute("aria-pressed", String(on));
+    button.disabled = false;
+  } catch (_) { button.textContent = "錯誤畫面：讀取失敗"; }
+}
+
 function bindAdmin() {
+  $("admErrorCover").addEventListener("click", async () => {
+    const button = $("admErrorCover");
+    if (button.disabled) return;
+    const enabled = button.dataset.on !== "true";
+    button.disabled = true;
+    try {
+      await HomeSwitch.request("errorCover", { enabled });
+      ErrorCover.setEnabled(enabled);
+      toast(enabled ? "已開啟錯誤畫面，下次開站會顯示" : "已關閉錯誤畫面，下次開站直接顯示首頁");
+    } catch (_) { toast("錯誤畫面設定失敗，請稍後再試"); }
+    await admErrorCoverLoad();
+  });
   $("admHomePassword").addEventListener("click", () => admHomeDialog("password"));
   $("admHomeSwitch").addEventListener("click", async () => {
     const button = $("admHomeSwitch");

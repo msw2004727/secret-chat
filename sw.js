@@ -10,13 +10,14 @@
  *     攔了會讓即時訂閱出問題，而且沒有任何好處。
  * ============================================================ */
 
-const VERSION = "sc-v61.21";
+const VERSION = "sc-v61.22";
 const SHELL = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
   "./config.js",
+  "./error-cover.png",
   "./manifest.json",
   "./favicon-32.png",
   "./apple-touch-icon.png",

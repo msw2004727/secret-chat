@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- data-theme 直接寫在這裡，不靠 JS 設定 —— 否則載入瞬間會先閃一下淺色。
      預設 dark；使用者切過的話 app.js 會依 localStorage 改寫。 -->
-<html lang="zh-Hant" data-theme="dark">
+<html lang="zh-Hant" data-theme="dark" data-error-cover="visible">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.21">
+<meta name="sc-shell" content="v61.22">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -40,6 +40,9 @@
    表單就會以瀏覽器原生方式送出，密碼會被塞進網址列變成 ?q=xxxxx。
    這裡在 document 上用捕獲階段攔截所有表單送出，DOM 還沒建好就已經生效。 */
 (function () {
+  try {
+    if (localStorage.getItem('sc-error-cover-enabled') === 'false') document.documentElement.dataset.errorCover = 'hidden';
+  } catch (_) {}
   // 在模組載入前就阻止觸控縮放；保留單指滑動與 click，三連點仍可登入。
   const preventZoom = function (e) { if (e.cancelable) e.preventDefault(); };
   document.addEventListener('gesturestart', preventZoom, { passive: false });
@@ -48,7 +51,7 @@
     if (e.touches.length > 1) preventZoom(e);
   }, { passive: false });
   document.addEventListener('dblclick', function (e) {
-    if (e.target.closest?.('#gLogo, [data-terms-entry]')) preventZoom(e);
+    if (e.target.closest?.('#gLogo, #errorCoverLogo, [data-terms-entry]')) preventZoom(e);
   }, { passive: false });
 
   document.addEventListener('submit', function (e) { e.preventDefault(); }, true);
@@ -65,8 +68,19 @@
 </head>
 <body>
 
+<section id="errorCover" class="error-cover" aria-label="暫時無法使用">
+  <div class="error-cover-card">
+    <div class="error-cover-copy">
+      <button type="button" id="errorCoverLogo" class="error-cover-logo" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></button>
+      <p class="error-cover-code"><b>500.</b> <span>That’s an error.</span></p>
+      <p class="error-cover-message">There was an error. Please try again later. <span>That’s all we know.</span></p>
+    </div>
+    <svg class="error-cover-robot" viewBox="1310 115 585 700" role="img" aria-label="故障的機器人"><image href="error-cover.png" width="1920" height="1080"/></svg>
+  </div>
+</section>
+
 <!-- ═══════════════════ 畫面一：偽裝首頁 ═══════════════════ -->
-<div id="gate" class="screen">
+<div id="gate" class="screen" inert>
 
   <header class="g-top">
     <!-- 桌機版左側 -->
@@ -1045,9 +1059,11 @@
     <div class="a-step">
       <div class="a-home-actions">
         <button type="button" class="a-btn" id="admHomeSwitch" disabled>首頁開關：讀取中</button>
+        <button type="button" class="a-btn" id="admErrorCover" disabled>錯誤畫面：讀取中</button>
         <button type="button" class="a-btn" id="admHomePassword">修改首頁開關密碼</button>
       </div>
-      <p class="a-hint">開：先點「關於」輸入首頁開關密碼，才能使用房號。關：可直接輸入房號。</p>
+      <p class="a-hint">首頁開關開啟時：先點「關於」輸入首頁開關密碼，才能使用房號。關閉時：可直接輸入房號。</p>
+      <p class="a-hint">錯誤畫面開啟時：開站先顯示錯誤頁，連點 Google 三下才顯示原本首頁；關閉時直接顯示原本首頁。</p>
     </div>
 
     <div class="a-step" id="admInputStep">
