@@ -7,6 +7,7 @@
 !/database.rules.json
 !/storage.rules
 !/app.js
+!/chat-performance.js
 !/assets.js
 !/config.js
 !/index.html

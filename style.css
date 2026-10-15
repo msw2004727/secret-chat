@@ -1296,6 +1296,7 @@ html[data-theme="dark"] #chat .c-ann-drop:active { background: rgba(239, 83, 80,
 .row { display: flex; margin: 0; align-items: flex-end; }   /* flex-end：小圓鈕對齊氣泡下緣 */
 .row.me  { justify-content: flex-end; }
 .row.you { justify-content: flex-start; }
+.row[data-resumed] .bub { animation: none; }
 .row.tight { margin-top: 0; }
 .row.gap  { margin-top: 10px; }
 

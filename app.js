@@ -9,6 +9,8 @@
  *        訊息與貼圖都在瀏覽器端加密後才上傳，雲端只看得到亂碼。
  * ============================================================ */
 
+import { MessagePresence, NoteFeed, BubbleWindow } from "./chat-performance.js";
+
 const CFG = window.CONFIG;
 
 /* 版號。發新版時這三個地方要一起改：
@@ -17,7 +19,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.22";
+const APP_VERSION = "v61.23";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -396,7 +398,12 @@ const Builtin = {
     if (this.tried) return Promise.resolve(this.mod);
     if (!this.pending) {
       this.pending = import("./assets.js")
-        .catch(() => null)
+        .catch(() => {
+          // An already-open older shell may request a chunk removed by a new
+          // deployment. Keep the legacy alias as a recovery path until it exits.
+          const fallback = "./assets.js";
+          return import(fallback).catch(() => null);
+        })
         .then((m) => {
           this.mod = m; this.tried = true; this.pending = null;
           return m;
@@ -618,8 +625,10 @@ async function decodeImage(file) {
    ⚠️ 比例永遠不動，而且「比上限小的圖不放大」—— 放大只會讓檔案變大、畫質變糊。
    ⚠️ 經過 canvas 重新編碼會自動丟掉 EXIF，所以 GPS、機型、拍攝時間都不會跟著送出去。
       這是附帶效果，但很重要，不要改成直接上傳原始檔。 */
-async function scaleImage(file, { max, quality, alpha = false, wantBlob = false }) {
-  const bmp = await decodeImage(file);
+async function scaleImage(file, options) {
+  const { max, quality, alpha = false, wantBlob = false } = options;
+  const owned = !options.bitmap;
+  const bmp = options.bitmap || await decodeImage(file);
   const srcW = bmp.width, srcH = bmp.height;
   const scale = Math.min(1, max / Math.max(srcW, srcH));   // Math.min(1, …) 就是「不放大」
   const w = Math.max(1, Math.round(srcW * scale));
@@ -628,9 +637,10 @@ async function scaleImage(file, { max, quality, alpha = false, wantBlob = false 
   const cv = document.createElement("canvas");
   cv.width = w; cv.height = h;
   const ctx = cv.getContext("2d", { alpha });
-  ctx.imageSmoothingQuality = "high";      // 縮圖用的取樣品質，預設是 "low"
-  ctx.drawImage(bmp, 0, 0, w, h);
-  bmp.close?.();
+  try {
+    ctx.imageSmoothingQuality = "high";      // 縮圖用的取樣品質，預設是 "low"
+    ctx.drawImage(bmp, 0, 0, w, h);
+  } finally { if (owned) bmp.close?.(); }
 
   /* 輸出格式優先 WebP（同樣畫質下檔案最小）。
      退路要分開想：貼圖可能有透明背景 → PNG；照片沒有透明 → JPEG（PNG 會大到離譜）。 */
@@ -687,6 +697,10 @@ const S = {
   needsReload: false,  // 有新版本上線了，等離開聊天室時自動重整
   histUnlocked: false, // 這一輪有沒有解開「載入更早的訊息」的鎖（退回偽裝頁就重置）
   open: false,         // 這間是不是多人房（config 裡標了 open: true）
+  noteFeed: null,
+  messagePresence: null,
+  bubbleWindow: null,
+  deletedKeys: new Set(),
   notes: [],           // 這間房的記事（已解密），依更新時間新→舊
   notesUnlocked: false,// 這一輪有沒有解開記事本（跟歷史訊息鎖分開記）
   pushOn: false,     // 新訊息推播（v52 起就是 push/<裝置>/nm 這個旗標）
@@ -2135,6 +2149,7 @@ const Notes = {
   },
 
   open() {
+    S.noteFeed?.open();
     $("notesPanel").hidden = false;
     $("stickerPanel").hidden = true;
     $("settingsPanel").hidden = true;
@@ -2145,6 +2160,7 @@ const Notes = {
   close() {
     this.flush();                        // 離開前一定要把還沒存的存掉
     $("notesPanel").hidden = true;
+    S.noteFeed?.close();
     this.editing = null;
     this.disarmDelete();
   },
@@ -4091,13 +4107,17 @@ async function buildPhoto(file, onProgress) {
   const f = S.fb;
   if (!f || !f.st || !f.storage) throw new Error("sc/no-storage");
 
-  // 縮圖與原圖各縮一次。兩次都從原始檔解碼，不要拿縮圖再放大。
-  const thumb = await scaleImage(file, {
-    max: CFG.photoThumbSize, quality: CFG.photoThumbQuality,
-  });
-  const full = await scaleImage(file, {
-    max: CFG.photoMaxSize, quality: CFG.photoQuality, wantBlob: true,
-  });
+  // 原始照片只解碼一次；兩種尺寸都從同一張原始點陣圖產生，保留方向修正與 EXIF 清除。
+  const bitmap = await decodeImage(file);
+  let thumb, full;
+  try {
+    thumb = await scaleImage(file, { bitmap,
+      max: CFG.photoThumbSize, quality: CFG.photoThumbQuality,
+    });
+    full = await scaleImage(file, { bitmap,
+      max: CFG.photoMaxSize, quality: CFG.photoQuality, wantBlob: true,
+    });
+  } finally { bitmap.close?.(); }
   if (!full.blob) throw new Error("sc/encode-failed");
 
   const capMB = CFG.photoMaxUploadMB || 6;
@@ -4872,13 +4892,6 @@ function nickColorOf(k) {
  * ⚠️ PRESENCE_FRESH_MS 必須跟 functions/index.js 的同名常數一致 ——
  *    不一致的話畫面說「不在線」、雲端卻認為「人在房裡」而不推播，
  *    或是反過來明明在看螢幕還一直收到通知。 */
-/* 「對方刪了訊息」這個訂閱要盯多長的一段（v29）。
-   ⚠️ 這不是「刪除只在最近 N 則有效」—— 是「即時同步只在最近 N 則有效」。
-      比這更舊的訊息被刪掉時，這台裝置要等下一次進房才會看到它消失。
-      取 400 是因為一次工作階段幾乎不可能往上翻超過這個數（一頁 30 則），
-      而數字愈大、每次進房要下載的密文就愈多。 */
-const DEL_WINDOW = 400;
-
 /* ────────── 抓原圖／原檔的兩個時間（v31）──────────
  *
  * ⚠️ Firebase Storage SDK 自己的下載重試預算是「以分鐘計」的。
@@ -5030,7 +5043,7 @@ async function enterChat() {
   const {
     db, ref, push, set, get, remove, update, increment,
     query, orderByKey, orderByChild, limitToLast, limitToFirst, endBefore, endAt,
-    onChildAdded, onChildRemoved, onValue, onDisconnect, serverTimestamp,
+    onChildAdded, onValue, onDisconnect, serverTimestamp,
   } = f;
 
   // 連線期間可能已經被閒置計時器或緊急退出踢回首頁，這時就不該再往房間寫東西
@@ -5176,8 +5189,13 @@ async function enterChat() {
   };
   S.subs.push(onValue(rxRef, (snap) => {
     if (myGen !== S.gen) return;
-    S.rx = snap.val() || {};
-    paintReactions();
+    const next = snap.val() || {};
+    const keys = new Set([...Object.keys(S.rx || {}), ...Object.keys(next)]);
+    const previous = S.rx;
+    S.rx = next;
+    for (const key of keys) {
+      if (JSON.stringify(previous[key] || {}) !== JSON.stringify(next[key] || {})) paintReactions(key);
+    }
   }));
 
   /* --- 6.2d 置頂公告（v45）---
@@ -5191,7 +5209,7 @@ async function enterChat() {
   /* ⚠️ v50 起公告會多記一個「來源是哪一則」（src），而且一起加密。
         沒有它的話，把一則**即焚**訊息設成公告，訊息燒掉了公告還會留在最上面 ——
         等於幫使用者把一句本來要消失的話永久留下來，方向完全相反。
-        有了 src，來源被刪的那一刻公告就跟著下架（見 onChildRemoved）。
+        有了 src，來源被刪的那一刻公告就跟著下架（見 MessagePresence）。
      ⚠️ src 一定要包進密文裡。開在外面等於告訴雲端「公告是哪一則訊息」。 */
   S.setNotice = async (text, srcKey) => {
     const sealed = await seal(S.key, { d: String(text || ""), src: srcKey || null });
@@ -5214,8 +5232,8 @@ async function enterChat() {
   }));
 
   /* --- 6.2c 記事本（v26 起兩種房型都有）---
-     整包 onValue 訂閱：一間房的記事本來就不多，這樣不必自己處理
-     新增／修改／移除三種事件，少一堆邊界情況。
+     打開面板才訂閱，關閉立即解除。相同密文保留已解密快取，
+     只解密有變動的記事；非同步解密必須丟棄過期快照。
      ⚠️ 記事跟訊息用同一把金鑰，所以雲端看到的一樣只有密文。 */
   {
     const ntRef = ref(db, `${base}/nt`);
@@ -5238,35 +5256,29 @@ async function enterChat() {
     };
     S.delNote = (key) => remove(ref(db, `${base}/nt/${key}`));
 
-    S.subs.push(onValue(ntRef, async (snap) => {
-      if (myGen !== S.gen) return;
-      const raw = [];
-      /* ⚠️ 大括號一定要，回呼回傳真值會讓 Firebase 中止列舉（見專案紀錄的坑 #1）。 */
-      snap.forEach((c) => { raw.push({ k: c.key, v: c.val() }); });
-
-      const out = [];
-      for (const it of raw) {
-        const v = it.v;
-        if (!v || !v.c || !v.iv) continue;
+    const feed = new NoteFeed({
+      listen: (receive, failed) => onValue(ntRef, snap => receive(snap.val()), failed),
+      decode: async (key, value) => {
         try {
-          const body = await unseal(S.key, v);
-          out.push({
-            k: it.k, t: v.t || 0, body: String(body.b || ""),
-            nick: body.n ? String(body.n) : "", nc: body.nc || "",
-          });
+          const body = await unseal(S.key, value);
+          return { k: key, t: value.t || 0, body: String(body.b || ""),
+            nick: body.n ? String(body.n) : "", nc: body.nc || "" };
         } catch (_) {
-          // 解不開（換過密碼的舊記事）—— 畫出來但講清楚，不要讓它人間蒸發
-          out.push({ k: it.k, t: v.t || 0, body: "（這則記事解不開）", broken: true, nick: "", nc: "" });
+          return { k: key, t: value.t || 0, body: "（這則記事解不開）", broken: true, nick: "", nc: "" };
         }
-      }
-      if (myGen !== S.gen) return;
-      out.sort((a, b) => b.t - a.t);              // 最近編輯的排最上面
-      S.notes = out;
+      },
+      changed: notes => {
+        if (myGen !== S.gen) return;
+        S.notes = notes;
+        if (!$("notesPanel").hidden && $("ntEdit").hidden) Notes.paint();
+      },
+      failed: () => { if (myGen === S.gen && !$("notesPanel").hidden) toast("記事本同步失敗，請關閉後重開"); },
+    });
+    S.noteFeed = feed;
+    S.subs.push(() => feed.reset());
+    // 建立把手即可；使用者通過記事本密碼並打開時才訂閱。
+    if (!$("notesPanel").hidden) feed.open();
 
-      /* 面板開著就即時重畫。
-         ⚠️ 正在編輯時不要碰輸入框 —— 對方存了一版就把我打到一半的字蓋掉，那是最糟的體驗。 */
-      if (!$("notesPanel").hidden && $("ntEdit").hidden) Notes.paint();
-    }));
   }
 
   /* --- 6.2c2 思念（私人房）／友誼（多人房）---
@@ -5660,58 +5672,57 @@ async function enterChat() {
     if (victim && MEDIA_KINDS.includes(victim.kind)) dropMediaBlob(victim.body);
   };
 
-  /* 對方刪掉一則、或過期清理刪掉舊訊息時，我這邊也要即時消失。
-     少了這個訂閱，「刪除」就只是自己看不到而已，對方畫面還在 —— 那比不做更糟。 */
-  /* ⚠️ 這個訂閱不可以掛在「裸的 mRef」上（v29 修）。
-        對一個沒有加任何 query 的 Reference 掛 child 事件，等於註冊 default query ——
-        Firebase 會把 rooms/<房號>/m 底下**整包**送過來，包含每一張貼圖與
-        照片縮圖的 base64。每個人、每次進房都來一次，而訊息又永不刪，
-        所以這條成本會單調成長：幾百則含圖的訊息就是每次進房好幾 MB。
-        儀表板早就為了同一個理由改用 shallow REST（見 admCount 的註解），
-        聊天室這條卻是每天都在走的路。
-     ⚠️ 但加了 limitToLast 之後 child_removed 多了第二個來源：
-        舊訊息被新訊息「擠出視窗」時也會觸發。所以動畫面之前要先確認
-        那一則是真的不見了 —— 一次幾十位元組，換掉每次進房好幾 MB。 */
-  const delQ = query(mRef, orderByKey(), limitToLast(DEL_WINDOW));
-  S.subs.push(onChildRemoved(delQ, async (snap) => {
-    if (myGen !== S.gen) return;
-    const k = snap.key;
-    if (!S.keys.has(k)) return;
-    try {
-      const still = await get(ref(db, `${base}/m/${k}`));
-      if (myGen !== S.gen) return;
-      if (still.exists()) return;         // 只是被擠出視窗，不是被刪掉
-    } catch (_) { /* 查不出來就照舊當成刪除 —— 寧可少顯示，不要多顯示 */ }
-    if (!S.keys.has(k)) return;           // await 期間可能已經被別條路徑處理掉了
-    S.keys.delete(k);
-    S.pending.delete(k); S.failed.delete(k);
-    const i = S.msgs.findIndex((m) => m.k === k);
-    if (i >= 0) S.msgs.splice(i, 1);
-    const list = $("msgList");
-    list.querySelector(`.row[data-k="${k}"]`)?.remove();
+  /* 每一則已解密／載入的訊息只監看 t（數字），不存在即代表已刪除。
+     同樣支援舊版客戶端、閱後即焚、很久以前的歷史訊息；不新增資料表或雲端觸發器。
+     SDK 共用同一條資料庫連線，離房／清空時逐一解除。 */
+  const presence = new MessagePresence(
+    (key, receive) => onValue(ref(db, `${base}/m/${key}/t`), snap => {
+      if (myGen === S.gen) receive(snap.exists());
+    }),
+    k => {
+      if (!S.keys.has(k)) return;
+      S.deletedKeys.add(k);
+      S.bubbleWindow?.forget(k);
+      S.keys.delete(k);
+      S.pending.delete(k); S.failed.delete(k);
+      const i = S.msgs.findIndex((m) => m.k === k);
+      if (i >= 0) S.msgs.splice(i, 1);
+      const list = $("msgList");
+      list.querySelector(`.row[data-k="${k}"]`)?.remove();
+      list.querySelector(`.rx-bar[data-k="${k}"]`)?.remove();
 
-    /* 刪乾淨：引用到這一則的回覆，預覽字要當場換掉，不能留著原文 */
-    list.querySelectorAll(`.q[data-to="${k}"] .q-snip`).forEach((sn) => {
-      sn.textContent = "訊息已刪除";
-      sn.classList.add("gone");
-    });
-    // 正在回覆它 / 正放大它的貼圖 → 一併收掉，畫面上不留任何殘影
-    if (S.replyTo && S.replyTo.k === k) setReply(null);
-    if (S.lightboxKey === k) closeLightbox();
+      /* 刪乾淨：引用到這一則的回覆，預覽字要當場換掉，不能留著原文 */
+      list.querySelectorAll(`.q[data-to="${k}"] .q-snip`).forEach((sn) => {
+        sn.textContent = "訊息已刪除";
+        sn.classList.add("gone");
+      });
+      // 正在回覆它 / 正放大它的貼圖 → 一併收掉，畫面上不留任何殘影
+      if (S.replyTo && S.replyTo.k === k) setReply(null);
+      if (S.lightboxKey === k) closeLightbox();
 
-    /* ⚠️ 這一則如果正是公告的來源，公告要跟著走（v50）。
-          即焚的訊息燒掉了、公告卻還掛在最上面的話，那句話等於沒有燒掉。 */
-    if (S.noticeSrc && S.noticeSrc === k && S.dropNotice) {
-      S.noticeSrc = null;
-      S.dropNotice().catch?.(() => {});
-    }
+      /* ⚠️ 這一則如果正是公告的來源，公告要跟著走（v50）。
+            即焚的訊息燒掉了、公告卻還掛在最上面的話，那句話等於沒有燒掉。 */
+      if (S.noticeSrc && S.noticeSrc === k && S.dropNotice) {
+        S.noticeSrc = null;
+        S.dropNotice().catch?.(() => {});
+      }
 
-    if (S.oldestKey === k) S.oldestKey = S.msgs.length ? S.msgs[0].k : null;
-    $("emptyState").hidden = S.msgs.length > 0;
-    renderReadMark();
-    paintSendState();
-    paintLoadMore();
-  }));
+      if (S.oldestKey === k) S.oldestKey = S.msgs.length ? S.msgs[0].k : null;
+      $("emptyState").hidden = S.msgs.length > 0;
+      renderReadMark();
+      paintSendState();
+      paintLoadMore();
+    },
+  );
+  S.messagePresence = presence;
+  S.subs.push(() => presence.close());
+  // 即時首批可能已經在上方非同步解密完成；一併補掛。
+  for (const message of S.msgs) presence.watch(message.k);
+  S.bubbleWindow = makeBubbleWindow();
+  for (const row of $("msgList").querySelectorAll(".row[data-k]")) S.bubbleWindow.track(row);
+  const bubbles = S.bubbleWindow;
+  S.subs.push(() => bubbles.close());
+
 
   /* --- 6.8 離開時要做的清理 --- */
   S.cleanup = () => {
@@ -6880,6 +6891,7 @@ async function loadOlder(f, mRef, gen) {
       }
       const newImgs = [...frag.querySelectorAll("img")];
       list.prepend(frag);
+      batch.forEach(m => S.messagePresence?.watch(m.k));
 
       if (anchor) sc.scrollTop += anchorTop() - base;
       const settled = sc.scrollTop;
@@ -6929,7 +6941,37 @@ function safeImgSrc(d) {
   return (typeof d === "string" && d.startsWith("data:image/")) ? d : "";
 }
 
-function rowEl(m, prev) {
+function makeBubbleWindow() {
+  return new BubbleWindow({
+    root: $("scroller"),
+    makeRow: key => {
+      const i = S.msgs.findIndex(m => m.k === key);
+      if (i < 0) return null;
+      return rowEl(S.msgs[i], S.msgs[i - 1], false).querySelector(".row");
+    },
+    beforeHide: row => {
+      const bubble = row.querySelector(".bub");
+      const remaining = bubble ? Burn.left.get(bubble) : undefined;
+      if (bubble) {
+        Burn.forget(bubble);
+        Love.vis.delete(bubble);
+        Love.io?.unobserve(bubble);
+      }
+      return remaining;
+    },
+    afterShow: (row, remaining) => {
+      const bubble = row.querySelector(".bub");
+      if (bubble && remaining !== undefined && Burn.left.has(bubble)) {
+        Burn.left.set(bubble, remaining);
+        Burn.paintOne(bubble);
+      }
+      paintReactions(row.dataset.k);
+      paintSendState(row.dataset.k);
+    },
+  });
+}
+
+function rowEl(m, prev, observe = true) {
   const wrap = document.createDocumentFragment();
 
   // 跨日只放一條淡淡的線，刻意不顯示日期
@@ -6957,6 +6999,7 @@ function rowEl(m, prev) {
     tag.textContent = "這則訊息解不開";
     row.appendChild(tag);
     wrap.appendChild(row);
+    if (observe) S.bubbleWindow?.track(row);
     return wrap;
   }
 
@@ -7146,6 +7189,7 @@ function rowEl(m, prev) {
   row.appendChild(rxBtn);
 
   wrap.appendChild(row);
+  if (observe) S.bubbleWindow?.track(row);
   return wrap;
 }
 
@@ -7247,10 +7291,11 @@ function paintPeerState() {
 /* 送出狀態：還沒落地的掛時鐘、失敗的掛驚嘆號、落地了什麼都不掛。
    刻意不做「已送出」的勾 —— 每則都掛一個小圖示只是視覺噪音，
    真正需要被告知的是「還沒送出」這件事。 */
-function paintSendState() {
+function paintSendState(onlyKey) {
   const list = $("msgList");
   if (!list) return;
-  list.querySelectorAll(".row.me").forEach((row) => {
+  list.querySelectorAll(onlyKey ? `.row.me[data-k="${onlyKey}"]` : ".row.me").forEach((row) => {
+    if (row.dataset.suspended === "true") return;
     const k = row.dataset.k;
     const state = S.failed.has(k) ? "failed" : S.pending.has(k) ? "pending" : "";
     if (row.dataset.state === state) return;
@@ -7577,7 +7622,7 @@ const Burn = {
       if (left > 0) { this.left.set(bub, left); this.paintOne(bub); continue; }
       const key = bub.dataset.burnKey;
       this.forget(bub);
-      /* 燒掉 = 從雲端刪掉。刪除會自己傳到兩邊，畫面由 onChildRemoved 收尾，
+      /* 燒掉 = 從雲端刪掉。刪除會自己傳到兩邊，畫面由 MessagePresence 收尾，
          所以這裡不必自己動 DOM。 */
       if (key && S.delMsg) S.delMsg(key).catch(() => {});
     }
@@ -7728,7 +7773,7 @@ function bindNotice() {
 
 /* 表情回應的小標，貼在氣泡正下方。
    只跑「有人按過的那幾則」，不是每則都掃 —— 幾百則的房間才不會卡。 */
-function paintReactions() {
+function paintReactions(onlyKey) {
   const list = $("msgList");
   const sc = $("scroller");
 
@@ -7740,11 +7785,12 @@ function paintReactions() {
         比看不到表情更惱人 —— 判定沿用 appendMsg 那個 90px。 */
   const atBottom = sc ? sc.scrollHeight - sc.scrollTop - sc.clientHeight < 90 : false;
 
-  list.querySelectorAll(".rx-bar").forEach((el) => el.remove());
+  // 一次只更新改變的那一則；重新畫清單時也保留內容相同的表情列。
 
-  for (const [key, byWho] of Object.entries(S.rx || {})) {
+  for (const [key, byWho] of (onlyKey ? [[onlyKey, S.rx?.[onlyKey]]] : Object.entries(S.rx || {}))) {
     const row = list.querySelector(`.row[data-k="${key}"]`);
-    if (!row || !byWho) continue;
+    const oldBar = list.querySelector(`.rx-bar[data-k="${key}"]`);
+    if (!row || !byWho) { oldBar?.remove(); continue; }
 
     // 統計每個表情幾個人按，以及我自己按的是哪一個
     const count = {};
@@ -7755,7 +7801,10 @@ function paintReactions() {
       if (cid === S.clientId) mine = code;
     }
     const codes = REACTIONS.filter((r) => count[r.k]);
-    if (!codes.length) continue;
+    if (!codes.length) { oldBar?.remove(); continue; }
+    const signature = JSON.stringify([mine, codes.map(r => [r.k, count[r.k]])]);
+    if (oldBar?.dataset.signature === signature) continue;
+    oldBar?.remove();
 
     /* 三種以上不同的表情就改成「疊」的：小標互相重疊省空間。
        多人房一則訊息很容易同時出現四五種表情，排開來會比訊息本身還寬。
@@ -7764,6 +7813,7 @@ function paintReactions() {
     bar.className = "rx-bar " + (row.classList.contains("me") ? "me" : "you")
       + (codes.length >= 3 ? " stack" : "");
     bar.dataset.k = key;
+    bar.dataset.signature = signature;
 
     let z = codes.length;
     for (const r of codes) {
@@ -7947,7 +7997,8 @@ function appendMsg(m) {
   paintSendState();
   paintJump();
   paintLoadMore();
-  paintReactions();
+  paintReactions(m.k);
+  S.messagePresence?.watch(m.k);
   if (S.onSettle) { S.onSettle(); return; }   // 初次載入中：等安靜下來再一次處理
   /* ⚠️ 一定要放在上面那一行「之後」。放前面的話，進房載入那一批舊訊息
         只要有一則含「愛」就會當場噴 100 顆 —— 每次進房都滿天愛心。
@@ -7967,9 +8018,12 @@ function addSystem(text) {
 }
 
 function resetList() {
+  S.messagePresence?.clear();
+  S.bubbleWindow?.clear();
   // 只動 epoch，不動 gen —— 清空訊息不該讓這間房的訂閱失效
   S.epoch++;               // 讓所有還在飛的解密／載入結果失效，不會再被畫回來
   S.msgs = [];
+  S.deletedKeys.clear();
   S.keys.clear();
   S.oldestKey = null;
   S.reachedTop = false;
@@ -9109,6 +9163,9 @@ function withNick(payload) {
 
 /* 引用塊的預覽字：現場去訊息清單裡找，不吃雲端存的快照 */
 function paintQuote(el, r) {
+  if (S.deletedKeys.has(r.k)) {
+    el.textContent = "訊息已刪除"; el.classList.add("gone"); return;
+  }
   const src = S.msgs.find((x) => x.k === r.k);
   if (src) { el.textContent = replySnippet(src); el.classList.remove("gone"); return; }
   if (r.p) { el.textContent = r.p; el.classList.remove("gone"); return; }  // 舊訊息相容
@@ -9146,6 +9203,7 @@ function setReply(reply) {
 
 /* 點引用塊 → 跳到原訊息並閃一下。找不到就老實說，不要靜靜沒反應。 */
 function jumpTo(key) {
+  S.bubbleWindow?.reveal(key);
   const row = $("msgList").querySelector(`.row[data-k="${key}"]`);
   if (!row) { toast("原訊息已經不在這裡了"); return; }
   row.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -9470,6 +9528,8 @@ function leaveChat() {
   // 1. 解除這一輪房間的所有訂閱，避免舊房的狀態滲進下一輪
   (S.subs || []).forEach((off) => { try { off(); } catch (_) {} });
   S.subs = [];
+  S.messagePresence = null;
+  S.bubbleWindow = null;
   S.gen++;                                   // 雙保險：即使有殘留 callback 也不會再作用
 
   // 2. 收掉所有浮層
@@ -9545,6 +9605,7 @@ function leaveChat() {
   Notes.close();
   $("ntGate").hidden = true;
   NotePad.reset(); NotePad.tries = 0;
+  S.noteFeed = null;
   S.notes = []; S.notesUnlocked = false;
   S.saveNote = null; S.delNote = null;
   /* ⚠️ 推播訂閱刻意**不**在離開時清掉 —— 不在房裡才是要收通知的時候。
