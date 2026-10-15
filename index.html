@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.17">
+<meta name="sc-shell" content="v61.18">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -48,7 +48,7 @@
     if (e.touches.length > 1) preventZoom(e);
   }, { passive: false });
   document.addEventListener('dblclick', function (e) {
-    if (e.target.closest?.('#gLogo')) preventZoom(e);
+    if (e.target.closest?.('#gLogo, [data-terms-entry]')) preventZoom(e);
   }, { passive: false });
 
   document.addEventListener('submit', function (e) { e.preventDefault(); }, true);
@@ -122,6 +122,7 @@
 
   <dialog id="quickRoomDialog" class="home-switch-dialog" aria-labelledby="quickRoomTitle">
     <h2 id="quickRoomTitle">快速進入</h2>
+    <p id="quickRoomRememberHelp" class="location-help" hidden>確認後記住這台瀏覽器。能操作此瀏覽器的人也能使用五連點進房；可從 Google 標誌三連點開啟的九宮格清除。仍需通過房間權限驗證。</p>
     <p id="quickRoomSub" role="status">請輸入房間密碼</p>
     <div id="quickRoomDots" class="c-pad-dots" aria-label="已輸入位數"></div>
     <div id="quickRoomGrid" class="c-pad-grid">
@@ -138,6 +139,7 @@
       <button type="button" class="c-key" data-k="0">0</button>
       <button type="button" class="c-key c-key-go" data-k="go">進入</button>
     </div>
+    <button type="button" id="quickRoomForget" class="location-settings-link" hidden>清除服務條款快速登入</button>
     <div class="home-switch-actions"><button type="button" id="quickRoomCancel">取消</button></div>
   </dialog>
 
@@ -211,12 +213,12 @@
         <a href="#">關於</a><a href="#">廣告</a><a href="#">商業</a><a href="#">Google 搜尋服務的運作方式</a>
       </div>
       <div class="g-foot-right">
-        <a href="#">隱私權</a><a href="#">條款</a><a href="#" data-location-settings>設定</a>
+        <a href="#">隱私權</a><a href="#" data-terms-entry>服務條款</a><a href="#" data-location-settings>設定</a>
       </div>
     </div>
 
     <div class="g-foot-row g-foot-mob g-mob">
-      <a href="#">深色主題：關閉</a><a href="#" data-location-settings>設定</a><a href="#">隱私權</a><a href="#">服務條款</a>
+      <a href="#">深色主題：關閉</a><a href="#" data-location-settings>設定</a><a href="#">隱私權</a><a href="#" data-terms-entry>服務條款</a>
     </div>
   </footer>
 

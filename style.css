@@ -184,6 +184,7 @@ button { font: inherit; cursor: pointer; }
 }
 .g-logo span { display: inline-block; }
 .g-logo { touch-action: none; }
+[data-terms-entry] { touch-action: none; }
 #quickRoomDialog .c-key { color: #202124; background: #f1f3f4; }
 #quickRoomDialog .c-key-go { color: #fff; background: #1a73e8; }
 #quickRoomDots { color: #202124; letter-spacing: 4px; overflow-wrap: anywhere; }
