@@ -23,3 +23,8 @@ ctx.window.__sq='?code=returned&state='+new URL(assigned).searchParams.get('stat
 ctx.tryEnter=async()=>{assert.equal(ctx.HomeSwitch.quickEntry,true);assert.equal(ctx.HomeSwitch.unlocked,false);entered++};
 await a.resume();assert.equal(entered,oldEntered+1);assert.equal(ctx.HomeSwitch.quickEntry,false);assert.equal(ctx.HomeSwitch.unlocked,false);
 console.log('PASS: encrypted quick-entry LINE round trip preserves room flow without unlocking homepage, then clears temporary bypass.');
+let dismissed=0;ctx.ErrorCover={dismissed:true,dismiss(){dismissed++;this.dismissed=true}};
+ctx.HomeSwitch.quickEntry=true;await a.hop('test-room');ctx.HomeSwitch.quickEntry=false;ctx.ErrorCover.dismissed=false;
+ctx.window.__sq='?code=returned&state='+new URL(assigned).searchParams.get('state');await a.resume();assert.equal(dismissed,1);
+await a.hop('test-room');ctx.window.__sq='?code=returned&state=tampered-cover';await a.resume();assert.equal(dismissed,1);
+console.log('PASS: cover bypass only resumes from a verified encrypted LINE round trip; tampered state cannot dismiss cover.');

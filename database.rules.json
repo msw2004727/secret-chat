@@ -3,6 +3,11 @@
     ".read": false,
     ".write": false,
     "settings": {
+      "errorCover": {
+        ".read": true,
+        ".write": false,
+        ".validate": "newData.isBoolean()"
+      },
       "homeSwitch": {
         ".read": "auth != null",
         ".write": false,

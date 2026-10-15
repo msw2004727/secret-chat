@@ -20,3 +20,14 @@ assert.equal((await call({homeAction:'unlock',password:'2468'},false)).data.unlo
 assert.equal((await call({homeAction:'password',password:'abc'})).status,400);
 assert.equal((await call({homeAction:'toggle',enabled:false,password:'123456'})).status,400);
 console.log('PASS: default and changed passwords, hashed storage, admin-only changes, fixed disable password independent of home password, wrong-password rejection, re-enable.');
+assert.equal((await call({homeAction:'errorCover',enabled:false},false)).status,400);
+assert.equal(store.has('settings/errorCover'),false);
+assert.equal((await call({homeAction:'errorCover',enabled:'false'})).status,400);
+assert.equal((await call({homeAction:'errorCover',enabled:false})).status,200);
+assert.equal(store.get('settings/errorCover'),false);
+assert.equal((await call({homeAction:'errorCover',enabled:true})).status,200);
+assert.equal(store.get('settings/errorCover'),true);
+assert.equal(store.get('settings/homeSwitch'),true);
+const coverRules=JSON.parse(fs.readFileSync(new URL('../database.rules.json',import.meta.url),'utf8')).rules.settings.errorCover;
+assert.equal(coverRules['.read'],true);assert.equal(coverRules['.write'],false);
+console.log('PASS: error cover toggle is admin-only, boolean-only, reversible and independent of homepage password protection; only its public display flag is readable.');

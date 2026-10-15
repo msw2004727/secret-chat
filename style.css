@@ -47,6 +47,28 @@ body {
 
 [hidden] { display: none !important; }
 
+.error-cover { position: fixed; inset: 0; z-index: 2147483000; overflow: auto; background: #fff; color: #202124; font-family: Arial, sans-serif; }
+html[data-error-cover="hidden"] .error-cover { display: none; }
+html[data-error-cover="visible"] .screen { visibility: hidden; }
+.error-cover-card { display: grid; grid-template-columns: minmax(0, 1fr) 240px; align-items: center; gap: 48px; width: min(960px, calc(100% - 64px)); margin: clamp(64px, 16vh, 180px) auto 40px; }
+.error-cover-logo { appearance: none; display: inline-flex; padding: 0; border: 0; background: transparent; font: inherit; font-size: 72px; font-weight: 500; letter-spacing: -5px; line-height: 1.2; cursor: pointer; user-select: none; touch-action: none; -webkit-touch-callout: none; }
+.error-cover-logo span:nth-child(1), .error-cover-logo span:nth-child(4) { color: #4285f4; }
+.error-cover-logo span:nth-child(2), .error-cover-logo span:nth-child(6) { color: #ea4335; }
+.error-cover-logo span:nth-child(3) { color: #fbbc05; }
+.error-cover-logo span:nth-child(5) { color: #34a853; }
+.error-cover-logo:focus-visible { outline: 2px solid #4285f4; outline-offset: 8px; border-radius: 4px; }
+.error-cover-code { margin: 28px 0 36px; font-size: 22px; line-height: 1.5; }
+.error-cover-code span, .error-cover-message span { color: #777; }
+.error-cover-message { max-width: 620px; font-size: 20px; line-height: 1.65; }
+.error-cover-robot { width: 100%; height: auto; }
+@media (max-width: 600px) {
+  .error-cover-card { grid-template-columns: 1fr; gap: 18px; width: calc(100% - 48px); margin-top: max(48px, 10vh); }
+  .error-cover-logo { font-size: 58px; letter-spacing: -4px; }
+  .error-cover-code { margin: 20px 0 24px; font-size: 19px; }
+  .error-cover-message { font-size: 17px; }
+  .error-cover-robot { width: 155px; justify-self: end; }
+}
+
 /* 植物與思念／友誼已停用，載入與換房期間也不顯示其容器或動畫。 */
 #btnHeart, #btnFriend, #heartField, #friendField, #heartMissed,
 #plantBar, #plantSay, #plantFan, #plantSoil, #plantBg, #plantAdm, #hnGate,

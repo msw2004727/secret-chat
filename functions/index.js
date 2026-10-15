@@ -644,7 +644,7 @@ async function handleHomeSettings(body, caller, res, deny) {
     } catch (_) { return deny("首頁密碼驗證失敗"); }
     return;
   }
-  // 關閉保護與修改密碼都由伺服器驗證管理員，前端不可直接寫設定。
+  // 首頁設定變更都由伺服器驗證管理員，前端不可直接寫設定。
   let admin = false;
   try { admin = caller.lp === true && (await db.ref(`admin/${caller.uid}`).get()).val() === true; } catch (_) {}
   if (!admin) return deny("首頁設定需要管理員");
@@ -657,6 +657,9 @@ async function handleHomeSettings(body, caller, res, deny) {
       if (typeof body.enabled !== "boolean") return deny("首頁開關格式");
       if (!body.enabled && (!process.env.HOME_DISABLE_PASSWORD || password !== process.env.HOME_DISABLE_PASSWORD)) return deny("關閉首頁保護密碼錯誤");
       await db.ref("settings/homeSwitch").set(body.enabled);
+    } else if (body.homeAction === "errorCover") {
+      if (typeof body.enabled !== "boolean") return deny("錯誤畫面開關格式");
+      await db.ref("settings/errorCover").set(body.enabled);
     } else { return deny("首頁設定操作"); }
     res.status(200).json({ ok: true });
   } catch (_) { return deny("首頁設定儲存失敗"); }
