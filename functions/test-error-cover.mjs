@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const src=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
 const store=new Map(),nodes=new Map();let now=0,focused=0,calls=0,enabled=true,fail=false;
-const $=id=>{if(!nodes.has(id))nodes.set(id,{hidden:true,inert:false,dataset:{},disabled:false,textContent:'',events:{},addEventListener(k,f){this.events[k]=f},focus(){focused++},setAttribute(k,v){this[k]=v}});return nodes.get(id)};
+const $=id=>{if(!nodes.has(id))nodes.set(id,{hidden:true,inert:false,dataset:{},disabled:false,textContent:'',events:{},addEventListener(k,f){this.events[k]=f},focus(){focused++},blur(){},setAttribute(k,v){this[k]=v}});return nodes.get(id)};
 $('gate').hidden=false;
 const screens=[$('gate'),$('chat'),$('admin')];
 const document={documentElement:{dataset:{}},querySelectorAll:()=>screens};
@@ -13,7 +13,7 @@ vm.runInContext(src.slice(src.indexOf('const ErrorCover = {'),src.indexOf('// é¦
 const c=ctx.cover;c.init();assert.equal(document.documentElement.dataset.errorCover,'visible');assert.ok(screens.every(s=>s.inert));
 const tap=()=>{$('errorCoverLogo').events.click();now+=100};
 tap();tap();assert.equal(c.dismissed,false);now+=1000;tap();assert.equal(c.dismissed,false);tap();tap();
-assert.equal(c.dismissed,true);assert.equal(document.documentElement.dataset.errorCover,'hidden');assert.ok(screens.every(s=>!s.inert));assert.equal(focused,1);
+assert.equal(c.dismissed,true);assert.equal(document.documentElement.dataset.errorCover,'hidden');assert.ok(screens.every(s=>!s.inert));assert.equal(focused,0);
 await new Promise(setImmediate);assert.equal(calls,1);assert.equal(document.documentElement.dataset.errorCover,'hidden');
 assert.equal(home.unlocked,false);assert.equal(home.quickEntry,false);
 c.dismissed=false;enabled=false;c.setEnabled(await c.readEnabled());assert.equal(document.documentElement.dataset.errorCover,'hidden');assert.equal(store.get('sc-error-cover-enabled'),'false');

@@ -19,7 +19,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.23";
+const APP_VERSION = "v61.24";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -825,7 +825,7 @@ const ErrorCover = {
   },
   dismiss() {
     this.dismissed = true; this.taps = []; this.sync();
-    if ($("gate")?.hidden === false) $("gateInput")?.focus();
+    if ($("gate")?.hidden === false) $("gateInput")?.blur();
   },
   async readEnabled() {
     const url = String(CFG.firebase.databaseURL).replace(/\/$/, "") + "/settings/errorCover.json";
@@ -909,7 +909,7 @@ const HomeSwitch = {
           if (!dialog.open) { this.lock(); return; }
           AutoLocation.set($("homeAutoLocation").checked);
           AutoLocation.run();
-          close(); $("gateInput").focus();
+          close(); $("gateInput").blur();
         } else { error.textContent = "密碼不正確"; input.focus(); }
       } catch (_) { error.textContent = "暫時無法驗證，請稍後再試"; }
       finally { busy = false; $("homeSwitchConfirm").disabled = false; }
@@ -1148,7 +1148,8 @@ function initGate() {
   /* 位置回報的大頭針。⚠️ 關掉（或沒設公鑰）時整顆不進 DOM，見 Loc.init()。 */
   Loc.init();
 
-  input.focus();
+  // 首頁只在使用者點選輸入框時開啟鍵盤，避免擋住頁尾的服務條款入口。
+  input.blur();
 }
 
 /* ── 隱身記號（v56）──
@@ -9639,7 +9640,7 @@ function leaveChat() {
   clearBox($("gateInput"));
   $("gClear").hidden = true;
   $("gDivider").hidden = true;
-  $("gateInput").focus();
+  $("gateInput").blur();
   maybeReload();
 }
 
@@ -10691,7 +10692,7 @@ function leaveAdmin() {
   clearBox($("gateInput"));
   $("gClear").hidden = true;
   $("gDivider").hidden = true;
-  $("gateInput").focus();
+  $("gateInput").blur();
   maybeReload();
 }
 
