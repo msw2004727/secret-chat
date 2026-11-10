@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const src=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
 const notes={one:{iv:'encrypted-iv',c:'encrypted-note',t:100},two:{iv:'other-iv',c:'other-note',t:200}};
-const makeRoom=()=>({nt:structuredClone(notes),m:{message:{c:'encrypted-message'}},read:{a:'message'},recv:{b:'message'},typing:{a:1},rx:{message:{}},meta:{last:1},heart:{n:3},notice:{c:'notice'},pet:{stage:2}});
+const makeRoom=()=>({nt:structuredClone(notes),m:{message:{c:'encrypted-message'}},read:{a:'message'},recv:{b:'message'},typing:{a:1},rx:{message:{}},dr:{message:{on:true,t:1,by:'device'}},meta:{last:1},heart:{n:3},notice:{c:'notice'},pet:{stage:2}});
 for(const entry of ['chat','admin']) {
   const data={rooms:{room:makeRoom(),other:makeRoom()}},operations=[];
   const at=path=>path.split('/').reduce((obj,key)=>obj?.[key],data);
@@ -13,7 +13,8 @@ for(const entry of ['chat','admin']) {
   const S={roomId:'room',msgs:[],notes:structuredClone(notes)};
   let phase='idle';
   const Shatter={playAll(){phase='shattered'}};
-  const ctx=vm.createContext({ROOM_EXTRAS_ENABLED:false,S,Shatter,Adm:{rooms:[{roomId:'room',name:'fixture',count:1,last:1}]},...f,base:'rooms/room',mRef:'rooms/room/m',connect:async()=>f,MEDIA_KINDS:[],Watch:{remove(){}},Heart:{wiped(){}},resetList(){if(entry==='chat')assert.equal(phase,'shattered');phase='reset'},syncWatchUI(){},addSystem(){},toast(){},admRender(){},console});
+  const Droop={clearAll(){phase=phase==='shattered'?'shattered':'cleared'}};
+  const ctx=vm.createContext({ROOM_EXTRAS_ENABLED:false,S,Shatter,Droop,Adm:{rooms:[{roomId:'room',name:'fixture',count:1,last:1}]},...f,base:'rooms/room',mRef:'rooms/room/m',connect:async()=>f,MEDIA_KINDS:[],Watch:{remove(){}},Heart:{wiped(){}},resetList(){if(entry==='chat')assert.equal(phase,'shattered');phase='reset'},syncWatchUI(){},addSystem(){},toast(){},admRender(){},console});
   if(entry==='chat') {
     vm.runInContext(src.slice(src.indexOf('  S.wipe = async () => {'),src.indexOf('  /* --- 6.6b 正在輸入 ---')),ctx);
     await S.wipe();
@@ -24,7 +25,7 @@ for(const entry of ['chat','admin']) {
   assert.deepEqual(data.rooms.room.nt,notes,`${entry}: encrypted notes remain intact`);
   assert.deepEqual(S.notes,notes,`${entry}: local notes remain intact`);
   assert.deepEqual(data.rooms.other,makeRoom(),`${entry}: other room unchanged`);
-  for(const key of ['m','read','recv','typing','rx','notice'])assert.equal(data.rooms.room[key],undefined,`${entry}: ${key} still clears`);
+  for(const key of ['m','read','recv','typing','rx','dr','notice'])assert.equal(data.rooms.room[key],undefined,`${entry}: ${key} still clears`);
   assert.deepEqual(data.rooms.room.heart,makeRoom().heart,`${entry}: disabled heart data remains intact`);
   assert.deepEqual(data.rooms.room.pet,makeRoom().pet,`${entry}: disabled plant data remains intact`);
   assert.equal(data.rooms.room.meta.last,undefined);

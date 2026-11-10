@@ -461,6 +461,7 @@ export function mountRoomPets() {
           if (ball.vy > 0) { const v = ball.vy; ball.vy = v > 90 ? -v * 0.72 : 0; ball.vx *= 0.93; if (v > 90) bounced(now, v); }
         }
         for (const s of shapes) collideRoundRect(s, now);
+        collideHeads(now);
       }
       const onFloor = ball.y >= floorY - BR - 0.5;
       if (onFloor && Math.abs(ball.vy) < 1) { ball.vx *= Math.pow(0.4, dt); if (Math.abs(ball.vx) < 3) ball.vx = 0; }
@@ -1428,6 +1429,7 @@ export function mountRoomPets() {
           if (e < 150 + a.air) return (e - 150) / a.air < 0.5 ? j[1] : j[2];
           return j[0];
         }
+        case "bonk": return a.sideF ? fr.love[SIDE_I] : fr.sit[0];
         case "sit": case "fight": return SPRITES[cat.name].sit[0];
         case "love": { const i = Object.keys(LOVE_KEYS).indexOf(a.fk); return fr.love[i >= 0 ? i : 0]; }
         case "bite": return a.fi === -1 ? (a.si > 0 ? fr.love[SIDE_I] : fr.walk[0]) : a.fi === 4 ? fr.sit[0] : fr.bite[a.fi];
@@ -1526,11 +1528,154 @@ export function mountRoomPets() {
       }
     }
 
+    const BONK_MIN_V = 260;
+    const BONK_CD = 2500;
+    const BONK_OK = { walk: 1, run: 1, sit: 1, loaf: 1, lick1: 1, lick2: 1, lick3: 1, sleep: 1, scratch: 1, stun: 1, ballchase: 1, steal: 1, bonk: 1, chase: 1, follow: 1, flee: 1 };
+    function eyesOf(f) {
+      if (f.eyes) return f.eyes;
+      const src = f.src || f;
+      const cw = src.cv.width, ch = src.cv.height;
+      const d = src.cv.getContext("2d").getImageData(0, 0, cw, ch).data;
+      const at = (x, y) => { const i = (y * cw + x) * 4; return [d[i], d[i + 1], d[i + 2], d[i + 3]]; };
+      const isW = (p) => p[3] > 128 && p[0] > 235 && p[1] > 235 && p[2] > 235;
+      const isK = (p) => p[3] > 128 && p[0] < 20 && p[1] < 20 && p[2] < 20;
+      const fur = (p) => p[3] > 128 && !isW(p) && !isK(p);
+      let eyes = [];
+      for (let y = 1; y < ch - 1; y++) for (let x = 1; x < cw - 1; x++) {
+        if (isW(at(x, y)) && isK(at(x, y + 1)) && fur(at(x - 1, y)) && fur(at(x + 1, y))) {
+          const c = at(x - 1, y);
+          eyes.push({ x, y, fur: "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")" });
+        }
+      }
+      const furOf = (x, y) => { const c = at(Math.max(0, Math.min(cw - 1, x)), Math.max(0, Math.min(ch - 1, y))); return fur(c) ? "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")" : null; };
+      if (!eyes.length) {
+        const top = src.top, cx = src.cx;
+        const cand = src.side ? [[Math.round(cx + 4), top + 5]] : [[Math.round(cx - 2), top + 5], [Math.round(cx + 2), top + 5]];
+        eyes = cand.map(([x, y]) => ({ x, y, fur: furOf(x - 1, y) || furOf(x, y - 1) || "#a79e99" }));
+      }
+      eyes.sort((p, q) => p.x - q.x);
+      if (f.src) eyes = eyes.map((e) => ({ x: e.y, y: 31 - e.x, fur: e.fur, rot: true }));
+      f.eyes = eyes;
+      return eyes;
+    }
+    function drawBonkEyes(ctx, f, dy) {
+      const eyes = eyesOf(f);
+      eyes.forEach((e, i) => {
+        const x = e.x, y = e.y + dy;
+        ctx.fillStyle = e.fur;
+        ctx.fillRect(x - 1, y - 1, 3, 3);
+        ctx.fillStyle = "#010101";
+        let px;
+        if (e.rot) px = [[x - 1, y + 1], [x, y], [x + 1, y + 1]];
+        else if (eyes.length >= 2 && i === eyes.length - 1) px = [[x + 1, y - 1], [x, y], [x + 1, y + 1]];
+        else px = [[x - 1, y - 1], [x, y], [x - 1, y + 1]];
+        for (const [a, b] of px) ctx.fillRect(a, b, 1, 1);
+      });
+    }
+    function paintCat(ctx, f, bk, w, h) {
+      ctx.clearRect(0, 0, w, h);
+      if (!f || !f.cv) return;
+      if (bk === 2 && !f.src) {
+        const hb = Math.min(h - 1, f.top + 9);
+        ctx.drawImage(f.cv, 0, hb, w, h - hb, 0, hb, w, h - hb);
+        ctx.drawImage(f.cv, 0, 0, w, hb, 0, 1, w, hb);
+      } else ctx.drawImage(f.cv, 0, 0);
+      if (bk) drawBonkEyes(ctx, f, bk === 2 && !f.src ? 1 : 0);
+    }
+    function bonkStage(cat, now) {
+      if (!(now < cat.bonkUntil)) return 0;
+      return now - cat.bonkT0 < 260 ? 2 : 1;
+    }
+    function headOf(cat) {
+      if (cat._hangOn && cat.act && cat.act.type === "hang" && cat.act.hl != null) {
+        const hx = cat.dir < 0 ? 20 - 7.5 : 7.5;
+        return { x: cat.act.hl + hx * S, y: cat.act.ht + 10.5 * S, r: 6.5 * S, top: cat.act.ht };
+      }
+      const f = cat.cur;
+      if (!f) return null;
+      const hx = cat.dir < 0 ? W - (f.cx + 0.5) : f.cx + 0.5;
+      const top = floorY - cat.y - (H - f.top) * S;
+      return { x: cat.x + hx * S, y: top + 4.5 * S, r: 6.5 * S, top };
+    }
+    function collideHeads(now) {
+      if (ball.state !== "loose") return;
+      for (const c of cats) {
+        if (c.hidden || !c.cur || now < (c.catchCd || 0) || c.el.style.visibility === "hidden") continue;
+        const hd = headOf(c);
+        if (!hd) continue;
+        const dx = ball.x - hd.x, dy = ball.y - hd.y;
+        const dist = Math.hypot(dx, dy), R = BR + hd.r;
+        if (dist >= R || dist < 0.01) continue;
+        const nx = dx / dist, ny = dy / dist;
+        const vn = ball.vx * nx + ball.vy * ny;
+        if (vn > -BONK_MIN_V) continue;
+        const e = 0.62;
+        const tx = -ny, ty = nx, vt = ball.vx * tx + ball.vy * ty;
+        ball.vx = -e * vn * nx + vt * 0.85 * tx;
+        ball.vy = -e * vn * ny + vt * 0.85 * ty;
+        ball.x = hd.x + nx * (R + 0.5); ball.y = hd.y + ny * (R + 0.5);
+        ball.squashAt = now;
+        bonk(c, now, -vn);
+      }
+    }
+    function bonk(cat, now) {
+      if (cat.hidden || now < (cat.bonkCd || 0)) return false;
+      cat.bonkCd = now + BONK_CD;
+      cat.bonkT0 = now;
+      cat.bonkUntil = now + rand(650, 850);
+      hideBubble(cat, now);
+      cat.nextBubble = Math.max(cat.nextBubble || 0, cat.bonkUntil + 300);
+      const a = cat.act;
+      const faceOnly = !a || a.type === "hang" || a.type === "bite" || a.type === "love" || a.type === "jump" || a.type === "carry" || (soc && soc.kind === "love") || a.tapped || cat.pendingTap || cat.y >= 0.5;
+      if (!faceOnly && BONK_OK[a.type]) {
+        if (inSoc(cat)) endSoc(now);
+        if (ball.carrier === cat) dropBall(cat, now);
+        const sideF = !!(cat.cur && cat.cur.side);
+        setAct(cat, { type: "bonk", dur: cat.bonkUntil - now, sideF }, now);
+        const r = Math.random();
+        if (r < 0.3 && ball.state === "loose") {
+          cat.queue.push({ type: "sit", dur: rand(250, 450) });
+          cat.ballUntil = now + rand(5000, 10000);
+        } else if (r < 0.65) {
+          cat.ballUntil = 0;
+          cat.queue.push({ type: sideF ? "loaf" : "sit", dur: rand(800, 1300) });
+          cat.queue.push({ type: sideF ? "loaf" : "sit", dur: rand(900, 1500), flip: true });
+        } else {
+          cat.ballUntil = 0;
+          cat.queue.push({ type: sideF ? "loaf" : "sit", dur: rand(1400, 2400) });
+        }
+      }
+      return true;
+    }
+    const SWEAT_SVG = '<svg viewBox="0 0 5 7" aria-hidden="true"><rect x="2" y="0" width="1" height="1" fill="#7cc7ff"/><rect x="1" y="1" width="3" height="2" fill="#7cc7ff"/><rect x="0" y="3" width="5" height="3" fill="#7cc7ff"/><rect x="1" y="6" width="3" height="1" fill="#7cc7ff"/><rect x="1" y="3" width="1" height="1" fill="#e9f7ff"/></svg>';
+    function renderBonkFx(cat, now) {
+      if (!cat.bonkFx) {
+        const el = document.createElement("div");
+        el.className = "cat-bonk";
+        el.innerHTML = '<i class="bk-star">' + iconSVG("sparkle") + '</i><i class="bk-sweat">' + SWEAT_SVG + "</i>";
+        cat.el.appendChild(el);
+        cat.bonkFx = el;
+      }
+      const el = cat.bonkFx;
+      const on = now < cat.bonkUntil && !cat.hidden;
+      if (!on) { if (el.style.display !== "none") el.style.display = "none"; cat.bonkFxT = 0; return; }
+      const hd = headOf(cat);
+      if (!hd) return;
+      if (cat.bonkFxT !== cat.bonkT0) {
+        cat.bonkFxT = cat.bonkT0;
+        el.style.display = "none"; void el.offsetWidth; el.style.display = "block";
+      }
+      const back = cat._hangOn ? (cat.dir < 0 ? 1 : -1) : -cat.dir;
+      el.style.left = Math.round(hd.x - Math.round(cat.x)) + "px";
+      el.style.bottom = Math.round(floorY - (cat._hangOn ? hd.y + 4 : hd.top)) + "px";
+      el.style.setProperty("--bk", String(back));
+    }
     function render(cat, now) {
       const f = frameFor(cat, now) || SPRITES[cat.name].sit[0];
-      if (f !== cat.cur || cat.dir !== cat.curDir) {
-        cat.ctx.clearRect(0, 0, W, H);
-        cat.ctx.drawImage(f.cv, 0, 0);
+      const bk = bonkStage(cat, now);
+      if (f !== cat.cur || cat.dir !== cat.curDir || bk !== cat._bk) {
+        paintCat(cat.ctx, f, bk, W, H);
+        cat._bk = bk;
         cat.cv.style.transform = cat.dir < 0 ? "scaleX(-1)" : "";
         cat.cur = f;
         cat.curDir = cat.dir;
@@ -1582,7 +1727,7 @@ export function mountRoomPets() {
       return { x: Math.round(cat.x) + px * S, y: floorY - cat.y - (H - p.y) * S };
     }
     function bubOK(el) {
-      if (!el || !el.isConnected || el.classList.contains("ghost") || el.classList.contains("holding")) return false;
+      if (!el || !el.isConnected || el.classList.contains("ghost") || el.classList.contains("holding") || el.classList.contains("droop")) return false;
       const row = el.closest(".row");
       return !!row && !row.classList.contains("shattering") && !row.classList.contains("gone");
     }
@@ -1883,6 +2028,13 @@ export function mountRoomPets() {
         drawJelly(j);
       }
     }
+    msgList.addEventListener("bub-droop", (e) => {
+      const el = e.target;
+      const n = performance.now();
+      for (const c of cats) if (c.act && c.act.type === "bite" && c.act.el === el) abortBite(c, n);
+      for (const c of cats) if (c.act && c.act.type === "hang" && c.act.el === el) hangDrop(c, c.act, n);
+      for (const j of jellies.slice()) if (j.el === el) resetJelly(j);
+    });
     msgList.addEventListener("bub-shatter", (e) => {
       const el = e.target;
       const n = performance.now();
@@ -2153,14 +2305,14 @@ export function mountRoomPets() {
       }
       if (!on) return false;
       const f = SPRITES[cat.name].hang[a.fi];
-      const key = a.fi + ":" + cat.dir;
+      const bk = bonkStage(cat, now);
+      const key = a.fi + ":" + cat.dir + ":" + bk;
       if (cat.hangKey !== key) {
         cat.hangKey = key;
-        cat.hangCtx.clearRect(0, 0, HANG_W, HANG_H);
-        cat.hangCtx.drawImage(f.cv, 0, 0);
-        const fr = Math.ceil(f.pt.y + 1.5);
+        paintCat(cat.hangCtx, f, bk, HANG_W, HANG_H);
+        const frn = Math.ceil(f.pt.y + 1.5);
         cat.hangFrontCtx.clearRect(0, 0, HANG_W, HANG_H);
-        cat.hangFrontCtx.drawImage(f.cv, 0, 0, HANG_W, fr, 0, 0, HANG_W, fr);
+        cat.hangFrontCtx.drawImage(cat.hangCv, 0, 0, HANG_W, frn, 0, 0, HANG_W, frn);
       }
       const ptx = cat.dir < 0 ? HANG_W - f.pt.x : f.pt.x;
       const left = Math.round(a.mouth.x - ptx * S), top = Math.round(a.mouth.y - f.pt.y * S);
@@ -2368,7 +2520,7 @@ export function mountRoomPets() {
     let overlapped = false;
     let rafId = 0;
     function loop(now) {
-      if (!chatLive() || document.hidden) {
+      if (petsOn === false || !chatLive() || document.hidden) {
         rafId = 0;
         document.documentElement.classList.remove("room-pet-drag");
         if (ball.state === "drag") { ball.state = "loose"; ball.dragId = null; }
@@ -2395,7 +2547,7 @@ export function mountRoomPets() {
       const ov = Math.abs(cats[0].x - cats[1].x) < W * S * 0.7;
       if (ov && !overlapped) { const f = Math.random() < 0.5 ? 0 : 1; cats[f].el.style.zIndex = "3"; cats[1 - f].el.style.zIndex = "1"; }
       overlapped = ov;
-      for (const c of cats) render(c, now);
+      for (const c of cats) { render(c, now); renderBonkFx(c, now); }
       jellyStep(now, dt);
       renderFront();
       biteSchedule(now);
@@ -2404,7 +2556,7 @@ export function mountRoomPets() {
       rafId = requestAnimationFrame(loop);
     }
     function wake() {
-      if (rafId || !chatLive() || document.hidden) return;
+      if (rafId || petsOn === false || !chatLive() || document.hidden) return;
       last = performance.now();
       measure();
       rafId = requestAnimationFrame(loop);
@@ -2417,9 +2569,49 @@ export function mountRoomPets() {
     }
     if (window.MutationObserver) new MutationObserver(wake).observe(chat, { attributes: true, attributeFilter: ["hidden"] });
     document.addEventListener("visibilitychange", wake);
-    wake();
+    let petsOn = true;
+    function petsDisable() {
+      if (petsOn === false) return;
+      const n = performance.now();
+      try { if (soc) endSoc(n); } catch (_) {}
+      for (const c of cats) {
+        try {
+          if (c.act && c.act.type === "bite") abortBite(c, n);
+          else if (c.act && c.act.type === "hang") stopBite(c, n);
+        } catch (_) {}
+        c.queue = []; c.y = 0; c._hangOn = false;
+        if (c.hangFront) c.hangFront.style.display = "none";
+      }
+      for (const j of jellies.slice()) resetJelly(j);
+      if (ball.state === "carried" || ball.state === "drag") { ball.state = "loose"; ball.carrier = null; ball.dragId = null; }
+      ball.vx = 0; ball.vy = 0;
+      petsOn = false;
+      for (const el of msgList.querySelectorAll("canvas.bub-shade, canvas.bub-warp")) el.remove();
+      for (const el of msgList.querySelectorAll(".bub.jelly")) el.classList.remove("jelly");
+      layer.style.display = "none";
+      frontWrap.style.display = "none";
+      if (warpLayer) warpLayer.style.display = "none";
+      chat.style.removeProperty("--cat-walk");
+      chat.classList.add("pets-off");
+    }
+    function petsEnable() {
+      if (petsOn !== false) return;
+      petsOn = true;
+      layer.style.display = "";
+      frontWrap.style.display = "";
+      if (warpLayer) warpLayer.style.display = "";
+      chat.classList.remove("pets-off");
+      const n = performance.now();
+      last = n;
+      nextSocialAt = Math.max(nextSocialAt, n + rand(6000, 12000));
+      nextBiteAt = Math.max(nextBiteAt, n + rand(6000, 12000));
+      wake();
+    }
+    window.addEventListener("sc-pets", (e) => { if (e.detail && e.detail.on) petsEnable(); else petsDisable(); });
+    try { if (localStorage.getItem("sc-pets") === "off") petsOn = false; } catch (_) {}
+    if (petsOn === false) petsDisable(); else wake();
     /* 測試用：window.__cats 可以直接觸發互動 */
-    window.__cats = { cats, ball, get S() { return S; }, get floorY() { return floorY; },
+    window.__cats = { cats, ball, get enabled() { return petsOn !== false; }, setEnabled: (on) => { if (on) petsEnable(); else petsDisable(); }, bonk: (i) => { const c = cats[i || 0]; c.bonkCd = 0; return bonk(c, performance.now()); }, get S() { return S; }, get floorY() { return floorY; },
       throwBall: (x, y, vx, vy) => { ball.state = "loose"; ball.carrier = null; ball.x = x; ball.y = y; ball.vx = vx; ball.vy = vy; onThrow(performance.now()); },
       give: (i) => { endSoc(performance.now()); catchBall(cats[i], performance.now()); },
       ballFight: () => { const n = performance.now(); endSoc(n); if (ball.state !== "carried") catchBall(cats[0], n); const c = ball.carrier; startBallFight(other(c), c, n); },

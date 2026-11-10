@@ -10,6 +10,7 @@
  * ============================================================ */
 
 import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat-performance.js";
+import { Droop } from "./droop.js";
 
 const CFG = window.CONFIG;
 
@@ -19,7 +20,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.27";
+const APP_VERSION = "v61.28";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -5213,6 +5214,15 @@ async function enterChat() {
     }
   }));
 
+  /* 雙擊訊息垂下去。跟表情一樣是訊息旁邊的小節點，不寫進加密的訊息本身。 */
+  Droop.mount();
+  Droop.now = nowServer;
+  Droop.write = (key, on) => set(ref(db, `${base}/dr/${key}`), { on: !!on, t: serverTimestamp(), by: S.clientId }).catch(() => {});
+  S.subs.push(onValue(ref(db, `${base}/dr`), (snap) => {
+    if (myGen !== S.gen) return;
+    Droop.sync(snap.val() || {}, nowServer());
+  }));
+
   /* --- 6.2d 置頂公告（v45）---
      一間房只有一則，整包 onValue 訂閱：資料很小，而且「新的蓋掉舊的」
      用 set() 就是原子的，不必自己處理新增／修改／移除三種事件。
@@ -5480,6 +5490,7 @@ async function enterChat() {
       S.wipeMark = v;
       /* 旗標先到、清單還在：先對畫面上的泡泡取樣，再清掉。
          自己按的那次已把 wipeMark 設成同一個值，不會在這裡再炸一輪。 */
+      Droop.clearAll();
       try { Shatter.playAll(); } catch (err) { console.error(err); }
       resetList();
       Heart.wiped();
@@ -5623,6 +5634,7 @@ async function enterChat() {
       remove(ref(db, `${base}/recv`)),
       remove(ref(db, `${base}/typing`)),
       remove(ref(db, `${base}/rx`)),
+      remove(ref(db, `${base}/dr`)),
       remove(ref(db, `${base}/meta/last`)),
       /* 啟用時思念隨對話歸零；停用時不寫入或刪除既有計數。 */
       ...(ROOM_EXTRAS_ENABLED ? [remove(ref(db, `${base}/heart`))] : []),
@@ -5640,6 +5652,7 @@ async function enterChat() {
     syncWatchUI();
     S.peerReadKey = null; S.peerRecvKey = null;
     S.lastReadSent = null; S.lastRecvSent = null;
+    Droop.clearAll();
     try { Shatter.playAll(); } catch (err) { console.error(err); }
     resetList();
     Heart.wiped();
@@ -5688,6 +5701,7 @@ async function enterChat() {
     const victim = S.msgs.find((x) => x.k === key);
     await remove(ref(db, `${base}/m/${key}`));
     remove(ref(db, `${base}/rx/${key}`)).catch(() => {});   // 表情也要跟著走，不留殘留
+    remove(ref(db, `${base}/dr/${key}`)).catch(() => {});
     if (victim && MEDIA_KINDS.includes(victim.kind)) dropMediaBlob(victim.body);
   };
 
@@ -5706,7 +5720,7 @@ async function enterChat() {
       /* 單則刪除（含對方按的、閱後即焚燒掉的）都從這條「t 不見了」進來。
          先對還在畫面上的泡泡取樣，粒子飛完再收列；取樣失敗就照舊立刻拆掉。 */
       let owns = false;
-      try { owns = !!Shatter.play(row); }
+      try { Droop.straighten(row); owns = !!Shatter.play(row); }
       catch (err) { console.error(err); }
       S.bubbleWindow?.forget(k);
       S.keys.delete(k);
@@ -8434,6 +8448,8 @@ function enterSends() {
 }
 
 function bindChatUI() {
+  Droop.mount();
+  Droop.now = nowServer;
   const input = $("msgInput"), sendBtn = $("btnSend");
 
   const autoGrow = () => {
@@ -8792,6 +8808,7 @@ function syncSettingsUI() {
   const k = $("setShake"); if (k) k.checked = !!motionHandler;
   const w = $("setWatch"); if (w) w.checked = Watch.has(S.roomId);
   const ty = $("setTyping"); if (ty) ty.checked = Typing.enabled();
+  const pets = $("setPets"); if (pets) pets.checked = Pets.enabled();
 
   // 搖晃保護整組關掉時，開關就不要出現
   const shakeRow = $("setShake")?.closest(".c-set-row");
@@ -9123,6 +9140,12 @@ function bindSettings() {
     Typing.set(on);
     if (!on && S.stopTyping) S.stopTyping();   // 關掉就把已經寫上去的清乾淨
     toast(on ? "對方會看到你正在輸入" : "已關閉，對方看不到你在打字");
+  });
+
+  $("setPets")?.addEventListener("change", () => {
+    const on = $("setPets").checked;
+    Pets.set(on);
+    toast(on ? "貓咪回來了" : "已關閉聊天室貓咪");
   });
 
   $("setIdle").addEventListener("click", (e) => {
@@ -9623,6 +9646,8 @@ function leaveChat() {
   S.markRead = null; S.peerReadKey = null; S.lastReadSent = null;
   S.markRecv = null; S.peerRecvKey = null; S.lastRecvSent = null;
   S.setRx = null; S.rx = {};
+  Droop.write = null;
+  Droop.clearAll();
   /* ⚠️ 公告一定要收乾淨。它是一段中文，留在偽裝首頁上會直接破功 ——
         跟 toast、長按選單同一條規矩。 */
   S.setNotice = null; S.dropNotice = null; S.noticeSrc = null;
@@ -10418,6 +10443,15 @@ const Typing = {
   KEY: "sc-typing",
   enabled() { return localStorage.getItem(this.KEY) !== "off"; },
   set(on) { localStorage.setItem(this.KEY, on ? "on" : "off"); },
+};
+
+const Pets = {
+  KEY: "sc-pets",
+  enabled() { try { return localStorage.getItem(this.KEY) !== "off"; } catch (_) { return true; } },
+  set(on) {
+    try { localStorage.setItem(this.KEY, on ? "on" : "off"); } catch (_) {}
+    window.dispatchEvent(new CustomEvent("sc-pets", { detail: { on: !!on } }));
+  },
 };
 
 const Theme = {
@@ -11895,6 +11929,7 @@ async function admWipe(i) {
       remove(ref(db, `${base}/recv`)),
       remove(ref(db, `${base}/typing`)),
       remove(ref(db, `${base}/rx`)),
+      remove(ref(db, `${base}/dr`)),
       remove(ref(db, `${base}/meta/last`)),
       // 清空對話保留 nt（記事本），停用中的思念計數也不變動。
       ...(ROOM_EXTRAS_ENABLED ? [remove(ref(db, `${base}/heart`))] : []),

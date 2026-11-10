@@ -3302,6 +3302,26 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
 .love-tail { position: absolute; left: 0; bottom: 0; z-index: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; transform-origin: 50% 50%; }
 .love-heart { position: absolute; z-index: 5; line-height: 0; animation: loveUp 1.6s ease-out forwards; }
 .love-heart svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
+.cat-bonk { position: absolute; left: 0; bottom: 0; width: 0; height: 0; display: none; z-index: 2; pointer-events: none; }
+.cat-bonk i { position: absolute; display: block; line-height: 0; }
+.cat-bonk svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
+.cat-bonk .bk-star { width: 13px; height: 13px; left: calc(var(--bk, -1) * 15px - 6px); bottom: 2px; animation: bkStar .7s steps(6, end) forwards; }
+.cat-bonk .bk-sweat { width: 6px; height: 9px; left: calc(var(--bk, -1) * -19px - 3px); bottom: -8px; animation: bkSweat .8s steps(6, end) forwards; }
+@keyframes bkStar { 0% { transform: scale(.2) rotate(0deg); opacity: 0; } 20% { transform: scale(1.15) rotate(20deg); opacity: 1; } 75% { transform: scale(1) rotate(40deg); opacity: 1; } 100% { transform: scale(.6) rotate(60deg); opacity: 0; } }
+@keyframes bkSweat { 0% { transform: translateY(-3px) scale(.4); opacity: 0; } 20% { transform: translateY(0) scale(1); opacity: 1; } 80% { transform: translateY(5px) scale(1); opacity: 1; } 100% { transform: translateY(8px) scale(.8); opacity: 0; } }
+#chat.pets-off .c-scroll { padding-bottom: 6px; }
+@media (min-width: 760px) {
+  #chat.pets-off .c-scroll { padding-bottom: 8px; }
+}
+#droopLayer {
+  position: absolute; left: 0; right: 0; top: 0; height: 0;
+  overflow: hidden; pointer-events: none;
+  z-index: 1;
+}
+#droopLayer canvas.bub-droop { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+.bub.droop { background: transparent !important; color: transparent !important; }
+.bub.droop .time { color: transparent !important; }
+.bub.droop > canvas { display: none !important; }
 @keyframes loveUp {
   0% { transform: translate(0, 4px) scale(.4); opacity: 0; }
   15% { transform: translate(0, 0) scale(1); opacity: 1; }
