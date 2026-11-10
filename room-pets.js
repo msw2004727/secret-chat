@@ -425,15 +425,28 @@ export function mountRoomPets() {
       const mx = cat.dir < 0 ? W - m.x : m.x;
       return { x: cat.x + mx * S + (f.side ? cat.dir * BR * 0.3 : 0), y: floorY - cat.y - (H - m.y) * S + BR * 0.5 };
     }
+    /* 叼著的球跟主人同一層：畫在主人頭上，但另一隻走到前面時會蓋住球。
+       鬆開、拖曳、彈跳時球回到貓層外面，仍蓋在兩隻貓之上。 */
+    function parkBall() {
+      const host = ball.state === "carried" && ball.carrier ? ball.carrier.el : layer;
+      if (ballEl.parentNode !== host) host.appendChild(ballEl);
+    }
     function renderBall(now) {
       if (ball.state === "hidden") { ballEl.style.display = "none"; ballShadow.style.display = "none"; return; }
       ballEl.style.display = ""; ballShadow.style.display = "";
-      if (ball.state === "carried" && ball.carrier) {
-        const p = mouthPos(ball.carrier);
+      const carrier = ball.state === "carried" ? ball.carrier : null;
+      if (carrier) {
+        const p = mouthPos(carrier);
         ball.x = p.x; ball.y = p.y; ball.vx = 0; ball.vy = 0;
       }
+      parkBall();
       const sq = now - ball.squashAt < 90 ? "scale(1.18,0.82)" : "";
-      ballEl.style.transform = "translate3d(" + (ball.x - BR).toFixed(1) + "px," + (ball.y - floorY - BR).toFixed(1) + "px,0) " + sq;
+      let tx = ball.x - BR, ty = ball.y - floorY - BR;
+      if (carrier && ballEl.parentNode === carrier.el) {
+        tx -= carrier.x;
+        ty += H * S;
+      }
+      ballEl.style.transform = "translate3d(" + tx.toFixed(1) + "px," + ty.toFixed(1) + "px,0) " + sq;
       ballSeam.style.transform = "rotate(" + (ball.spin * 57.3).toFixed(0) + "deg) scaleX(.45)";
       const hgt = Math.max(0, floorY - BR - ball.y);
       const k = clamp(1 - hgt / 220, 0.25, 1);
