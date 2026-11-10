@@ -346,6 +346,8 @@ class ShatterFx {
     for (const bub of bubs) {
       const row = bub.closest?.(".row");
       if (!row || row.classList.contains("shattering")) continue;
+      /* 先讓泡泡上的暫時變形收掉，再取樣，粉碎的才是原本那顆泡泡。 */
+      try { bub.dispatchEvent(new Event("bub-shatter", { bubbles: true })); } catch (_) {}
       let snap = null;
       try { snap = this.snapshot(bub, scale); }
       catch (err) { console.error(err); snap = null; }
