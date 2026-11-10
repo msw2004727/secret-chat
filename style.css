@@ -3139,3 +3139,131 @@ html[data-theme="dark"] #admin { --warn: #e0a355; }
   font-family: ui-monospace, Menlo, monospace; font-size: 12px; line-height: 1.6;
   white-space: pre; color: var(--txt);
 }
+
+/* 兩隻貓與螢光球：走在輸入列上緣，整層在訊息捲動區後面。
+   訊息氣泡的圓角不在這裡改，維持 18px、尾巴側 6px。 */
+#chat .c-scroll { padding-bottom: calc(6px + var(--cat-walk, 0px)); }
+@media (min-width: 760px) {
+  #chat .c-scroll { padding-bottom: calc(8px + var(--cat-walk, 0px)); }
+}
+html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
+#cats {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--cat-floor, 60px);
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+}
+.bub { isolation: isolate; }
+.bub > canvas.bub-shade {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+#cats, #cats * {
+  pointer-events: none !important;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.cat {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  will-change: transform;
+  z-index: 1;
+}
+.cat-shadow {
+  position: absolute;
+  bottom: -2px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .32);
+  transform-origin: center;
+}
+.cat-body {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  will-change: transform;
+}
+.cat-body canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+/* 點貓之後的心情泡泡：正圓，愛心置中，下面留一小截尾巴。 */
+.cat-bubble {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateX(-50%) scale(0);
+  transform-origin: 50% 100%;
+  opacity: 0;
+  transition: transform .18s steps(3, end), opacity .12s linear;
+  line-height: 0;
+}
+.cat-bubble.show { transform: translateX(-50%) scale(1); opacity: 1; }
+.cat-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  background: #ffffff;
+  box-shadow: 2px 2px 0 0 #111;
+  transform: rotate(45deg);
+  border-radius: 1px;
+}
+.cat-bubble svg { display: block; width: 16px; height: 16px; shape-rendering: crispEdges; position: relative; z-index: 1; }
+.cat-fight { position: absolute; left: 0; bottom: 0; will-change: transform; z-index: 4; }
+.cat-fight canvas { position: absolute; left: 0; bottom: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+.ball {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  z-index: 3;
+  will-change: transform;
+  background: radial-gradient(circle at 34% 30%, #ffffe6 0 14%, #f6ff45 30%, #dcff00 62%, #a9cc00 100%);
+  box-shadow: 0 0 5px 1px rgba(226, 255, 40, .75), 0 0 14px 4px rgba(214, 255, 0, .28);
+}
+.ball i {
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-left-color: rgba(120, 150, 0, .55);
+  border-right-color: rgba(120, 150, 0, .55);
+  transform: scaleX(.45);
+}
+.ball-shadow {
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 14px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .35);
+  z-index: 0;
+}
