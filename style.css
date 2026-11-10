@@ -1239,6 +1239,28 @@ html[data-theme="dark"] #chat .c-ann-drop:active { background: rgba(239, 83, 80,
 }
 .c-hold.run { transition: transform 2s linear; transform: scaleY(1); }
 
+/* 刪除粉碎：粒子畫在 #shatterFx，泡泡本體先藏起來，飛完再把那一列收掉。 */
+#shatterFx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 6;
+}
+.row.shattering { pointer-events: none; }
+.row.shattering .rx-btn,
+.row.shattering .sendmark { visibility: hidden; }
+.bub.ghost { visibility: hidden; }
+.row.gone {
+  overflow: hidden;
+  margin-top: 0 !important;
+  transition: opacity .2s ease, max-height .28s ease, margin .28s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .row.gone { transition: none; }
+}
+
 /* --- 訊息捲動區 --- */
 .c-scroll {
   flex: 1 1 auto;
