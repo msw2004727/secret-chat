@@ -3164,6 +3164,7 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   top: 0;
   z-index: -1;
   pointer-events: none;
+  opacity: var(--cat-shade-opacity, .5); /* 泡泡後面的貓影子：比原本淡一半 */
 }
 #cats, #cats * {
   pointer-events: none !important;
