@@ -40,6 +40,11 @@ assert.doesNotMatch(pets.slice(pets.indexOf('function bubblePath'), pets.indexOf
 assert.match(pets, /borderTopLeftRadius/);
 assert.match(pets, /Math\.abs\(cats\[0\]\.x - cats\[1\]\.x\) < W \* S \* 0\.7/);
 assert.match(pets, /cats\[f\]\.el\.style\.zIndex = "2"/);
+assert.match(pets, /function parkBall\(\)/);
+assert.match(pets, /ball\.state === "carried" && ball\.carrier \? ball\.carrier\.el : layer/);
+assert.match(pets, /tx -= carrier\.x/);
+assert.match(pets, /ty \+= H \* S/);
+assert.doesNotMatch(pets.slice(pets.indexOf('兩隻重疊時'), pets.indexOf('for (const c of cats) render')), /ballEl\.style\.zIndex/);
 assert.doesNotMatch(pets, /firebase|database|websocket/i);
 assert.doesNotMatch(app + html + css + perf, /pixel-?cat|像素貓/i);
 assert.match(perf, /function traceBubble/);
