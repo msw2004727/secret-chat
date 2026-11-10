@@ -208,6 +208,13 @@ export const Droop = {
       this.lastTap = { row, t: now, x: e.clientX, y: e.clientY };
     }, true);
     list.addEventListener("dblclick", (e) => e.preventDefault());
+    /* 捲動時馬上跟上（不只靠 rAF；rAF 被節流或出錯時泡泡也不會卡在畫面上） */
+    scroller.addEventListener("scroll", () => {
+      for (const [row, st] of [...this.map]) {
+        if (!row.isConnected || !st.bub.isConnected) { this.clear(row); continue; }
+        try { this.place(st); } catch (_) {}
+      }
+    }, { passive: true });
     window.addEventListener("resize", () => { for (const st of this.map.values()) st.drawnFinal = false; this.kick(); });
     if (window.MutationObserver) {
       new MutationObserver(() => { if (this.last) this.sync(this.last, this.now()); }).observe(list, { childList: true, subtree: true });
@@ -226,8 +233,8 @@ export const Droop = {
     const st = this.map.get(row);
     if (!st) return;
     this.map.delete(row);
-    st.cv.remove();
-    st.bub.classList.remove("droop");
+    try { st.cv.remove(); } catch (_) {}
+    try { st.bub.classList.remove("droop"); } catch (_) {}
   },
   straighten(row) { if (row) this.clear(row); },
   clearAll() { for (const row of [...this.map.keys()]) this.clear(row); },
@@ -239,6 +246,7 @@ export const Droop = {
     let st = this.map.get(row);
     if (!st) {
       if (!on) return;
+      row.dataset.drooped = "1";
       try { bub.dispatchEvent(new CustomEvent("bub-droop", { bubbles: true })); } catch (_) {}
       bub.classList.remove("holding");
       const w = bub.offsetWidth, h = bub.offsetHeight;
@@ -284,6 +292,7 @@ export const Droop = {
       const rec = this.last[key];
       const row = this.list.querySelector(`.row[data-k="${CSS.escape(key)}"]`);
       if (!row || !rec) continue;
+      row.dataset.drooped = "1"; /* 垂過（包含已經挺回來的）：貓永遠不碰（room-pets.js 的 everDrooped） */
       const on = rec.on === true;
       const t = Number(rec.t);
       const st = this.map.get(row);
@@ -343,13 +352,19 @@ export const Droop = {
     if (!this.map.size) return;
     const now = this.now();
     this.syncLayer();
-    for (const [row, st] of this.map) {
+    for (const [row, st] of [...this.map]) {
       if (!row.isConnected || !st.bub.isConnected) { this.clear(row); continue; }
-      const e = now - st.t;
-      const settled = st.on ? e > DROOP.DURATION_MS + 40 : e > DROOP.RECOVER_MS;
-      if (!st.on && settled) { this.clear(row); continue; }
-      if (!settled || !st.drawnFinal) { this.draw(st, now); st.drawnFinal = settled; }
-      this.place(st);
+      try {
+        const e = now - st.t;
+        const settled = st.on ? e > DROOP.DURATION_MS + 40 : e > DROOP.RECOVER_MS;
+        if (!st.on && settled) { this.clear(row); continue; }
+        if (!settled || !st.drawnFinal) { this.draw(st, now); st.drawnFinal = settled; }
+        this.place(st);
+      } catch (err) {
+        /* 畫壞了：收掉這一則的垂下畫布、泡泡恢復原狀，其他則照常（不讓整個 rAF 鏈斷掉） */
+        try { console.warn("[droop] 已自動恢復：", err); } catch (_) {}
+        this.clear(row);
+      }
     }
     if (this.map.size) this.kick();
   },
