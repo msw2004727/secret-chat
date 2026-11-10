@@ -9,7 +9,7 @@
  *        訊息與貼圖都在瀏覽器端加密後才上傳，雲端只看得到亂碼。
  * ============================================================ */
 
-import { MessagePresence, NoteFeed, BubbleWindow } from "./chat-performance.js";
+import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat-performance.js";
 
 const CFG = window.CONFIG;
 
@@ -19,7 +19,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.24";
+const APP_VERSION = "v61.25";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -743,6 +743,20 @@ const S = {
   epoch: 0,            // 列表代號：每次清空訊息時遞增，用來丟棄飛行中的解密／載入
   subs: [],            // 本輪的 Firebase 訂閱，離開時要全部解除
 };
+
+/* 刪除／清空時的粉碎。掛在「雲端通知這則不見了」的同一條路上，
+   所以刪的人跟房裡其他人看到的是同一段動畫，不是只有自己這邊先演。
+   泡泡已經不在畫面上（捲走、被視窗卸載、或這台錯過了開頭）就靜靜拿掉。 */
+const Shatter = createShatterFx(document, {
+  onRowDone() {
+    const list = $("msgList");
+    const empty = $("emptyState");
+    if (!list || !empty) return;
+    /* 清空之後清單裡還留著「對話已清除」，不要再把「還沒有訊息」疊回去。 */
+    empty.hidden = S.msgs.length > 0
+      || !!list.querySelector(".row.shattering, .sys");
+  },
+});
 
 function myClientId() {
   let id = localStorage.getItem("sc-cid");
@@ -5464,6 +5478,9 @@ async function enterChat() {
     if (!wipeInit) { wipeInit = true; S.wipeMark = v; return; }  // 首次讀取只記錄，不動作
     if (v !== S.wipeMark) {
       S.wipeMark = v;
+      /* 旗標先到、清單還在：先對畫面上的泡泡取樣，再清掉。
+         自己按的那次已把 wipeMark 設成同一個值，不會在這裡再炸一輪。 */
+      try { Shatter.playAll(); } catch (err) { console.error(err); }
       resetList();
       Heart.wiped();
       addSystem("對話已清除");
@@ -5623,6 +5640,7 @@ async function enterChat() {
     syncWatchUI();
     S.peerReadKey = null; S.peerRecvKey = null;
     S.lastReadSent = null; S.lastRecvSent = null;
+    try { Shatter.playAll(); } catch (err) { console.error(err); }
     resetList();
     Heart.wiped();
     addSystem("對話已清除");
@@ -5683,13 +5701,19 @@ async function enterChat() {
     k => {
       if (!S.keys.has(k)) return;
       S.deletedKeys.add(k);
+      const list = $("msgList");
+      const row = list.querySelector(`.row[data-k="${k}"]`);
+      /* 單則刪除（含對方按的、閱後即焚燒掉的）都從這條「t 不見了」進來。
+         先對還在畫面上的泡泡取樣，粒子飛完再收列；取樣失敗就照舊立刻拆掉。 */
+      let owns = false;
+      try { owns = !!Shatter.play(row); }
+      catch (err) { console.error(err); }
       S.bubbleWindow?.forget(k);
       S.keys.delete(k);
       S.pending.delete(k); S.failed.delete(k);
       const i = S.msgs.findIndex((m) => m.k === k);
       if (i >= 0) S.msgs.splice(i, 1);
-      const list = $("msgList");
-      list.querySelector(`.row[data-k="${k}"]`)?.remove();
+      if (!owns) row?.remove();
       list.querySelector(`.rx-bar[data-k="${k}"]`)?.remove();
 
       /* 刪乾淨：引用到這一則的回覆，預覽字要當場換掉，不能留著原文 */
@@ -5709,7 +5733,7 @@ async function enterChat() {
       }
 
       if (S.oldestKey === k) S.oldestKey = S.msgs.length ? S.msgs[0].k : null;
-      $("emptyState").hidden = S.msgs.length > 0;
+      $("emptyState").hidden = S.msgs.length > 0 || !!list.querySelector(".row.shattering");
       renderReadMark();
       paintSendState();
       paintLoadMore();
@@ -9633,6 +9657,7 @@ function leaveChat() {
   // 5. 還原閒置計時（遮罩時被暫停過，不還原的話閒置退出會永久失效）
   resumeIdle();
 
+  try { Shatter.stop(); } catch (_) {}
   resetList();                               // 內含 S.gen++，讓飛行中的工作全部作廢
   applyScheme(false);                        // 回到偽裝首頁一定要換回 light，否則系統元件是深色會很怪
   $("chat").hidden = true;
