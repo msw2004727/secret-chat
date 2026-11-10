@@ -3234,7 +3234,7 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   border-radius: 1px;
 }
 .cat-bubble svg { display: block; width: 16px; height: 16px; shape-rendering: crispEdges; position: relative; z-index: 1; }
-.cat-fight { position: absolute; left: 0; bottom: 0; will-change: transform; z-index: 4; }
+.cat-fight { position: absolute; left: 0; bottom: 0; will-change: transform; z-index: 6; }
 .cat-fight canvas { position: absolute; left: 0; bottom: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
 .ball {
   position: absolute;
@@ -3266,4 +3266,44 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   border-radius: 50%;
   background: rgba(0, 0, 0, .35);
   z-index: 0;
+}
+/* 咬泡泡時，頭畫在訊息前面；身體仍在訊息後面。不吃點擊。 */
+.cat-front {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--cat-floor, 60px);
+  height: 0;
+  overflow: visible;
+  pointer-events: none !important;
+  z-index: 3;
+}
+.cat-front canvas {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: none;
+  pointer-events: none !important;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.cat-hang { position: absolute; left: 0; bottom: 0; display: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+/* 被咬著時先把原泡泡藏起來，改畫一張不佔高度的扭曲圖；放開後拿掉，尺寸回到原樣。 */
+.bub.jelly { background: transparent !important; color: transparent !important; }
+.bub.jelly > canvas.bub-shade { display: none; }
+.pet-warp {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: visible;
+}
+.bub-warp { position: absolute; pointer-events: none; }
+.love-tail { position: absolute; left: 0; bottom: 0; z-index: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; transform-origin: 50% 50%; }
+.love-heart { position: absolute; z-index: 5; line-height: 0; animation: loveUp 1.6s ease-out forwards; }
+.love-heart svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
+@keyframes loveUp {
+  0% { transform: translate(0, 4px) scale(.4); opacity: 0; }
+  15% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx, 0px), -46px) scale(.9); opacity: 0; }
 }
