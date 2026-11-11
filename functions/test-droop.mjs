@@ -27,6 +27,26 @@ assert.equal(vm.runInNewContext(dr['.validate'], ctx), false);
 ctx.newData = { exists: () => false, hasChildren: () => false };
 assert.equal(vm.runInNewContext(dr['.validate'], ctx), true, 'deleting a droop record is allowed');
 
+const rain = rules.rules.rooms.$roomId.rain;
+assert.equal(rain.$other['.validate'], false);
+assert.match(rain['.validate'], /hasChildren\(\['t','by'\]\)/);
+assert.match(rain.t['.validate'], /now \+ 60000/);
+assert.match(rain.by['.validate'], /length <= 64/);
+assert.match(rain.end['.validate'], /isNumber/);
+const rainCtx = {
+  now: 1_000_000,
+  newData: {
+    exists: () => true,
+    hasChildren: (keys) => keys.every((k) => ['t', 'by'].includes(k)),
+    isNumber: () => true,
+    isString: () => true,
+    val: () => 1,
+  },
+};
+assert.equal(vm.runInNewContext(rain['.validate'], rainCtx), true);
+rainCtx.newData = { exists: () => false, hasChildren: () => false };
+assert.equal(vm.runInNewContext(rain['.validate'], rainCtx), true, 'deleting rain is allowed');
+
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const pets = fs.readFileSync(new URL('../room-pets.js', import.meta.url), 'utf8');
@@ -35,6 +55,8 @@ const cfg = fs.readFileSync(new URL('../config.js', import.meta.url), 'utf8');
 assert.match(html, /id="setPets"/);
 assert.match(app, /KEY: "sc-pets"/);
 assert.match(app, /remove\(ref\(db, `\$\{base\}\/dr`\)\)/);
+assert.match(app, /remove\(ref\(db, `\$\{base\}\/rain`\)\)/);
+assert.match(app, /BallRain\.stop\(\)/);
 assert.match(app, /remove\(ref\(db, `\$\{base\}\/dr\/\$\{key\}`\)\)/);
 assert.match(app, /Droop\.straighten\(row\)/);
 assert.match(app, /Droop\.clearAll\(\)/);

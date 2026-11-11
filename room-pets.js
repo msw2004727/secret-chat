@@ -43,7 +43,8 @@ export function mountRoomPets() {
       sparkle: '<path d="M12 1.5c.9 5.4 2.7 8.1 9.5 10.5-6.8 2.4-8.6 5.1-9.5 10.5-.9-5.4-2.7-8.1-9.5-10.5C9.3 9.6 11.1 6.9 12 1.5z" fill="#f4b223"/><circle cx="12" cy="12" r="2.2" fill="#fff6c8"/>',
       fish: '<path d="M2.5 12c3.2-4.6 8-6.2 12.5-4.4L20 4.5v15l-5-3.1C10.5 18.2 5.7 16.6 2.5 12z" fill="#2f97d4"/><circle cx="7.2" cy="11" r="1.2" fill="#fff"/><path d="M11 9.5c1 1.5 1 3.5 0 5" stroke="#1d6f9f" stroke-width="1.2" fill="none" stroke-linecap="round"/>',
       question: '<path d="M8 8.5a4 4 0 1 1 6.2 3.3c-1.4.9-2.2 1.8-2.2 3.4" stroke="#8a5cf0" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="12" cy="19.6" r="1.7" fill="#8a5cf0"/>',
-      bang: '<path d="M12 3.5v10.5" stroke="#e8590c" stroke-width="3.4" stroke-linecap="round"/><circle cx="12" cy="19.4" r="2" fill="#e8590c"/>'
+      bang: '<path d="M12 3.5v10.5" stroke="#e8590c" stroke-width="3.4" stroke-linecap="round"/><circle cx="12" cy="19.4" r="2" fill="#e8590c"/>',
+      dots: '<circle cx="5" cy="13" r="2.3" fill="#333"/><circle cx="12" cy="13" r="2.3" fill="#333"/><circle cx="19" cy="13" r="2.3" fill="#333"/>'
     };
     function iconSVG(name) {
       return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (SMOOTH_ICONS[name] || SMOOTH_ICONS.heart) + "</svg>";
@@ -157,7 +158,11 @@ export function mountRoomPets() {
       for (const f of SPRITES[name].walk.concat(SPRITES[name].run)) f.stand = true;
       /* 磨爪：正面站高高、兩隻前腳輪流往下抓（腳是每格即時畫的） */
       { const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
-        SPRITES[name].claw = [{ cv, mask: new Uint8Array(W * H), top: 0, minx: 11, maxx: 21, cx: 15.5, side: false, mouth: { x: 16, y: 7.8 } }]; }
+        SPRITES[name].claw = [{ cv, mask: new Uint8Array(W * H), top: 0, minx: 11, maxx: 21, cx: 15.5, side: false, mouth: { x: 16, y: 7.8 } }];
+        /* 球雨砸到：搞笑僵住（0＝四腳朝天翻肚、1＝彈起來炸毛） */
+        SPRITES[name].funny = [0, 1].map(() => ({ cv, mask: new Uint8Array(W * H), top: 0, minx: 2, maxx: 29, cx: 15.5, side: false, mouth: { x: 22, y: 14 } }));
+        /* 便便：0＝蹲下、1/2＝低頭聞、3/4＝扒砂 */
+        SPRITES[name].poop = [0, 1, 2, 3, 4].map(() => ({ cv, mask: new Uint8Array(W * H), top: 0, minx: 2, maxx: 29, cx: 15.5, side: false, mouth: { x: 26, y: 10 } })); }
     }
     /* 每張影格配一個擬真姿勢；頭和嘴的位置跟著擬真的頭（泡泡、球、被打頭的位置才對得上） */
     const LOVE_NAMES = Object.values(LOVE_KEYS);
@@ -206,6 +211,9 @@ export function mountRoomPets() {
         const cd = [[3.0, 9.3], [9.3, 3.0], [6, 6]].map(([a, b]) => (c) => { REAL.drawBody(c, name, cf.pose, 0); REAL.clawArms(c, name, cf.pose, [{ x: 4.4, y: a }, { x: 4.4, y: b }]); });
         const cm = realMask(W, H, cd);
         cf.mask = cm.mask; cf.minx = cm.minx; cf.maxx = cm.maxx;
+        for (const ff of SPRITES[name].funny) { const fm = realMask(W, H, [(c) => { if (ff.pose.tail) REAL.drawTail(c, name, ff.pose.tail, 0); REAL.drawBody(c, name, ff.pose, 0); }]); ff.mask = fm.mask; ff.minx = fm.minx; ff.maxx = fm.maxx; }
+        SPRITES[name].funny[0].cx = 22.2; SPRITES[name].funny[0].top = 8;
+        for (const pf of SPRITES[name].poop) { const pm = realMask(W, H, [(c) => { if (pf.pose.tail) REAL.drawTail(c, name, pf.pose.tail, 0); REAL.drawBody(c, name, pf.pose, 0); }]); pf.mask = pm.mask; pf.minx = pm.minx; pf.maxx = pm.maxx; }
       } catch (_) {}
     }
 
@@ -662,7 +670,7 @@ export function mountRoomPets() {
     function ballThink(cat, now, fromFinish) {
       if (inSoc(cat) || cat.hidden) return false;
       const a = cat.act;
-      if (!fromFinish && a && (a.tapped || a.type === "jump" || a.type === "hang" || a.type === "claw" || cat.pendingTap)) return false;
+      if (!fromFinish && a && (a.tapped || a.type === "jump" || a.type === "hang" || a.type === "claw" || a.type === "funny" || a.type === "poop" || cat.pendingTap)) return false;
       const want = desiredBallAct(cat, now);
       if (!fromFinish && a && a.type === "stun" && want !== "ballchase") return false;
       if (!want) {
@@ -1038,6 +1046,23 @@ export function mountRoomPets() {
           }
         }
       }
+      /* 便便：比打架少。每隻 8～14 分鐘一次，進房後第一次 4～7 分鐘；兩隻之間至少隔 2 分鐘 */
+      {
+        const n = performance.now();
+        if (cat.nextPoopAt == null) cat.nextPoopAt = n + rand(POOP_FIRST[0], POOP_FIRST[1]);
+        if (petsOn !== false && n >= cat.nextPoopAt && !cat.hidden && cat.y < 0.5) {
+          const oa = other(cat).act;
+          if ((oa && oa.type === "poop") || n - lastPoopAt < POOP_ROOM_GAP) cat.nextPoopAt = n + rand(20000, 40000);
+          else {
+            cat.nextPoopAt = n + rand(POOP_GAP[0], POOP_GAP[1]);
+            lastPoopAt = n;
+            const x = poopSpot(cat);
+            if (Math.abs(x - cat.x) > 3) cat.queue.push(moveAct("walk", x));
+            cat.queue.push({ type: "poop", dur: 5600 });
+            return;
+          }
+        }
+      }
       /* 平常多半安安靜靜：坐著、趴著、舔毛、睡覺；偶爾才走動 */
       const t = weighted({ walk: 8, run: 3, jump: 4, sit: 14, loaf: 12, lick1: 8, lick2: 8, lick3: 8, sleep: 14, scratch: 4, look: 8,
         ball: ball.state === "loose" ? 3 : 0 });
@@ -1222,6 +1247,137 @@ export function mountRoomPets() {
         if (age > MARK_LIFE + MARK_FADE + 150) killMark(g);
       }
     }
+    /* ===== 便便：蹲下 → 轉身低頭聞 → 背對用後腳扒砂蓋起來 =====
+       便便和沙堆跟爪痕一樣：固定在畫面上、在貓這一層、不擋點擊、最多 3 堆、約 10 秒後淡出 */
+    const POOP_FIRST = [240000, 420000], POOP_GAP = [480000, 840000], POOP_ROOM_GAP = 120000;
+    let lastPoopAt = -1e9;
+    const PT = { squat: 2000, drop: 1250, turn: 300, sniff: 1100, bury: 1800 };
+    const POOP_MAX = 3, POOP_LIFE = 10000, POOP_FADE = 1800, PW = 64, PH = 46;
+    const poops = [];
+    const gxOff = (dir, gx) => (dir < 0 ? W - gx : gx) * S;
+    function poopSpot(cat) {
+      let best = null;
+      for (let k = 0; k < 10; k++) {
+        const x = clamp(k === 0 ? cat.x : freeSpot(cat), minX() + 2, maxX() - 2);
+        if (k && crowded(cat, x)) continue;
+        if (poops.some((p) => Math.abs(p.x - (x + W * S / 2)) < W * S * 0.6)) continue;
+        if (chatR && underBubble(chatR.left + x + W * S / 2, chatR.top + floorY - 8)) { if (best == null) best = x; continue; }
+        best = x; break;
+      }
+      return best == null ? cat.x : best;
+    }
+    function killPoop(p) { const i = poops.indexOf(p); if (i >= 0) poops.splice(i, 1); try { p.el.remove(); } catch (_) {} }
+    function clearPoops() { for (const p of poops.slice()) killPoop(p); }
+    function newPoop(cat, a, now) {
+      while (poops.length >= POOP_MAX) killPoop(poops[0]);
+      const x = cat.x + gxOff(cat.dir, 2.6);
+      const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+      const cv = document.createElement("canvas");
+      cv.className = "poop-pile";
+      cv.width = Math.round(PW * dpr); cv.height = Math.round(PH * dpr);
+      cv.style.width = PW + "px"; cv.style.height = PH + "px";
+      cv.style.left = Math.round(x - PW / 2) + "px"; cv.style.bottom = "-1px";
+      cv.setAttribute("aria-hidden", "true");
+      markWrap.appendChild(cv);
+      const grains = [];
+      for (let j = 0; j < 22; j++) grains.push({ u: Math.random() * 2 - 1, v: Math.random(), c: Math.random() < 0.5 ? "rgba(150,118,70,.55)" : "rgba(255,240,205,.5)" });
+      const p = { el: cv, ctx: cv.getContext("2d"), dpr, x, left: Math.round(x - PW / 2), t0: now, cat, act: a, cover: 0, parts: [], grains, coveredAt: 0, fading: false, dirty: true, side: cat.dir };
+      poops.push(p);
+      return p;
+    }
+    function drawPoop(p, now) {
+      const c = p.ctx, d = p.dpr;
+      c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, p.el.width, p.el.height); c.setTransform(d, 0, 0, d, 0, 0);
+      const cx = PW / 2, fy = PH - 1;
+      const age = now - p.t0, pop = age < 260 ? 0.6 + 0.4 * Math.sin(age / 260 * Math.PI / 2) + 0.12 * Math.sin(age / 260 * Math.PI) : 1;
+      const cov = p.cover;
+      if (cov < 0.9) {
+        c.save(); c.translate(cx, fy); c.scale(pop, pop);
+        const tier = (y, rx, ry) => { const g = c.createLinearGradient(0, y - ry, 0, y + ry); g.addColorStop(0, "#a8703f"); g.addColorStop(1, "#6b4122"); c.fillStyle = g; c.beginPath(); c.ellipse(0, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); };
+        tier(-2.4, 7.2, 2.7); tier(-5.9, 5.4, 2.4); tier(-9.0, 3.6, 2.1);
+        c.fillStyle = "#8d5a30"; c.beginPath(); c.moveTo(-1.6, -10.2); c.quadraticCurveTo(0.6, -14.6, 2.6, -12.6); c.quadraticCurveTo(1.0, -11.2, 1.8, -9.6); c.closePath(); c.fill();
+        c.strokeStyle = "rgba(255,230,200,.55)"; c.lineWidth = 0.9; c.lineCap = "round";
+        c.beginPath(); c.ellipse(-2.2, -3.4, 3.2, 0.9, -0.15, Math.PI * 1.05, Math.PI * 1.6); c.stroke();
+        c.beginPath(); c.ellipse(-1.4, -6.8, 2.2, 0.7, -0.15, Math.PI * 1.05, Math.PI * 1.6); c.stroke();
+        c.restore();
+      }
+      const sa = Math.max(0, 1 - cov * 2.2) * Math.min(1, age / 400);
+      if (sa > 0.02) {
+        c.strokeStyle = "rgba(170,205,120," + (0.75 * sa).toFixed(3) + ")"; c.lineWidth = 1.1; c.lineCap = "round";
+        for (let k = -1; k <= 1; k++) {
+          const ph = now / 260 + k * 1.7, bx = cx + k * 5.2, by = fy - 15 - Math.abs(k) * 0.8 + Math.sin(now / 900 + k) * 0.8;
+          c.beginPath();
+          for (let s2 = 0; s2 <= 10; s2++) { const t = s2 / 10, X = bx + Math.sin(ph + t * 5.5) * 1.5, Y = by - t * 11; s2 ? c.lineTo(X, Y) : c.moveTo(X, Y); }
+          c.stroke();
+        }
+      }
+      if (cov > 0) {
+        const mh = 2 + 9.5 * Math.min(1, cov), mw = 7.5 + 4.5 * Math.min(1, cov);
+        const g = c.createLinearGradient(0, fy - mh, 0, fy);
+        g.addColorStop(0, "#e9d3a4"); g.addColorStop(1, "#bd9a63");
+        c.fillStyle = g;
+        c.beginPath(); c.moveTo(cx - mw - 3, fy); c.bezierCurveTo(cx - mw + 1, fy - mh * 0.95, cx + mw - 1, fy - mh * 1.05, cx + mw + 3, fy); c.closePath(); c.fill();
+        for (const q of p.grains) { const gx = cx + q.u * mw * 0.85, top = fy - mh * (1 - q.u * q.u) * 0.9; const gy = top + (fy - top) * q.v; if (gy < fy - 0.5) { c.fillStyle = q.c; c.fillRect(gx, gy, 0.9, 0.9); } }
+      }
+      for (const q of p.parts) { c.fillStyle = q.c; c.globalAlpha = Math.max(0, Math.min(1, q.life / 0.15)); c.beginPath(); c.arc(q.x, q.y, q.r, 0, Math.PI * 2); c.fill(); }
+      c.globalAlpha = 1;
+    }
+    function poopKick(p, cat, now) {
+      const paw = cat.x + gxOff(cat.dir, 1.4) - p.left, back = -cat.dir;
+      for (let j = 0; j < 7; j++) p.parts.push({ x: paw + rand(-1.5, 1.5), y: PH - 2 - rand(0, 2), vx: back * rand(12, 42), vy: -rand(50, 110), r: rand(0.6, 1.2), life: rand(0.45, 0.8), c: Math.random() < 0.6 ? "#d9bd8a" : "#f0dfb8" });
+    }
+    function poopStep(cat, a, now) {
+      cat.y = 0;
+      const e = now - a.t0;
+      const T1 = PT.squat, T2 = T1 + PT.turn, T3 = T2 + PT.sniff, T4 = T3 + PT.turn, T5 = T4 + PT.bury;
+      if (a.dir0 == null) { a.dir0 = cat.dir; a.x0 = cat.x; a.fi = 0; a.kick = -1; }
+      if (e < T1) {
+        a.fi = 0;
+        if (!a.pile && e >= PT.drop) { a.pile = newPoop(cat, a, now); }
+      } else if (e < T2) {
+        if (!a.pile) a.pile = newPoop(cat, a, now);
+        if (a.ph !== 1) { a.ph = 1; cat.dir = -a.dir0; a.xa = cat.x; a.xb = clamp(a.pile.x - gxOff(cat.dir, 27.6), minX(), maxX()); }
+        a.fi = -1; cat.x = lerpC(a.xa, a.xb, (e - T1) / PT.turn);
+      } else if (e < T3) {
+        if (a.ph !== 2) { a.ph = 2; cat.x = a.xb; }
+        a.fi = Math.floor((e - T2) / 260) % 2 ? 2 : 1;
+      } else if (e < T4) {
+        if (a.ph !== 3) { a.ph = 3; cat.dir = a.dir0; a.xa = cat.x; a.xb = clamp(a.pile.x - gxOff(cat.dir, -2.2), minX(), maxX()); }
+        a.fi = -1; cat.x = lerpC(a.xa, a.xb, (e - T3) / PT.turn);
+      } else if (e < T5) {
+        if (a.ph !== 4) { a.ph = 4; cat.x = a.xb; }
+        const k = Math.floor((e - T4) / 230);
+        a.fi = k % 2 ? 4 : 3;
+        if (k !== a.kick) { a.kick = k; if (a.pile && a.pile.el.isConnected && petsOn !== false) poopKick(a.pile, cat, now); }
+        if (a.pile) { a.pile.cover = Math.max(a.pile.cover, Math.min(1, (e - T4) / (PT.bury * 0.92))); a.pile.dirty = true; }
+      } else {
+        if (a.pile) { a.pile.cover = 1; a.pile.dirty = true; }
+        a.fi = -1;
+        cat.queue = [{ type: "sit", dur: rand(2200, 3600) }];
+        finish(cat, now);
+        say(cat, "sparkle", now, 0.6);
+      }
+    }
+    let poopLast = 0;
+    function poopPilesStep(now) {
+      const dt = Math.min(0.05, Math.max(0, (now - (poopLast || now)) / 1000)); poopLast = now;
+      for (const p of poops.slice()) {
+        const age = now - p.t0;
+        if (age > 30000 || !p.el.isConnected) { killPoop(p); continue; }
+        /* 被打斷（球雨、關開關、其他事）：沙堆很快自己蓋好 */
+        if (p.cover < 1 && p.cat.act !== p.act) { p.cover = Math.min(1, p.cover + dt / 0.5); p.dirty = true; }
+        if (p.cover >= 1 && !p.coveredAt) p.coveredAt = now;
+        if (p.parts.length) {
+          for (const q of p.parts) { q.vy += 420 * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; if (q.y > PH - 1.5) { q.y = PH - 1.5; q.vx *= 0.3; q.vy = 0; } }
+          p.parts = p.parts.filter((q) => q.life > 0);
+          p.dirty = true;
+        }
+        if (p.cover < 0.5 || age < 300) p.dirty = true;
+        if (p.dirty && !p.fading) { p.dirty = false; drawPoop(p, now); }
+        if (!p.fading && p.coveredAt && now > Math.max(p.t0 + POOP_LIFE, p.coveredAt + 3000)) { p.fading = true; p.el.style.opacity = "0"; p.fadeAt = now; }
+        if (p.fading && now - p.fadeAt > POOP_FADE + 150) killPoop(p);
+      }
+    }
     function start(cat, a, now) {
       a.t0 = now;
       const d0 = cat.dir;
@@ -1313,7 +1469,7 @@ export function mountRoomPets() {
     function bothReady() { return soc.ready.has(soc.a) && soc.ready.has(soc.b); }
     function canJoin(c, now) {
       const a = c.act;
-      if (!a || a.tapped || a.type === "jump" || a.type === "bite" || a.type === "hang" || a.type === "claw" || c.pendingTap) return false;
+      if (!a || a.tapped || a.type === "jump" || a.type === "bite" || a.type === "hang" || a.type === "claw" || a.type === "funny" || a.type === "poop" || c.pendingTap) return false;
       if (biteBusy(c)) return false;
       if (a.type === "sleep" && now - a.t0 < 4500) return false;
       if (ballBusy(c, now) || ball.state !== "loose" && ball.state !== "carried") return false;
@@ -1542,6 +1698,7 @@ export function mountRoomPets() {
 
     /* ----- 點一下貓：那隻坐下、冒愛心，一會兒再回去自己玩 ----- */
     function tapSit(cat, now) {
+      if (cat.act && (cat.act.type === "funny" || cat.act.type === "poop")) return; /* 僵住、便便中：點了也不理 */
       if (soc && inSoc(cat)) endSoc(now);
       if (cat.act && cat.act.type === "jump") { cat.pendingTap = true; return; }
       /* 吊在泡泡上被點：先放開掉下來，落地後再坐下比愛心 */
@@ -1647,6 +1804,8 @@ export function mountRoomPets() {
         case "steal": return a.still ? fr.walk[0] : loop("run");
         case "carry": return a.pause ? fr.sit[0] : a.speed > 90 ? loop("run") : loop("walk");
         case "stun": return fr.sit[0];
+        case "funny": return fr.funny[a.k] || fr.sit[0];
+        case "poop": return a.fi >= 0 ? fr.poop[a.fi] || fr.walk[0] : fr.walk[0];
         case "walk": return loop("walk");
         case "run": case "flee": return loop("run");
         case "chase": return e < (a.wait || 0) ? SPRITES[cat.name].run[0] : loop("run");
@@ -1698,6 +1857,8 @@ export function mountRoomPets() {
       if (a.type === "steal") { stealStep(cat, a, now, dt); return; }
       if (a.type === "bite") { biteStep(cat, a, now, dt); return; }
       if (a.type === "claw") { clawStep(cat, a, now); return; }
+      if (a.type === "funny") { funnyStep(cat, a, now); return; }
+      if (a.type === "poop") { poopStep(cat, a, now); return; }
       if (a.type === "walk" || a.type === "run") {
         const step = a.speed * dt;
         const d = a.tx - cat.x;
@@ -1922,13 +2083,14 @@ export function mountRoomPets() {
     }
     function bonk(cat, now) {
       if (cat.hidden || now < (cat.bonkCd || 0)) return false;
+      if (cat.act && (cat.act.type === "funny" || cat.act.type === "poop")) return false;
       cat.bonkCd = now + BONK_CD;
       cat.bonkT0 = now;
       cat.bonkUntil = now + rand(650, 850);
       hideBubble(cat, now);
       cat.nextBubble = Math.max(cat.nextBubble || 0, cat.bonkUntil + 300);
       const a = cat.act;
-      const faceOnly = !a || a.type === "hang" || a.type === "bite" || a.type === "love" || a.type === "jump" || a.type === "carry" || (soc && soc.kind === "love") || a.tapped || cat.pendingTap || cat.y >= 0.5;
+      const faceOnly = !a || a.type === "hang" || a.type === "bite" || a.type === "love" || a.type === "jump" || a.type === "carry" || a.type === "funny" || a.type === "poop" || (soc && soc.kind === "love") || a.tapped || cat.pendingTap || cat.y >= 0.5;
       if (!faceOnly && BONK_OK[a.type]) {
         if (inSoc(cat)) endSoc(now);
         if (ball.carrier === cat) dropBall(cat, now);
@@ -1992,7 +2154,7 @@ export function mountRoomPets() {
       cat.bubble.style.left = bx + "px";
       cat.el.style.transform = "translate3d(" + x + "px,0,0)";
       if (renderHang(cat)) return;
-      cat.body.style.transform = "translate3d(0," + (-Math.round(cat.y)) + "px,0)";
+      cat.body.style.transform = "translate3d(" + (cat.act.type === "funny" ? (cat.jx || 0).toFixed(1) : "0") + "px," + (-Math.round(cat.y)) + "px,0)";
       const lift = clamp(cat.y / 60, 0, 1);
       cat.shadow.style.transform = "scale(" + (1 - lift * 0.45) + ")";
       cat.shadow.style.opacity = String(1 - lift * 0.5);
@@ -2072,7 +2234,7 @@ export function mountRoomPets() {
     function canBite(c, now, watcher) {
       const a = c.act;
       if (c.hidden || inSoc(c) || ballBusy(c, now) || c.pendingTap || !a) return false;
-      if (a.tapped || a.type === "jump" || a.type === "stun" || a.type === "bite" || a.type === "hang" || a.type === "claw" || a.watch) return false;
+      if (a.tapped || a.type === "jump" || a.type === "stun" || a.type === "bite" || a.type === "hang" || a.type === "claw" || a.type === "poop" || a.type === "funny" || a.watch) return false;
       /* 一次只會有一隻在咬泡泡 */
       if (biteBusy(c) || (!watcher && cats.some((o) => o !== c && biteBusy(o)))) return false;
       if (a.type === "sleep" && Math.random() > 0.2) return false;
@@ -2849,10 +3011,51 @@ export function mountRoomPets() {
       c.x = clamp(c.x, minX(), maxX());
       if (c.dir !== 1 && c.dir !== -1) c.dir = 1;
       if (ball.carrier === c) { ball.state = "loose"; ball.carrier = null; }
+      c.jx = 0;
       c.act = { type: "sit", t0: now, dur: rand(1500, 2600) };
     }
     /* 跳／吊的最長時間：超過就當作卡住，直接安全落地坐下 */
-    const JUMP_MAX_MS = 2500, HANG_MAX_MS = 16000, BITE_MAX_MS = 12000, CLAW_MAX_MS = 6500;
+    const JUMP_MAX_MS = 2500, HANG_MAX_MS = 16000, BITE_MAX_MS = 12000, CLAW_MAX_MS = 6500, FUNNY_MAX_MS = 21000, POOP_MAX_MS = 9000;
+    /* 球雨砸到：兩隻中斷手上的事，各擺一個搞笑姿勢僵住。球淡出後再僵 5 秒，最長 20 秒 */
+    function rainFreeze(c, now, dur) {
+      try { for (const j of jellies.slice()) if (j.cat === c || (c.act && j.act === c.act)) resetJelly(j); } catch (_) {}
+      try { if (soc && inSoc(c)) endSoc(now); } catch (_) { soc = null; }
+      c.queue = []; c.pendingTap = false; c.y = 0; c._hangOn = false; c.stillMs = 0; c.ballUntil = 0;
+      if (c.hangCv) c.hangCv.style.display = "none";
+      if (c.hangFront) c.hangFront.style.display = "none";
+      if (c.body) c.body.style.visibility = "";
+      c.hangKey = null; c.cur = null;
+      if (ball.carrier === c) { ball.state = "loose"; ball.carrier = null; ball.vx = rand(-90, 90); ball.vy = -rand(150, 260); }
+      c.x = clamp(Number.isFinite(c.x) ? c.x : (minX() + maxX()) / 2, minX(), maxX());
+      const k = c.name === "gray" ? 1 : 0;
+      c.act = { type: "funny", t0: now, dur: clamp(dur, 800, 20000), k };
+      showBubble(c, now, k ? "bang" : "dots");
+      c.bubbleUntil = now + c.act.dur;
+    }
+    function funnyStep(cat, a, now) {
+      const e = now - a.t0;
+      if (e >= a.dur) { cat.jx = 0; cat.y = 0; finish(cat, now); return; }
+      if (a.k === 1 && e < 420) { const p = e / 420; cat.y = 4 * 24 * p * (1 - p); } else cat.y = 0;
+      cat.jx = e < 420 && a.k === 1 ? 0 : (Math.floor(e / 45) % 2 ? 0.7 : -0.7) * (e > a.dur - 600 ? 0.3 : 1);
+    }
+    window.addEventListener("sc-rain", (ev) => {
+      if (petsOn === false) return;
+      const n = performance.now(), ms = (ev.detail && ev.detail.ms) || 5000;
+      if (ev.detail && ev.detail.phase === "gone") {
+        for (const c of cats) {
+          const a = c.act;
+          if (!a || a.type !== "funny") continue;
+          a.dur = clamp(n - a.t0 + ms, 800, 20000);
+          c.bubbleUntil = a.t0 + a.dur;
+        }
+        return;
+      }
+      try { if (soc) endSoc(n); } catch (_) { soc = null; }
+      for (const c of cats) { try { if (!c.hidden) rainFreeze(c, n, ms); } catch (err) { petSafeReset(c, n, err); } }
+      nextBiteAt = Math.max(nextBiteAt, n + ms + rand(4000, 8000));
+      nextSocialAt = Math.max(nextSocialAt, n + ms + rand(3000, 6000));
+      try { const rain = window.BallRain; if (rain && rain.setHoles) requestAnimationFrame(() => rain.setHoles(cats.filter((c) => c.act && c.act.type === "funny" && c.body).map((c) => c.body.getBoundingClientRect()), ms)); } catch (_) {}
+    });
     const HANG_PHASE_MAX = { crouch: 1200, rise: 1500, fall: 2500, land: 2000, sit: 4000 };
     function petWatchdog(c, now) {
       const a = c.act;
@@ -2861,6 +3064,8 @@ export function mountRoomPets() {
       if (a.type === "jump" && now - a.t0 > JUMP_MAX_MS) { petSafeReset(c, now, new Error("jump watchdog")); return; }
       if (a.type === "bite" && now - a.t0 > BITE_MAX_MS) { petSafeReset(c, now, new Error("bite watchdog")); return; }
       if (a.type === "claw" && now - a.t0 > CLAW_MAX_MS) { petSafeReset(c, now, new Error("claw watchdog")); return; }
+      if (a.type === "funny" && now - a.t0 > FUNNY_MAX_MS) { c.jx = 0; petSafeReset(c, now); return; }
+      if (a.type === "poop" && now - a.t0 > POOP_MAX_MS) { petSafeReset(c, now, new Error("poop watchdog")); return; }
       if (a.type === "hang") {
         const age = now - (a.t0 || now), pe = now - (a.pt0 || a.t0 || now);
         const lim = a.phase === "hang" ? (a.dur || 6000) + 1500 : (HANG_PHASE_MAX[a.phase] || 1500);
@@ -2913,10 +3118,10 @@ export function mountRoomPets() {
       }
       ballPhysics(dt, now, shapes);
       for (const c of cats) {
-        if (!inSoc(c)) ballThink(c, now, false);
-        /* 保險：同一個動作卡太久就換下一個 */
+        if (!inSoc(c) && !(c.act && (c.act.type === "funny" || c.act.type === "poop"))) ballThink(c, now, false);
+        /* 保險：同一個動作卡太久就換下一個（僵住和便便有自己的看門狗） */
         const a = c.act;
-        if (a && !inSoc(c) && a.type !== "sleep" && !a.tapped && now - a.t0 > 22000) { c.queue = []; finish(c, now); }
+        if (a && !inSoc(c) && a.type !== "sleep" && a.type !== "funny" && a.type !== "poop" && !a.tapped && now - a.t0 > 22000) { c.queue = []; finish(c, now); }
       }
       for (const c of cats) {
         try { petWatchdog(c, now); update(c, now, dt); }
@@ -2933,6 +3138,7 @@ export function mountRoomPets() {
       }
       jellyStep(now, dt);
       try { clawMarksStep(now); } catch (_) { clearClawMarks(); }
+      try { poopPilesStep(now); } catch (_) { clearPoops(); }
       renderFront();
       biteSchedule(now);
       renderBall(now);
@@ -2993,14 +3199,19 @@ export function mountRoomPets() {
           if (c.act && c.act.type === "bite") abortBite(c, n);
           else if (c.act && c.act.type === "hang") stopBite(c, n);
         } catch (_) {}
-        c.queue = []; c.y = 0; c._hangOn = false;
+        c.queue = []; c.y = 0; c._hangOn = false; c.jx = 0;
         if (c.hangFront) c.hangFront.style.display = "none";
+        if (c.act && (c.act.type === "funny" || c.act.type === "poop")) {
+          try { hideBubble(c, n); } catch (_) {}
+          try { start(c, { type: "sit", dur: rand(1500, 2600) }, n); } catch (_) {}
+        }
       }
       for (const j of jellies.slice()) resetJelly(j);
       if (ball.state === "carried" || ball.state === "drag") { ball.state = "loose"; ball.carrier = null; ball.dragId = null; }
       ball.vx = 0; ball.vy = 0;
       petsOn = false;
       clearClawMarks(); /* 貓關掉：爪痕一起清掉，也不再留新的 */
+      clearPoops();
       for (const el of msgList.querySelectorAll("canvas.bub-shade, canvas.bub-warp")) el.remove();
       for (const el of msgList.querySelectorAll(".bub.jelly")) el.classList.remove("jelly");
       layer.style.display = "none";
@@ -3021,6 +3232,7 @@ export function mountRoomPets() {
       nextSocialAt = Math.max(nextSocialAt, n + rand(6000, 12000));
       nextBiteAt = Math.max(nextBiteAt, n + rand(6000, 12000));
       for (const c of cats) c.nextClawAt = Math.max(c.nextClawAt || 0, n + rand(10000, 25000));
+      for (const c of cats) c.nextPoopAt = Math.max(c.nextPoopAt || 0, n + rand(POOP_FIRST[0], POOP_FIRST[1]));
       wake();
     }
     window.addEventListener("sc-pets", (e) => { if (e.detail && e.detail.on) petsEnable(); else petsDisable(); });
