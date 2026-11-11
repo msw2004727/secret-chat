@@ -44,6 +44,7 @@ export function mountRoomPets() {
       fish: '<path d="M2.5 12c3.2-4.6 8-6.2 12.5-4.4L20 4.5v15l-5-3.1C10.5 18.2 5.7 16.6 2.5 12z" fill="#2f97d4"/><circle cx="7.2" cy="11" r="1.2" fill="#fff"/><path d="M11 9.5c1 1.5 1 3.5 0 5" stroke="#1d6f9f" stroke-width="1.2" fill="none" stroke-linecap="round"/>',
       question: '<path d="M8 8.5a4 4 0 1 1 6.2 3.3c-1.4.9-2.2 1.8-2.2 3.4" stroke="#8a5cf0" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="12" cy="19.6" r="1.7" fill="#8a5cf0"/>',
       bang: '<path d="M12 3.5v10.5" stroke="#e8590c" stroke-width="3.4" stroke-linecap="round"/><circle cx="12" cy="19.4" r="2" fill="#e8590c"/>',
+      anger: '<path d="M9.2 3.5c.4 2.6-.6 4.6-3.4 5.7M14.8 3.5c-.4 2.6.6 4.6 3.4 5.7M9.2 20.5c.4-2.6-.6-4.6-3.4-5.7M14.8 20.5c-.4-2.6.6-4.6 3.4-5.7" stroke="#e03131" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
       dots: '<circle cx="5" cy="13" r="2.3" fill="#333"/><circle cx="12" cy="13" r="2.3" fill="#333"/><circle cx="19" cy="13" r="2.3" fill="#333"/>'
     };
     function iconSVG(name) {
@@ -162,7 +163,8 @@ export function mountRoomPets() {
         /* 球雨砸到：搞笑僵住（0＝四腳朝天翻肚、1＝彈起來炸毛） */
         SPRITES[name].funny = [0, 1].map(() => ({ cv, mask: new Uint8Array(W * H), top: 0, minx: 2, maxx: 29, cx: 15.5, side: false, mouth: { x: 22, y: 14 } }));
         /* 便便：0＝蹲下、1/2＝低頭聞、3/4＝扒砂 */
-        SPRITES[name].poop = [0, 1, 2, 3, 4].map(() => ({ cv, mask: new Uint8Array(W * H), top: 0, minx: 2, maxx: 29, cx: 15.5, side: false, mouth: { x: 26, y: 10 } })); }
+        SPRITES[name].poop = [0, 1, 2, 3, 4].map(() => ({ cv, mask: new Uint8Array(W * H), top: 0, minx: 2, maxx: 29, cx: 15.5, side: false, mouth: { x: 26, y: 10 } }));
+        SPRITES[name].pet = REAL.PET_KEYS.map(() => ({ cv, mask: new Uint8Array(W * H), top: 0, minx: 2, maxx: 29, cx: 15.5, side: false, mouth: { x: 16, y: 10 } })); }
     }
     /* 每張影格配一個擬真姿勢；頭和嘴的位置跟著擬真的頭（泡泡、球、被打頭的位置才對得上） */
     const LOVE_NAMES = Object.values(LOVE_KEYS);
@@ -214,6 +216,7 @@ export function mountRoomPets() {
         for (const ff of SPRITES[name].funny) { const fm = realMask(W, H, [(c) => { if (ff.pose.tail) REAL.drawTail(c, name, ff.pose.tail, 0); REAL.drawBody(c, name, ff.pose, 0); }]); ff.mask = fm.mask; ff.minx = fm.minx; ff.maxx = fm.maxx; }
         SPRITES[name].funny[0].cx = 22.2; SPRITES[name].funny[0].top = 8;
         for (const pf of SPRITES[name].poop) { const pm = realMask(W, H, [(c) => { if (pf.pose.tail) REAL.drawTail(c, name, pf.pose.tail, 0); REAL.drawBody(c, name, pf.pose, 0); }]); pf.mask = pm.mask; pf.minx = pm.minx; pf.maxx = pm.maxx; }
+        for (const pf of SPRITES[name].pet) { const pm = realMask(W, H, [(c) => { if (pf.pose && pf.pose.tail) REAL.drawTail(c, name, pf.pose.tail, 0); REAL.drawBody(c, name, pf.pose, 0); }]); pf.mask = pm.mask; pf.minx = pm.minx; pf.maxx = pm.maxx; if (pf.pose && pf.pose.kind === "supine") { pf.cx = 14.9; pf.top = 6; } }
       } catch (_) {}
     }
 
@@ -897,11 +900,7 @@ export function mountRoomPets() {
       const srcs = [];
       for (const c of cats) {
         if (c.hidden || !c.cur) continue;
-        if (c._hangOn) {
-          const r = c.hangCv.getBoundingClientRect();
-          srcs.push({ kind: "cv", cat: c, cv: c.hangCv, flip: c.dir < 0, x: r.left - chatR.left, y: r.top - chatR.top, w: r.width, h: r.height });
-          continue;
-        }
+        if (c._hangOn) continue; /* 吊著時整隻在泡泡前面，不再往泡泡上畫一層背後的影子 */
         const r = c.cv.getBoundingClientRect();
         srcs.push({ kind: "cv", cat: c, cv: c.cv, flip: c.dir < 0, x: r.left - chatR.left, y: r.top - chatR.top, w: r.width, h: r.height });
       }
@@ -1378,6 +1377,237 @@ export function mountRoomPets() {
         if (p.fading && now - p.fadeAt > POOP_FADE + 150) killPoop(p);
       }
     }
+    /* ===== 點貓選單：餵魚／摸肚子／打頭（現在只在自己畫面；動作事件走 window.PetMenu.act，之後可接同步） ===== */
+    const SULK_MS = 20000, PET_DUR = { fish: 4900, belly: 5000, bonk: 2500, huff: 1500 };
+    const petFx = [];
+    function openPetMenu(cat, now) {
+      cat.y = 0; cat.queue = [];
+      start(cat, { type: "sit", dur: 1e9, tapped: true, menu: true }, now); /* 坐下來看著你，不會走掉 */
+      if (chatR == null) geom();
+      const hx = chatR.left + cat.x + gxOff(cat.dir, 12.4), hy = chatR.top + floorY - (H - 2.2) * S;
+      const sulky = now < (cat.sulkUntil || 0);
+      if (sulky) { showBubble(cat, now, "anger"); cat.bubbleUntil = now + 1800; }
+      window.PetMenu.open({ x: hx, y: hy, id: cat.name, sulky,
+        onPick: (id, dim) => window.PetMenu.act({ cat: cat.name, act: dim ? "huff" : id, trap: id === "belly" && Math.random() < 0.3, makeup: sulky && id === "fish" }),
+        onClose: (why) => { if (why !== "pick" && cat.act && cat.act.menu) { const n = performance.now(); cat.act = { type: "sit", t0: n, dur: rand(900, 1600) }; } } });
+    }
+    if (window.PetMenu) window.PetMenu.onAction = (ev) => {
+      const cat = cats.find((c) => c.name === ev.cat);
+      if (!cat || petsOn === false || cat.hidden) return;
+      const n = performance.now(), a0 = cat.act;
+      if (a0 && (a0.type === "funny" || a0.type === "poop" || a0.type === "hang" || a0.type === "jump" || a0.type === "bite" || a0.type === "fight")) return;
+      if (soc && soc.kind === "fight" && inSoc(cat)) return; /* 正在做別的大事：不硬插 */
+      if (!PET_DUR[ev.act]) return;
+      try { if (soc && inSoc(cat)) endSoc(n); } catch (_) { soc = null; }
+      if (ball.carrier === cat) dropBall(cat, n);
+      cat.y = 0;
+      if (ev.act === "fish") { /* 魚掉在臉前面：先轉向空間比較大的那邊 */
+        const room = (d) => d > 0 ? maxX() - cat.x : cat.x - minX();
+        cat.dir = room(1) >= room(-1) ? 1 : -1;
+      }
+      setAct(cat, { type: "pet", kind: ev.act, dur: PET_DUR[ev.act], tapped: true, trap: !!ev.trap, makeup: !!ev.makeup, fr: "sit" }, n);
+      nextSocialAt = Math.max(nextSocialAt, n + 6000); nextBiteAt = Math.max(nextBiteAt, n + 6000);
+    };
+    function newPetFx(cat, a) {
+      const FW = 190, FH = 170, dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+      const cv = document.createElement("canvas");
+      cv.className = "pet-fx"; cv.width = Math.round(FW * dpr); cv.height = Math.round(FH * dpr);
+      cv.style.width = FW + "px"; cv.style.height = FH + "px";
+      const left = Math.round(cat.x + W * S / 2 - FW / 2);
+      cv.style.left = left + "px";
+      layer.appendChild(cv);
+      const fx = { el: cv, ctx: cv.getContext("2d"), dpr, FW, FH, left, cat, act: a, texts: [], hearts: [] };
+      petFx.push(fx);
+      return fx;
+    }
+    function killPetFx(fx) { const i = petFx.indexOf(fx); if (i >= 0) petFx.splice(i, 1); try { fx.el.remove(); } catch (_) {} try { fx.cat.body.style.scale = ""; } catch (_) {} } /* 開頭的小縮放被打斷也要還原 */
+    function clearPetFx() { for (const f of petFx.slice()) killPetFx(f); }
+    function petFxStep(now) { for (const f of petFx.slice()) if (f.cat.act !== f.act || petsOn === false) killPetFx(f); } /* 被打斷（球雨、關貓、看門狗）就收掉 */
+    /* 格子座標 → 特效畫布座標 */
+    const fxX = (fx, cat, gx) => cat.x + gxOff(cat.dir, gx) - fx.left;
+    const fxY = (fx, cat, gy) => fx.FH - (H - gy) * S - cat.y;
+    function fxText(fx, txt, x, y, now, o) { fx.texts.push(Object.assign({ txt, x, y, t0: now, life: 1100, size: 12, col: "#fff" }, o || {})); }
+    function fxHeart(fx, x, y, now) { fx.hearts.push({ x, y, t0: now, life: 1300, dx: rand(-6, 6), s: rand(0.8, 1.15) }); }
+    function heartPath(c, x, y, s) { c.beginPath(); c.moveTo(x, y + 2.6 * s); c.bezierCurveTo(x - 4.6 * s, y - 0.6 * s, x - 2.4 * s, y - 4.4 * s, x, y - 1.6 * s); c.bezierCurveTo(x + 2.4 * s, y - 4.4 * s, x + 4.6 * s, y - 0.6 * s, x, y + 2.6 * s); c.closePath(); }
+    function drawFish(c, x, y, s, dir, eaten) {
+      /* 小魚（銀藍色、圓滾滾）；本地座標 -x＝魚頭。吃掉的部分從魚頭（靠貓嘴那端）一口一口往魚尾不見 */
+      c.save(); c.translate(x, y); c.scale(dir * s, s);
+      c.beginPath(); c.moveTo(6.4, 0); c.lineTo(10.2, -3.6); c.quadraticCurveTo(9.3, 0, 10.2, 3.6); c.closePath(); c.fillStyle = "#6fb6e6"; c.fill();
+      const g = c.createLinearGradient(0, -4, 0, 4); g.addColorStop(0, "#9ad4fb"); g.addColorStop(0.55, "#d8eefc"); g.addColorStop(1, "#7cbde8");
+      c.beginPath(); c.ellipse(0, 0, 7.4, 3.9, 0, 0, Math.PI * 2); c.fillStyle = g; c.fill();
+      c.strokeStyle = "rgba(40,90,130,.5)"; c.lineWidth = 0.6; c.stroke();
+      c.strokeStyle = "rgba(60,120,170,.55)"; c.lineWidth = 0.7; c.beginPath(); c.moveTo(-2.4, -3.3); c.quadraticCurveTo(-1.2, 0, -2.4, 3.3); c.stroke();
+      c.fillStyle = "#173045"; c.beginPath(); c.arc(-4.4, -0.8, 0.9, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#fff"; c.beginPath(); c.arc(-4.65, -1.05, 0.3, 0, Math.PI * 2); c.fill();
+      if (eaten > 0) { /* 被咬掉的部分（從魚頭開始），咬痕是圓弧 */
+        c.globalCompositeOperation = "destination-out";
+        const k = Math.min(1, eaten), e = fishEdge(k);
+        c.beginPath(); c.rect(-12, -6, e + 12, 12); c.fill();
+        for (const dy of [-2.6, 0, 2.6]) { c.beginPath(); c.arc(e, dy, 1.6, 0, Math.PI * 2); c.fill(); }
+        c.globalCompositeOperation = "source-over";
+      }
+      c.restore();
+    }
+    const fishEdge = (k) => -8 + k * 19; /* 吃掉比例 → 咬痕在魚身上的位置（本地 x） */
+    function drawBone(c, x, y, s, dir, al, upto) {
+      c.save(); c.globalAlpha = al; c.translate(x, y); c.scale(dir * s, s);
+      if (upto != null) { c.beginPath(); c.rect(-12, -6, upto + 12, 12); c.clip(); } /* 只露出已經吃掉那段的魚骨 */
+      c.strokeStyle = "#eef1f4"; c.lineCap = "round"; c.lineWidth = 0.9;
+      c.beginPath(); c.moveTo(-5, 0); c.lineTo(6.6, 0); c.stroke();
+      for (let k = -3; k <= 4; k += 1.4) { c.beginPath(); c.moveTo(k, -2.6); c.lineTo(k + 0.6, 0); c.lineTo(k, 2.6); c.stroke(); }
+      c.beginPath(); c.moveTo(6.6, 0); c.lineTo(9.6, -2.6); c.moveTo(6.6, 0); c.lineTo(9.6, 2.6); c.stroke();
+      c.beginPath(); c.ellipse(-6.2, 0, 1.8, 2.3, 0, 0, Math.PI * 2); c.stroke();
+      c.fillStyle = "#eef1f4"; c.beginPath(); c.arc(-6.4, -0.6, 0.45, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
+    function drawHand(c, x, y, rot, s, fist) {
+      /* 卡通小手（膚色、圓圓的，手指朝下）；打頭時是軟軟的小拳頭 */
+      c.save(); c.translate(x, y); c.rotate(rot); c.scale(s, s);
+      c.fillStyle = "#f6c8a8"; c.strokeStyle = "#c98e72"; c.lineWidth = 0.9; c.lineJoin = "round";
+      c.beginPath(); c.moveTo(-5, -16); c.lineTo(-5, -8); c.lineTo(5, -8); c.lineTo(5, -16); c.closePath(); c.fillStyle = "#8fa3c8"; c.fill(); /* 袖口 */
+      c.fillStyle = "#f6c8a8";
+      if (fist) {
+        c.beginPath(); c.roundRect ? c.roundRect(-6, -9, 12, 11, 4.5) : c.rect(-6, -9, 12, 11); c.fill(); c.stroke();
+        c.beginPath(); for (const k of [-2.6, 0, 2.6]) { c.moveTo(k, -1.2); c.lineTo(k, 1.8); } c.stroke();
+      } else {
+        c.beginPath(); c.ellipse(0, -3, 5.6, 6, 0, 0, Math.PI * 2); c.fill(); c.stroke();
+        for (const [fx2, len] of [[-3.6, 4.6], [-1.2, 5.6], [1.2, 5.6], [3.6, 4.4]]) { c.beginPath(); c.ellipse(fx2, 2.4 + len / 2, 1.25, len / 2 + 0.6, 0, 0, Math.PI * 2); c.fill(); c.stroke(); }
+        c.beginPath(); c.ellipse(-6.2, -1.2, 1.4, 3, 0.7, 0, Math.PI * 2); c.fill(); c.stroke();
+        c.beginPath(); c.ellipse(0, -2.6, 5.2, 5.4, 0, 0, Math.PI * 2); c.fill();
+      }
+      c.restore();
+    }
+    function drawStar(c, x, y, r, rot, al) {
+      c.save(); c.globalAlpha = al; c.translate(x, y); c.rotate(rot); c.fillStyle = "#ffd34d"; c.strokeStyle = "#b8860b"; c.lineWidth = 0.6;
+      c.beginPath(); for (let k = 0; k < 10; k++) { const rr = k % 2 ? r * 0.45 : r, an = -Math.PI / 2 + k * Math.PI / 5; k ? c.lineTo(Math.cos(an) * rr, Math.sin(an) * rr) : c.moveTo(Math.cos(an) * rr, Math.sin(an) * rr); } c.closePath(); c.fill(); c.stroke();
+      c.restore();
+    }
+    function fxDrawCommon(fx, now) {
+      const c = fx.ctx;
+      for (const h of fx.hearts) { const u = (now - h.t0) / h.life; if (u < 0 || u > 1) continue; c.save(); c.globalAlpha = Math.min(1, (1 - u) * 1.6); heartPath(c, h.x + h.dx * u + Math.sin(u * 9) * 1.5, h.y - u * 34, 1.5 * h.s * (0.7 + 0.3 * Math.min(1, u * 4))); c.fillStyle = "#ff6b8b"; c.fill(); c.restore(); }
+      fx.hearts = fx.hearts.filter((h) => now - h.t0 < h.life);
+      for (const t of fx.texts) {
+        const u = (now - t.t0) / t.life; if (u < 0 || u > 1) continue;
+        const pop = u < 0.15 ? 0.6 + u / 0.15 * 0.5 : u < 0.25 ? 1.1 - (u - 0.15) : 1;
+        c.save(); c.globalAlpha = Math.min(1, (1 - u) * 2.2); c.translate(t.x, t.y - u * (t.rise != null ? t.rise : 14)); c.scale(pop, pop); c.rotate(t.rot || 0);
+        c.font = "800 " + t.size + "px system-ui, -apple-system, 'PingFang TC', 'Noto Sans TC', sans-serif"; c.textAlign = "center"; c.textBaseline = "middle";
+        c.lineWidth = 3; c.lineJoin = "round"; c.miterLimit = 2; c.strokeStyle = "rgba(20,22,28,.9)"; c.strokeText(t.txt, 0, 0); c.fillStyle = t.col; c.fillText(t.txt, 0, 0);
+        c.restore();
+      }
+      fx.texts = fx.texts.filter((t) => now - t.t0 < t.life);
+    }
+    function petStep(cat, a, now) {
+      const e = now - a.t0;
+      if (!a.fx) a.fx = newPetFx(cat, a);
+      const fx = a.fx, c = fx.ctx, d = fx.dpr;
+      c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, fx.el.width, fx.el.height); c.setTransform(d, 0, 0, d, 0, 0);
+      cat.y = 0;
+      if (a.kind === "fish") {
+        /* 魚掉到臉前面 → 低頭聞 → 啊嗚啊嗚吃（魚越來越小，剩魚骨）→ 舔嘴 → 瞇眼滿足 */
+        const T = { drop: 550, sniff: 1150, eat: 3000, lick: 3800 };
+        const FS = 1.25, BITES = 5, KMAX = 0.74; /* 咬 5 口，留下魚尾巴＋魚骨 */
+        const fdir = cat.dir; /* 魚頭朝貓嘴（drawFish 的 dir＝貓的方向：本地 -x 的魚頭朝向貓） */
+        a.fishX = fxX(fx, cat, 29.6); a.fishY = fxY(fx, cat, 20) - 4.2; /* 每格都跟著貓的位置 */
+        /* 已經吃掉多少：每一口（eat1 低頭咬下去那格）加一段，咬下去的 90ms 內很快補上 */
+        const eatenAt = (t) => {
+          if (t < T.sniff) return 0;
+          const k = Math.floor((t - T.sniff) / 190), into = (t - T.sniff) - k * 190;
+          const done = Math.floor(k / 2) + (k % 2 ? Math.min(1, into / 90) : 0);
+          return Math.min(KMAX, done / BITES * KMAX);
+        };
+        /* 吃掉的那段越長，魚被叼著往貓這邊拉一點，咬痕一直在嘴邊 */
+        const pull = (k) => (fishEdge(k) - fishEdge(0)) * FS * 0.5 * -fdir;
+        if (e < T.drop) {
+          a.fr = "walk";
+          const u = e / T.drop, yy = u < 0.8 ? a.fishY - 70 * (1 - u / 0.8) * (1 - u / 0.8) : a.fishY - Math.sin((u - 0.8) / 0.2 * Math.PI) * 4;
+          drawFish(c, a.fishX, yy, FS, fdir, 0);
+        } else if (e < T.sniff) {
+          a.fr = Math.floor((e - T.drop) / 230) % 2 ? "sniff1" : "sniff0";
+          drawFish(c, a.fishX, a.fishY, FS, fdir, 0);
+          if (!a.q1) { a.q1 = 1; showBubble(cat, now, "question"); cat.bubbleUntil = now + 700; }
+        } else if (e < T.eat) {
+          const k = Math.floor((e - T.sniff) / 190);
+          a.fr = k % 2 ? "eat1" : "eat0";
+          const ek = eatenAt(e), x = a.fishX + pull(ek);
+          drawFish(c, x, a.fishY, FS, fdir, ek);
+          drawBone(c, x, a.fishY, FS, fdir, 1, fishEdge(ek)); /* 吃掉的地方露出魚骨 */
+          if (k !== a.lastK && k % 2 === 1) { a.lastK = k; if ((k >> 1) % 2 === 0) fxText(fx, "啊嗚", fxX(fx, cat, 24) + rand(-4, 4), fxY(fx, cat, 9), now, { size: 11, col: "#ffe08a", life: 700 }); }
+        } else {
+          a.fr = e < T.lick ? (Math.floor((e - T.eat) / 260) % 2 ? "lick" : "content") : "content";
+          const al = Math.max(0, 1 - (e - T.eat) / 1300), x = a.fishX + pull(KMAX);
+          if (al > 0) { c.save(); c.globalAlpha = al; drawFish(c, x, a.fishY, FS, fdir, KMAX); c.restore(); drawBone(c, x, a.fishY, FS, fdir, al, fishEdge(KMAX)); } /* 剩魚尾巴＋魚骨，慢慢淡掉 */
+          if (!a.h1 && e > T.lick) { a.h1 = 1; showBubble(cat, now, "heart"); cat.bubbleUntil = now + 1100; if (a.makeup) cat.sulkUntil = 0; }
+        }
+      } else if (a.kind === "belly") {
+        /* 直接正面仰躺、肚皮朝鏡頭（開頭輕輕縮放一下）→ 小手在肚子上繞圈揉（按的地方凹下去、皮膚被推著走）
+           → 瞇眼、腳掌踩奶、尾巴輕擺、飄愛心和「呼嚕」；30%：四腳抱住手、後腳亂蹬 → 最後直接回坐姿 */
+        { const u = Math.min(1, e / 180), k = e < 180 ? 0.92 + 0.08 * (1 - (1 - u) * (1 - u)) : 1; /* 很短的「噗」一下：從 92% 放大到 100% */
+          cat.body.style.scale = k < 1 ? String(k) : ""; cat.body.style.transformOrigin = k < 1 ? "50% 100%" : ""; }
+        const IN = 150, TR = 2800, END = 4300, OUT = a.dur - 260; /* 按下就直接正面仰躺（不翻滾、沒有四腳朝天的側面幀），結尾直接回坐姿 */
+        const trap = a.trap && e >= TR && e < END;
+        const th = Math.max(0, e - IN) / 1050 * Math.PI * 2; /* 一圈約 1 秒 */
+        if (e >= OUT) a.fr = "sit";
+        else if (trap) a.fr = Math.floor((e - TR) / 110) % 2 ? "rubT1" : "rubT0";
+        else a.fr = "rub" + (((Math.round(th / (Math.PI * 2 / REAL.RUB_N)) % REAL.RUB_N) + REAL.RUB_N) % REAL.RUB_N);
+        const rot0 = -cat.dir * 1.32; /* 手從尾巴那一側的斜上方伸過來 */
+        const sx = Math.sin(rot0), cy0 = Math.cos(rot0);
+        const at = (gx, gy) => ({ x: fxX(fx, cat, gx), y: fxY(fx, cat, gy) });
+        const handAt = (pt, rot, sc, off) => { /* 手掌心（本地 0,1）貼在 pt 上；off＝沿袖子方向退開多少 px */
+          const L = 4.2; /* 指腹（本地 y≈4）按在肚子上，手掌在外面，看得到按下去的凹痕 */
+          const ox = pt.x + L * sc * Math.sin(rot) + Math.sin(rot) * off, oy = pt.y - L * sc * Math.cos(rot) - Math.cos(rot) * off;
+          drawHand(c, ox, oy, rot, sc, false);
+        };
+        if (e >= IN && e < OUT) {
+          const pr = REAL.rubPress(th), pt = at(pr.x, pr.y);
+          const wob = Math.sin(th) * 0.12;
+          let off = 0;
+          if (e < IN + 260) off = (1 - (e - IN) / 260) * 42;
+          if (!a.trap && e > END - 260) off = Math.min(1, (e - (END - 260)) / 320) * 48;
+          if (a.trap && e >= END) off = Math.min(1, (e - END) / 200) * 60;
+          if (trap) { const q = at(14.6 + Math.sin(e / 35) * 0.5, 14.2 + Math.cos(e / 47) * 0.4); handAt(q, rot0 + Math.sin(e / 60) * 0.22, 0.76, 0); }
+          else if (off < 58) {
+            handAt(a.trap && e >= END ? at(14.6, 14.2) : pt, rot0 + wob, 0.76 + Math.cos(th * 2) * 0.03, Math.max(0, off));
+            if (off < 4 && !(a.trap && e >= END)) { /* 軟嫩感：指尖前面的肚皮被推出兩道小弧（往手移動的方向） */
+              const hr = rot0 + wob, fa = Math.atan2(Math.cos(hr), -Math.sin(hr)), pu = 0.6 + 0.4 * Math.abs(Math.sin(th * 2)); /* 指尖朝的方向 */
+              const fx0 = pt.x + Math.cos(fa) * 4.6, fy0 = pt.y + Math.sin(fa) * 4.6;
+              c.save();
+              const dg = c.createRadialGradient(fx0, fy0, 0.3, fx0, fy0, 4.2); /* 指尖前面一小塊凹下去的陰影 */
+              dg.addColorStop(0, "rgba(125,72,35," + (0.38 * pu).toFixed(3) + ")"); dg.addColorStop(1, "rgba(125,72,35,0)");
+              c.fillStyle = dg; c.beginPath(); c.ellipse(fx0, fy0, 4.2, 3.0, fa, 0, Math.PI * 2); c.fill();
+              c.strokeStyle = "rgba(255,248,236," + (0.85 * pu).toFixed(3) + ")"; c.lineWidth = 1.05; c.lineCap = "round"; /* 被推起來的肚皮（亮弧） */
+              for (const r of [5.9, 8.0]) { c.beginPath(); c.arc(pt.x, pt.y, r, fa - 0.62, fa + 0.62); c.stroke(); }
+              c.restore();
+            }
+          }
+        }
+        if (e > IN + 200 && !trap && e < END) { const k = Math.floor((e - IN - 200) / 520); if (k !== a.lastH) { a.lastH = k; fxHeart(fx, fxX(fx, cat, k % 2 ? 21.5 : 8.5) + rand(-3, 3), fxY(fx, cat, 8.5), now); if (k % 2 === 0) fxText(fx, "呼嚕", fxX(fx, cat, 23.5) + rand(-3, 3), fxY(fx, cat, 7.2), now, { size: 11, col: "#ffd6e7", life: 1000, rise: 16, rot: rand(-0.15, 0.15) }); } }
+        if (trap && !a.g1) { a.g1 = 1; showBubble(cat, now, "bang"); cat.bubbleUntil = now + 1200; const p0 = at(14.8, 13.0); fxText(fx, "抓到了！", p0.x - 30 * cat.dir, p0.y - 34, now, { size: 12, col: "#ffe08a", life: 1200, rise: 10 }); }
+      } else if (a.kind === "bonk" || a.kind === "huff") {
+        /* 輕輕一下「咚」：頭上轉星星、耳朵往後貼、閉眼生氣、尾巴甩，然後轉身走開，之後 20 秒還在生氣 */
+        const hx = fxX(fx, cat, 12.4), hy = fxY(fx, cat, 3.6), hc = fxY(fx, cat, 4.9) - 3; /* hc：拳頭剛好碰到頭頂 */
+        const HIT = a.kind === "bonk" ? 360 : -1, ANG = a.kind === "bonk" ? 700 : 0;
+        if (a.kind === "bonk") {
+          if (e < HIT) { a.fr = "sit"; const u = e / HIT; drawHand(c, hx + 2, hc - 34 * (1 - u * u), 0.12, 1, true); }
+          else if (e < ANG) { a.fr = "bonkHit"; const u = (e - HIT) / (ANG - HIT); drawHand(c, hx + 2, hc - (u < 0.25 ? 0 : (u - 0.25) / 0.75) * 50, 0.12 + u * 0.3, 1, true); if (!a.d1) { a.d1 = 1; fxText(fx, "咚", hx + 16, hy - 12, now, { size: 14, col: "#fff3bf", life: 900, rise: 8, rot: 0.15 }); } }
+          if (e >= HIT && e < 2300) { const al = Math.min(1, (2300 - e) / 400); for (let k = 0; k < 3; k++) { const an = e / 260 + k * 2.094; drawStar(c, hx + Math.cos(an) * 10, hy - 3 + Math.sin(an) * 3.2, 2.6, e / 200 + k, al); } }
+        }
+        if (e >= ANG) { a.fr = Math.floor((e - ANG) / 170) % 2 ? "angry1" : "angry0"; if (!a.an) { a.an = 1; showBubble(cat, now, "anger"); cat.bubbleUntil = now + 1600; } }
+        if (e > a.dur - 700 && !a.hm) { a.hm = 1; fxText(fx, "哼！", hx - 14 * cat.dir, hy - 8, now, { size: 13, col: "#ffc9c9", life: 900, rise: 10 }); }
+      }
+      fxDrawCommon(fx, now);
+      if (e >= a.dur) {
+        const kind = a.kind;
+        killPetFx(fx); a.fx = null;
+        if (kind === "bonk" || kind === "huff") {
+          /* 轉身不理你，走遠一點；之後 20 秒點牠：選單中間顯示「還在生氣…」，只有餵魚能和好 */
+          cat.sulkUntil = performance.now() + SULK_MS;
+          const far = cat.x - minX() > maxX() - cat.x ? minX() + rand(0, 30) : maxX() - rand(0, 30);
+          cat.dir = far > cat.x ? 1 : -1;
+          cat.queue = [Object.assign(moveAct("walk", far, rand(48, 60)), { tapped: true }), { type: "loaf", dur: rand(3000, 5000) }];
+        } else cat.queue = kind === "belly" ? [{ type: "sit", dur: rand(1200, 2000) }] : [{ type: "sit", dur: rand(1500, 2400) }];
+        finish(cat, now);
+      }
+    }
     function start(cat, a, now) {
       a.t0 = now;
       const d0 = cat.dir;
@@ -1698,17 +1928,19 @@ export function mountRoomPets() {
 
     /* ----- 點一下貓：那隻坐下、冒愛心，一會兒再回去自己玩 ----- */
     function tapSit(cat, now) {
-      if (cat.act && (cat.act.type === "funny" || cat.act.type === "poop")) return; /* 僵住、便便中：點了也不理 */
+      if (cat.act && (cat.act.type === "funny" || cat.act.type === "poop" || cat.act.type === "pet" || cat.act.type === "bite")) return; /* 僵住、便便、反應、咬泡泡：點了不理 */
+      if (soc && soc.kind === "fight" && inSoc(cat)) return; /* 打架中不開選單 */
+      if (cat.act && cat.act.menu) { try { if (window.PetMenu) window.PetMenu.close("same"); } catch (_) {} return; }
       if (soc && inSoc(cat)) endSoc(now);
       if (cat.act && cat.act.type === "jump") { cat.pendingTap = true; return; }
-      /* 吊在泡泡上被點：先放開掉下來，落地後再坐下比愛心 */
+      /* 吊在泡泡上被點：先掉下來，落地後再開選單 */
       if (cat.act && cat.act.type === "hang" && cat.act.phase !== "sit") { cat.pendingTap = true; cat.act.drop = true; if (cat.act.phase !== "crouch" && cat.act.phase !== "rise" && cat.act.phase !== "hang" && cat.act.phase) return; hangDrop(cat, cat.act, now); return; }
       cat.y = 0;
       cat.queue = [];
-      start(cat, { type: "sit", dur: rand(2600, 3400), tapped: true }, now);
-      showBubble(cat, now, "heart");
-      cat.bubbleUntil = now + 2400;
+      if (ball.carrier === cat) dropBall(cat, now);
       nextSocialAt = Math.max(nextSocialAt, now + 3500);
+      if (!window.PetMenu || petsOn === false) { start(cat, { type: "sit", dur: rand(2600, 3400), tapped: true }, now); showBubble(cat, now, "heart"); cat.bubbleUntil = now + 2400; return; }
+      openPetMenu(cat, now);
     }
     /* 只有貓身上真的有像素的地方才算點到；旁邊的空白照樣交給聊天室（長按刪除、選單、清除鍵都不受影響） */
     function underBubble(cx, cy) {
@@ -1742,6 +1974,7 @@ export function mountRoomPets() {
     let catPointer = null, swallowCatClick = 0;
     window.addEventListener("pointerdown", (e) => {
       if (e.button > 0 || !chatLive()) return;
+      if (e.target && e.target.closest && e.target.closest(".pet-menu, .pet-btn")) return;
       if (ballHit(e.clientX, e.clientY)) {
         e.preventDefault();
         e.stopPropagation();
@@ -1806,6 +2039,7 @@ export function mountRoomPets() {
         case "stun": return fr.sit[0];
         case "funny": return fr.funny[a.k] || fr.sit[0];
         case "poop": return a.fi >= 0 ? fr.poop[a.fi] || fr.walk[0] : fr.walk[0];
+        case "pet": return a.fr === "sit" ? fr.sit[0] : a.fr === "walk" ? fr.walk[0] : a.fr === "sniff0" ? fr.poop[1] : a.fr === "sniff1" ? fr.poop[2] : fr.pet[REAL.PET_KEYS.indexOf(a.fr)] || fr.sit[0];
         case "walk": return loop("walk");
         case "run": case "flee": return loop("run");
         case "chase": return e < (a.wait || 0) ? SPRITES[cat.name].run[0] : loop("run");
@@ -1859,6 +2093,7 @@ export function mountRoomPets() {
       if (a.type === "claw") { clawStep(cat, a, now); return; }
       if (a.type === "funny") { funnyStep(cat, a, now); return; }
       if (a.type === "poop") { poopStep(cat, a, now); return; }
+      if (a.type === "pet") { petStep(cat, a, now); return; }
       if (a.type === "walk" || a.type === "run") {
         const step = a.speed * dt;
         const d = a.tx - cat.x;
@@ -1912,7 +2147,7 @@ export function mountRoomPets() {
         const t = cat.act.type;
         let chance = t === "sleep" ? 0.85 : t === "run" || t === "jump" || t === "fight" ? 0 : 0.6;
         if (t === "chase" || t === "flee") chance = 0.45;
-        if (cat.hidden || (t === "hang" && cat.act.phase !== "sit")) chance = 0;
+        if (cat.hidden || t === "pet" || (t === "hang" && cat.act.phase !== "sit")) chance = 0;
         if (Math.random() < chance) showBubble(cat, now, t === "chase" || t === "flee" ? pick(PLAY_ICONS) : (soc && inSoc(cat) && t !== "sleep" ? pick(["heart", "note", "sparkle"]) : null));
         else cat.nextBubble = now + rand(2500, 7000);
       }
@@ -2018,7 +2253,8 @@ export function mountRoomPets() {
           const a = cat.act;
           if (a && a.el && a.bubCol == null) { try { const bc = getComputedStyle(a.el).backgroundColor; a.bubCol = bc && bc !== "rgba(0, 0, 0, 0)" && bc !== "transparent" ? bc : ""; } catch (_) { a.bubCol = ""; } }
           fc.setTransform(1, 0, 0, 1, 0, 0); fc.clearRect(0, 0, fc.canvas.width, fc.canvas.height);
-          tf(fc); fc.drawImage(head, 0, 0, w, h); REAL.hangMouthCut(fc, bk, (a && a.bubCol) || ""); fc.setTransform(1, 0, 0, 1, 0, 0);
+          fc.drawImage(ctx.canvas, 0, 0); /* 整隻（身體、四肢、尾巴、頭）都在泡泡前面 */
+          tf(fc); REAL.hangMouthCut(fc, bk, (a && a.bubCol) || ""); fc.setTransform(1, 0, 0, 1, 0, 0);
         }
         return;
       }
@@ -2776,6 +3012,7 @@ export function mountRoomPets() {
         cat.body.style.visibility = on ? "hidden" : "";
         cat.hangCv.style.display = on ? "block" : "none";
         cat.hangFront.style.display = on ? "block" : "none";
+        cat.hangCv.classList.toggle("front-all", on);
         cat.hangKey = null;
       }
       if (!on) return false;
@@ -2788,9 +3025,9 @@ export function mountRoomPets() {
         paintCat(cat.hangCtx, f, bk, HANG_W, HANG_H, cat, nowH);
         /* 舊的側面吊姿才把嘴巴那幾列另外貼到前面；仰頭吊姿由 paintCat 畫到前面那張畫布 */
         if (!f.hangF) {
-          const hc = cat.hangCv, Rh = hc.width / HANG_W, frn = Math.ceil((f.pt.y + 1.5) * Rh);
+          const hc = cat.hangCv;
           cat.hangFrontCtx.clearRect(0, 0, hc.width, hc.height);
-          cat.hangFrontCtx.drawImage(hc, 0, 0, hc.width, frn, 0, 0, hc.width, frn);
+          cat.hangFrontCtx.drawImage(hc, 0, 0); /* 整隻都畫在泡泡前面 */
         }
       }
       const ptx = cat.dir < 0 ? HANG_W - f.pt.x : f.pt.x;
@@ -3003,7 +3240,7 @@ export function mountRoomPets() {
       } catch (_) {}
       try { if (soc && inSoc(c)) endSoc(now); } catch (_) { soc = null; }
       c.queue = []; c.pendingTap = false; c.y = 0; c._hangOn = false; c.stillMs = 0;
-      if (c.hangCv) c.hangCv.style.display = "none";
+      if (c.hangCv) { c.hangCv.style.display = "none"; c.hangCv.classList.remove("front-all"); }
       if (c.hangFront) c.hangFront.style.display = "none";
       if (c.body) c.body.style.visibility = "";
       c.hangKey = null; c.cur = null;
@@ -3015,13 +3252,13 @@ export function mountRoomPets() {
       c.act = { type: "sit", t0: now, dur: rand(1500, 2600) };
     }
     /* 跳／吊的最長時間：超過就當作卡住，直接安全落地坐下 */
-    const JUMP_MAX_MS = 2500, HANG_MAX_MS = 16000, BITE_MAX_MS = 12000, CLAW_MAX_MS = 6500, FUNNY_MAX_MS = 21000, POOP_MAX_MS = 9000;
+    const JUMP_MAX_MS = 2500, HANG_MAX_MS = 16000, BITE_MAX_MS = 12000, CLAW_MAX_MS = 6500, FUNNY_MAX_MS = 21000, POOP_MAX_MS = 9000, PET_MAX_MS = 9000;
     /* 球雨砸到：兩隻中斷手上的事，各擺一個搞笑姿勢僵住。球淡出後再僵 5 秒，最長 20 秒 */
     function rainFreeze(c, now, dur) {
       try { for (const j of jellies.slice()) if (j.cat === c || (c.act && j.act === c.act)) resetJelly(j); } catch (_) {}
       try { if (soc && inSoc(c)) endSoc(now); } catch (_) { soc = null; }
       c.queue = []; c.pendingTap = false; c.y = 0; c._hangOn = false; c.stillMs = 0; c.ballUntil = 0;
-      if (c.hangCv) c.hangCv.style.display = "none";
+      if (c.hangCv) { c.hangCv.style.display = "none"; c.hangCv.classList.remove("front-all"); }
       if (c.hangFront) c.hangFront.style.display = "none";
       if (c.body) c.body.style.visibility = "";
       c.hangKey = null; c.cur = null;
@@ -3050,6 +3287,7 @@ export function mountRoomPets() {
         }
         return;
       }
+      try { if (window.PetMenu) window.PetMenu.close("force"); } catch (_) {}
       try { if (soc) endSoc(n); } catch (_) { soc = null; }
       for (const c of cats) { try { if (!c.hidden) rainFreeze(c, n, ms); } catch (err) { petSafeReset(c, n, err); } }
       nextBiteAt = Math.max(nextBiteAt, n + ms + rand(4000, 8000));
@@ -3066,6 +3304,8 @@ export function mountRoomPets() {
       if (a.type === "claw" && now - a.t0 > CLAW_MAX_MS) { petSafeReset(c, now, new Error("claw watchdog")); return; }
       if (a.type === "funny" && now - a.t0 > FUNNY_MAX_MS) { c.jx = 0; petSafeReset(c, now); return; }
       if (a.type === "poop" && now - a.t0 > POOP_MAX_MS) { petSafeReset(c, now, new Error("poop watchdog")); return; }
+      if (a.type === "pet" && now - a.t0 > PET_MAX_MS) { petSafeReset(c, now, new Error("pet watchdog")); return; }
+      if (a.menu && (!window.PetMenu || window.PetMenu.forId !== c.name) && now - a.t0 > 400) { c.queue = []; finish(c, now); return; }
       if (a.type === "hang") {
         const age = now - (a.t0 || now), pe = now - (a.pt0 || a.t0 || now);
         const lim = a.phase === "hang" ? (a.dur || 6000) + 1500 : (HANG_PHASE_MAX[a.phase] || 1500);
@@ -3139,6 +3379,7 @@ export function mountRoomPets() {
       jellyStep(now, dt);
       try { clawMarksStep(now); } catch (_) { clearClawMarks(); }
       try { poopPilesStep(now); } catch (_) { clearPoops(); }
+      try { petFxStep(now); } catch (_) { clearPetFx(); }
       renderFront();
       biteSchedule(now);
       renderBall(now);
@@ -3201,7 +3442,7 @@ export function mountRoomPets() {
         } catch (_) {}
         c.queue = []; c.y = 0; c._hangOn = false; c.jx = 0;
         if (c.hangFront) c.hangFront.style.display = "none";
-        if (c.act && (c.act.type === "funny" || c.act.type === "poop")) {
+        if (c.act && (c.act.type === "funny" || c.act.type === "poop" || c.act.type === "pet" || c.act.menu)) {
           try { hideBubble(c, n); } catch (_) {}
           try { start(c, { type: "sit", dur: rand(1500, 2600) }, n); } catch (_) {}
         }
@@ -3212,6 +3453,8 @@ export function mountRoomPets() {
       petsOn = false;
       clearClawMarks(); /* 貓關掉：爪痕一起清掉，也不再留新的 */
       clearPoops();
+      try { clearPetFx(); } catch (_) {}
+      try { if (window.PetMenu) window.PetMenu.close("force"); } catch (_) {}
       for (const el of msgList.querySelectorAll("canvas.bub-shade, canvas.bub-warp")) el.remove();
       for (const el of msgList.querySelectorAll(".bub.jelly")) el.classList.remove("jelly");
       layer.style.display = "none";

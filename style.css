@@ -3289,6 +3289,8 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   pointer-events: none !important;
 }
 .cat-hang { position: absolute; left: 0; bottom: 0; display: none; }
+.cat-hang.front-all { visibility: hidden; }
+.pet-fx { position: absolute; left: 0; bottom: 0; z-index: 7; pointer-events: none; display: block; }
 /* 被咬著時先把原泡泡藏起來，改畫一張不佔高度的扭曲圖；放開後拿掉，尺寸回到原樣。 */
 .bub.jelly { background: transparent !important; color: transparent !important; }
 .bub.jelly > canvas.bub-shade { display: none; }

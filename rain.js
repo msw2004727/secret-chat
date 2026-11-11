@@ -159,16 +159,11 @@
     ctx.clearRect(0, 0, AW, AH);
     /* 畫的時候比碰撞範圍小一點：球跟球之間留縫，看得到被埋在下面的泡泡和貓 */
     const K = sprSize / RAIN.R * RAIN.DRAW_K;
-    const hs = s.holes;
     for (let i = 0; i < s.n; i++) {
       if (s.y[i] < -RAIN.R) continue;
       const k = ((Math.floor(s.a[i] / (Math.PI / 8)) % 8) + 8) % 8, z = s.r[i] * K;
-      /* 貓僵住的地方：蓋在貓身上的球變半透明（越靠中間越透），看得到底下搞笑的貓 */
-      let al = 1;
-      if (hs) for (const h of hs) { const dx = (s.x[i] - h.cx) / h.rx, dy = (s.y[i] - h.cy) / h.ry, d = dx * dx + dy * dy; if (d < 1) al = Math.min(al, 0.28 + 0.72 * d); }
-      if (al < 1) ctx.globalAlpha = al;
+      /* 球全部實心不透明，蓋住貓；整片淡出仍用畫布的 opacity */
       ctx.drawImage(spr[k], s.x[i] - z / 2, s.y[i] - z / 2, z, z);
-      if (al < 1) ctx.globalAlpha = 1;
     }
   }
   function frame() {
