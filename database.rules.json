@@ -217,6 +217,21 @@
             }
           }
         },
+        "rain": {
+          ".validate": "!newData.exists() || newData.hasChildren(['t','by'])",
+          "t": {
+            ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+          },
+          "by": {
+            ".validate": "newData.isString() && newData.val().length <= 64"
+          },
+          "end": {
+            ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
         "meta": {
           "wipe": {
             ".validate": "newData.isNumber()"

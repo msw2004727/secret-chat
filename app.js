@@ -20,7 +20,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.30";
+const APP_VERSION = "v61.31";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -5223,6 +5223,20 @@ async function enterChat() {
     Droop.sync(snap.val() || {}, nowServer());
   }));
 
+  /* 球雨：左上角「在線上」連點 3 下。只同步開始時間和提早結束，球的物理各端自己算。 */
+  if (!window.BallRain) { try { await import("./rain.js"); } catch (_) {} }
+  if (window.BallRain) {
+    const rain = window.BallRain;
+    rain.now = nowServer;
+    rain.me = S.clientId;
+    rain.write = () => set(ref(db, `${base}/rain`), { t: serverTimestamp(), by: S.clientId }).catch(() => {});
+    rain.writeEnd = () => update(ref(db, `${base}/rain`), { end: serverTimestamp() }).catch(() => {});
+    S.subs.push(onValue(ref(db, `${base}/rain`), (snap) => {
+      if (myGen !== S.gen) return;
+      try { window.BallRain.sync(snap.val()); } catch (_) {}
+    }));
+  }
+
   /* --- 6.2d 置頂公告（v45）---
      一間房只有一則，整包 onValue 訂閱：資料很小，而且「新的蓋掉舊的」
      用 set() 就是原子的，不必自己處理新增／修改／移除三種事件。
@@ -5490,6 +5504,7 @@ async function enterChat() {
       S.wipeMark = v;
       /* 旗標先到、清單還在：先對畫面上的泡泡取樣，再清掉。
          自己按的那次已把 wipeMark 設成同一個值，不會在這裡再炸一輪。 */
+      try { if (window.BallRain) window.BallRain.stop(); } catch (_) {}
       Droop.clearAll();
       try { Shatter.playAll(); } catch (err) { console.error(err); }
       resetList();
@@ -5635,6 +5650,7 @@ async function enterChat() {
       remove(ref(db, `${base}/typing`)),
       remove(ref(db, `${base}/rx`)),
       remove(ref(db, `${base}/dr`)),
+      remove(ref(db, `${base}/rain`)),
       remove(ref(db, `${base}/meta/last`)),
       /* 啟用時思念隨對話歸零；停用時不寫入或刪除既有計數。 */
       ...(ROOM_EXTRAS_ENABLED ? [remove(ref(db, `${base}/heart`))] : []),
@@ -5652,6 +5668,7 @@ async function enterChat() {
     syncWatchUI();
     S.peerReadKey = null; S.peerRecvKey = null;
     S.lastReadSent = null; S.lastRecvSent = null;
+    try { if (window.BallRain) window.BallRain.stop(); } catch (_) {}
     Droop.clearAll();
     try { Shatter.playAll(); } catch (err) { console.error(err); }
     resetList();
@@ -9145,7 +9162,7 @@ function bindSettings() {
   $("setPets")?.addEventListener("change", () => {
     const on = $("setPets").checked;
     Pets.set(on);
-    toast(on ? "貓咪回來了" : "已關閉聊天室貓咪");
+    toast(on ? "趣味特效回來了" : "已關閉聊天室貓咪與趣味特效");
   });
 
   $("setIdle").addEventListener("click", (e) => {
@@ -9648,6 +9665,7 @@ function leaveChat() {
   S.setRx = null; S.rx = {};
   Droop.write = null;
   Droop.clearAll();
+  try { const rain = window.BallRain; if (rain) { rain.write = null; rain.writeEnd = null; rain.stop(); } } catch (_) {}
   /* ⚠️ 公告一定要收乾淨。它是一段中文，留在偽裝首頁上會直接破功 ——
         跟 toast、長按選單同一條規矩。 */
   S.setNotice = null; S.dropNotice = null; S.noticeSrc = null;
@@ -11930,6 +11948,7 @@ async function admWipe(i) {
       remove(ref(db, `${base}/typing`)),
       remove(ref(db, `${base}/rx`)),
       remove(ref(db, `${base}/dr`)),
+      remove(ref(db, `${base}/rain`)),
       remove(ref(db, `${base}/meta/last`)),
       // 清空對話保留 nt（記事本），停用中的思念計數也不變動。
       ...(ROOM_EXTRAS_ENABLED ? [remove(ref(db, `${base}/heart`))] : []),

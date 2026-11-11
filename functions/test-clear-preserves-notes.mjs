@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const src=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
 const notes={one:{iv:'encrypted-iv',c:'encrypted-note',t:100},two:{iv:'other-iv',c:'other-note',t:200}};
-const makeRoom=()=>({nt:structuredClone(notes),m:{message:{c:'encrypted-message'}},read:{a:'message'},recv:{b:'message'},typing:{a:1},rx:{message:{}},dr:{message:{on:true,t:1,by:'device'}},meta:{last:1},heart:{n:3},notice:{c:'notice'},pet:{stage:2}});
+const makeRoom=()=>({nt:structuredClone(notes),m:{message:{c:'encrypted-message'}},read:{a:'message'},recv:{b:'message'},typing:{a:1},rx:{message:{}},dr:{message:{on:true,t:1,by:'device'}},rain:{t:1,by:'device'},meta:{last:1},heart:{n:3},notice:{c:'notice'},pet:{stage:2}});
 for(const entry of ['chat','admin']) {
   const data={rooms:{room:makeRoom(),other:makeRoom()}},operations=[];
   const at=path=>path.split('/').reduce((obj,key)=>obj?.[key],data);
@@ -25,7 +25,7 @@ for(const entry of ['chat','admin']) {
   assert.deepEqual(data.rooms.room.nt,notes,`${entry}: encrypted notes remain intact`);
   assert.deepEqual(S.notes,notes,`${entry}: local notes remain intact`);
   assert.deepEqual(data.rooms.other,makeRoom(),`${entry}: other room unchanged`);
-  for(const key of ['m','read','recv','typing','rx','dr','notice'])assert.equal(data.rooms.room[key],undefined,`${entry}: ${key} still clears`);
+  for(const key of ['m','read','recv','typing','rx','dr','rain','notice'])assert.equal(data.rooms.room[key],undefined,`${entry}: ${key} still clears`);
   assert.deepEqual(data.rooms.room.heart,makeRoom().heart,`${entry}: disabled heart data remains intact`);
   assert.deepEqual(data.rooms.room.pet,makeRoom().pet,`${entry}: disabled plant data remains intact`);
   assert.equal(data.rooms.room.meta.last,undefined);

@@ -16,6 +16,9 @@ export const DROOP = {
 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
+function petsOff() {
+  try { return localStorage.getItem("sc-pets") === "off"; } catch (_) { return false; }
+}
 
 function sagCurve(ms) {
   const D = DROOP.DURATION_MS;
@@ -200,6 +203,7 @@ export const Droop = {
       if (this.lastTap && this.lastTap.row === row && now - this.lastTap.t < DROOP.DOUBLE_TAP_MS &&
           Math.hypot(e.clientX - this.lastTap.x, e.clientY - this.lastTap.y) < DROOP.DOUBLE_TAP_PX) {
         this.lastTap = null;
+        if (petsOff()) return; /* 趣味特效關掉：不軟、也不寫資料庫 */
         const st = this.map.get(row);
         const on = !(st && st.on);
         if (this.write) this.write(row.dataset.k, on);
@@ -217,8 +221,13 @@ export const Droop = {
     }, { passive: true });
     window.addEventListener("resize", () => { for (const st of this.map.values()) st.drawnFinal = false; this.kick(); });
     if (window.MutationObserver) {
-      new MutationObserver(() => { if (this.last) this.sync(this.last, this.now()); }).observe(list, { childList: true, subtree: true });
+      new MutationObserver(() => { if (this.last && !petsOff()) this.sync(this.last, this.now()); }).observe(list, { childList: true, subtree: true });
     }
+    window.addEventListener("sc-pets", (e) => {
+      const on = !!(e.detail && e.detail.on);
+      if (!on) this.clearAll();
+      else if (this.last) this.sync(this.last, this.now());
+    });
   },
   rowAt(x, y) {
     for (const [row, st] of [...this.map].reverse()) {
@@ -285,6 +294,7 @@ export const Droop = {
     this.mount();
     if (!this.ready) return;
     this.last = val || {};
+    if (petsOff()) { this.clearAll(); return; } /* 關掉時照樣記住資料庫，畫面上全部挺直 */
     const now = typeof serverNow === "number" ? serverNow : this.now();
     const seen = new Set();
     for (const key of Object.keys(this.last)) {

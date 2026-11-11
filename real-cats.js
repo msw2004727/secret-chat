@@ -187,7 +187,8 @@ export const REAL = (() => {
     ctx.globalAlpha = 0.85;
     ctx.beginPath(); ctx.arc(b.x, b.y, ws[ws.length - 1] * 0.75, 0, TAU); ctx.fill();
     ctx.restore();
-    furEdge(ctx, outline(pts, ws), pal.base, 0.32);
+    if (t.puff) puffSpikes(ctx, outline(pts, ws), pal, t.puff);
+    furEdge(ctx, outline(pts, ws), pal.base, 0.32 + (t.puff || 0) * 0.5);
     ctx.restore();
     void g;
   }
@@ -199,6 +200,11 @@ export const REAL = (() => {
       ctx.strokeStyle = "#1b1410"; ctx.lineWidth = 0.38; ctx.lineCap = "round"; ctx.lineJoin = "round";
       const d = bonkDir || 1;
       ctx.beginPath(); ctx.moveTo(x - d * rx, y - ry * 1.05); ctx.lineTo(x + d * rx * 0.8, y); ctx.lineTo(x - d * rx, y + ry * 1.05); ctx.stroke();
+      ctx.restore(); return;
+    }
+    if (state === "x") { /* 嚇昏：x_x */
+      ctx.strokeStyle = "#1b1410"; ctx.lineWidth = 0.32; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(x - rx * 0.8, y - ry * 0.85); ctx.lineTo(x + rx * 0.8, y + ry * 0.85); ctx.moveTo(x + rx * 0.8, y - ry * 0.85); ctx.lineTo(x - rx * 0.8, y + ry * 0.85); ctx.stroke();
       ctx.restore(); return;
     }
     if (state === "closed" || state === "happy") {
@@ -226,7 +232,7 @@ export const REAL = (() => {
     g.addColorStop(0, pal.irisIn); g.addColorStop(0.55, pal.iris); g.addColorStop(1, pal.irisOut);
     ctx.fillStyle = g; ctx.fillRect(x - rx * 1.2, y - ry * 1.3, rx * 2.4, ry * 2.6);
     ctx.fillStyle = "#0d0906";
-    ctx.beginPath(); ctx.ellipse(x + (e.px || 0), y + (e.py || 0), rx * (e.pw || 0.26), ry * 0.92, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + (e.px || 0), y + (e.py || 0), rx * (e.pw || 0.26), ry * (e.ph || 0.92), 0, 0, TAU); ctx.fill();
     /* 上眼皮的陰影 */
     const sg = ctx.createLinearGradient(x, y - ry, x, y);
     sg.addColorStop(0, "rgba(0,0,0,.45)"); sg.addColorStop(1, "rgba(0,0,0,0)");
@@ -336,6 +342,7 @@ export const REAL = (() => {
       { x: 0.55, y: -0.25, rx: 0.78, ry: 0.62, px: 0.12, pw: h.pupil || 0.26 },
       { x: 2.5, y: -0.35, rx: 0.5, ry: 0.55, px: 0.1, pw: (h.pupil || 0.26) * 1.05 }
     ];
+    if (h.wide) for (const e of E) { e.rx *= 1.3; e.ry *= 1.6; e.y -= 0.15; e.pw = 0.18; e.ph = 0.24; } /* 嚇到：眼睛瞪圓、瞳孔縮成小點 */
     for (const e of E) eye(ctx, pal, e, h.bk ? "bonk" : st, 1);
     /* 鼻子、嘴 */
     ctx.fillStyle = pal.nose;
@@ -507,7 +514,8 @@ export const REAL = (() => {
     ctx.beginPath(); ctx.ellipse(mx - nx * R * 1.15, my - ny * R * 1.15, Math.hypot(ch.x - hip.x, ch.y - hip.y) * 0.55, R * 0.45, ang, 0, TAU); ctx.fill();
     ctx.restore();
     contour(ctx, pts, pal);
-    furEdge(ctx, pts, pal.base, 0.34);
+    if (p.puff) { puffSpikes(ctx, pts, pal, p.puff); furEdge(ctx, pts, pal.base, 0.3 + p.puff * 0.5); } /* 炸毛 */
+    else furEdge(ctx, pts, pal.base, 0.34);
     return pts;
   }
   /* 胸前的淺色毛（脖子到胸口） */
@@ -1125,6 +1133,37 @@ export const REAL = (() => {
     return std({ hip: P(8.8, 11.2), chest: P(18.6, 10.8), rh: 2.9, rc: 2.9, sag: 0.2, legs,
       head: { x: hx, y: hy, tilt: 0.05, mouth: 0.2, earBack: 0.3 }, tail: { x: 6.0, y: 10.6, a: Math.PI, curve: -0.02, len: 9, w: 1.4 } });
   }
+  /* 便便（可愛、不寫實）：0＝蹲下專注、1/2＝轉身低頭聞、3/4＝背對便便用後腳扒砂 */
+  function poopPose(i) {
+    if (i === 0) {
+      return std({ hip: P(8.8, 15.3), chest: P(17.8, 12.9), rh: 3.25, rc: 3.0, sag: 0.05,
+        mid: { rx: 4.3, ry: 2.85, dx: 0.1, dy: 0.3 },
+        legs: [
+          { far: true, hind: true, pts: hindLeg(P(8.6, 16.0), P(11.0, fy - 0.45), P(12.2, 17.3), P(8.6, fy - 1.3)) },
+          { far: true, pts: frontLeg(P(18.0, 14.0), P(18.6, fy - 0.45), 0.1) },
+          { hind: true, pts: hindLeg(P(9.0, 16.0), P(11.8, fy - 0.45), P(13.0, 17.1), P(9.2, fy - 1.3)) },
+          { pts: frontLeg(P(18.6, 14.0), P(19.6, fy - 0.45), 0.1) }
+        ],
+        head: { x: 22.8, y: 8.6, tilt: 0.06, eyes: "half", earBack: 0.55 },
+        tail: { x: 5.9, y: 13.4, a: -1.95, curve: 0.12, len: 8.6, w: 1.5, tipCurl: 0.45 } });
+    }
+    if (i === 1 || i === 2) {
+      const b = walkPose(0), d = i === 2 ? 0.55 : 0;
+      b.chest = P(18.6, 13.0 + d * 0.3);
+      b.head = { x: 23.9, y: 13.2 + d, tilt: 0.42, earBack: 0.1, pupil: 0.5 };
+      b.tail = { x: 5.6, y: 11.4, a: -2.35, curve: 0.25, len: 8.5, w: 1.45, tipCurl: 0.5 };
+      return b;
+    }
+    const kickNear = i === 3;
+    const kick = (bx) => ({ hind: true, pts: hindLeg(P(bx, 13.0), P(1.2, 18.3), P(6.4, 15.0), P(3.4, 17.4)) });
+    const tuck = (bx) => ({ hind: true, pts: hindLeg(P(bx, 13.0), P(bx + 1.6, fy - 0.45), P(bx + 2.6, 15.6), P(bx - 0.2, 17.8)) });
+    const kn = kickNear ? kick(8.9) : tuck(8.9), kf = kickNear ? tuck(8.1) : kick(8.1);
+    kf.far = true;
+    return std({ hip: P(8.8, 12.4), chest: P(18.6, 12.7), rh: 3.1, rc: 3.05, sag: 0.2,
+      legs: [kf, { far: true, pts: frontLeg(P(18.2, 13.8), P(19.4, fy - 0.45), -0.05) }, kn, { pts: frontLeg(P(19.2, 13.8), P(20.6, fy - 0.45), -0.05) }],
+      head: { x: 23.4, y: 8.4, tilt: -0.05, earBack: 0.3, eyes: kickNear ? "half" : "open" },
+      tail: { x: 5.6, y: 11.2, a: -2.6, curve: 0.1, len: 8.5, w: 1.45, tipCurl: 0.3 } });
+  }
   function frontPose(o) {
     return Object.assign({ kind: "front", cx: 12.4, head: { x: 12.5, y: 7.9 }, tail: { x: 15.2, y: fy - 0.9, a: -0.15, curve: -0.1, len: 8.5, w: 1.4, tipCurl: -0.55, floor: 19.6, front: false } }, o);
   }
@@ -1145,6 +1184,17 @@ export const REAL = (() => {
       case "lick3": return frontPose({ cx: 13.4, head: { x: 14.6, y: 9.4 - (i ? 0.25 : 0), tilt: -0.35, eyes: "closed", tongue: 1 }, legUp: true, tail: { x: 16.4, y: fy - 0.9, a: -0.1, curve: -0.05, len: 8, w: 1.35, floor: 19.6, tipCurl: -0.5 } });
       case "love": return lovePose(extra.key);
       case "hangFront": return { kind: "hangFront", part: extra.part || "torso", head: { x: HF.hx, y: HF.hy } };
+      case "funny": return i === 0 ? { kind: "flop", tail: null } : std({ hip: P(9.0, 10.6), chest: P(18.2, 10.9), rh: 2.95, rc: 2.85, sag: 0, puff: 1.0,
+        mid: { rx: 4.7, ry: 3.1, dx: 0, dy: -2.5 },
+        legs: [
+          { far: true, hind: true, pts: [P(8.2, 11.6), P(7.8, 14.6), P(7.7, 18.2), P(7.7, 19.5)] },
+          { far: true, pts: [P(18.4, 12.4), P(18.6, 15.5), P(18.7, 18.6), P(18.8, 19.5)] },
+          { hind: true, pts: [P(9.6, 11.9), P(10.0, 15.0), P(9.9, 18.4), P(10.0, 19.6)] },
+          { pts: [P(19.5, 12.6), P(19.9, 15.7), P(20.1, 18.7), P(20.2, 19.6)] }
+        ],
+        head: { x: 22.8, y: 7.4, tilt: -0.12, wide: true, mouth: 0.6, earBack: 0.75 },
+        tail: { x: 6.6, y: 9.8, a: -Math.PI / 2 - 0.3, curve: 0.03, len: 8.0, w: 2.1, puff: 0.9 } });
+      case "poop": return poopPose(i);
       case "claw": return frontPose({ cx: 16, stretch: 3.4, head: { x: 16, y: 5.7, tilt: 0, pupil: 0.36 }, raise: "claw", tail: { x: 18.6, y: fy - 0.9, a: -0.25, curve: -0.12, len: 8.0, w: 1.35, tipCurl: -0.5, floor: 19.6, front: false } });
     }
     return frontPose({});
@@ -1166,8 +1216,76 @@ export const REAL = (() => {
     return frontPose({});
   }
   /* 畫一隻貓（不含尾巴）；out 會拿到眼睛位置（眨眼用） */
+  /* 炸毛：沿著外形畫一圈尖尖的毛束（每束是細長三角形） */
+  function puffSpikes(ctx, pts, pal, amt) {
+    ctx.save();
+    const n = pts.length;
+    let cx = 0, cy = 0; for (const q of pts) { cx += q.x; cy += q.y; } cx /= n; cy /= n;
+    for (const [col, k0] of [[pal.top, 1], [pal.base, 0.7]]) {
+      ctx.fillStyle = col; ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const p = pts[i], q = pts[(i + 1) % n], d = Math.hypot(q.x - p.x, q.y - p.y), m = Math.max(1, Math.round(d / 0.55));
+        let nx = q.y - p.y, ny = -(q.x - p.x); const L = Math.hypot(nx, ny) || 1; nx /= L; ny /= L;
+        for (let j = 0; j < m; j++) {
+          const t = (j + 0.5) / m, x = lerp(p.x, q.x, t), y = lerp(p.y, q.y, t);
+          if (y > 18.8) continue;
+          let ax = nx, ay = ny; if ((x - cx) * ax + (y - cy) * ay < 0) { ax = -ax; ay = -ay; }
+          const h = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453, r = h - Math.floor(h);
+          const l = amt * k0 * (0.55 + r * 0.6), w = 0.26, tx = -ay, ty = ax;
+          ctx.moveTo(x + tx * w - ax * 0.3, y + ty * w - ay * 0.3);
+          ctx.lineTo(x + ax * l + tx * (r - 0.5) * 0.5, y + ay * l + ty * (r - 0.5) * 0.5);
+          ctx.lineTo(x - tx * w - ax * 0.3, y - ty * w - ay * 0.3);
+        }
+      }
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  /* ===== 搞笑僵住 1：四腳朝天翻肚、x_x、舌頭吐出來 ===== */
+  function drawFlop(ctx, name, p, out, bk) {
+    const pal = PAL[name], fy = 20;
+    drawTail(ctx, name, { x: 7.8, y: fy - 2.4, a: Math.PI + 0.12, curve: -0.015, len: 7.2, w: 1.35 }, 0);
+    const up = (x0, y0, x1, y1, far, hind) => {
+      leg(ctx, pal, [P(x0, y0), P(lerp(x0, x1, 0.45), lerp(y0, y1, 0.45)), P(lerp(x0, x1, 0.85), lerp(y0, y1, 0.85)), P(x1, y1)], hind ? [2.2, 1.45, 1.05, 1.1] : [1.6, 1.3, 1.0, 1.05], far, hind, true);
+      /* 腳底朝天：肉球看得到 */
+      ctx.save(); ctx.translate(x1, y1); ctx.rotate(Math.atan2(y1 - y0, x1 - x0) + Math.PI / 2);
+      ctx.fillStyle = far ? shade(pal.belly, -0.12) : pal.belly; ctx.beginPath(); ctx.ellipse(0, 0, 0.8, 0.62, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = pal.edge; ctx.lineWidth = 0.08; ctx.stroke();
+      ctx.fillStyle = pal.pad; ctx.globalAlpha = far ? 0.55 : 0.85;
+      ctx.beginPath(); ctx.ellipse(0, 0.05, 0.34, 0.25, 0, 0, TAU); ctx.fill();
+      for (const k of [-0.48, -0.16, 0.16, 0.48]) { ctx.beginPath(); ctx.arc(k, -0.42 - (Math.abs(k) < 0.3 ? 0.08 : 0), 0.12, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    };
+    up(9.4, fy - 4.2, 8.4, fy - 11.0, true, true);
+    up(18.6, fy - 4.4, 19.8, fy - 10.6, true, false);
+    /* 身體：背貼地、肚子朝上（上面是白肚子，下面是背） */
+    const pts = blobPts([{ x: 10.6, y: fy - 3.0, r: 2.9 }, { x: 18.2, y: fy - 3.1, r: 2.8 }, { x: 14.4, y: fy - 3.3, rx: 4.6, ry: 2.85 }], 30);
+    const g = ctx.createLinearGradient(0, fy - 6.3, 0, fy);
+    g.addColorStop(0, pal.belly); g.addColorStop(0.35, pal.light); g.addColorStop(0.62, pal.base); g.addColorStop(1, pal.top);
+    smoothPath(ctx, pts); ctx.fillStyle = g; ctx.fill();
+    ctx.save(); smoothPath(ctx, pts); ctx.clip();
+    if (pal.tabby) {
+      ctx.strokeStyle = pal.stripe; ctx.lineWidth = 0.55; ctx.lineCap = "round";
+      for (let i = 0; i < 6; i++) { const x = 9 + i * 1.75; ctx.beginPath(); ctx.moveTo(x - 0.3, fy + 0.2); ctx.quadraticCurveTo(x + 0.25, fy - 1.6, x - 0.1, fy - 2.6); ctx.stroke(); }
+    }
+    const bg = ctx.createRadialGradient(14.2, fy - 5.0, 0.3, 14.2, fy - 5.0, 3.6);
+    bg.addColorStop(0, "rgba(255,255,255,.55)"); bg.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = bg; ctx.fillRect(8, fy - 8, 13, 6);
+    ctx.restore();
+    contour(ctx, pts, pal);
+    furEdge(ctx, pts, pal.belly, 0.4, fy - 1.2);
+    up(11.6, fy - 4.6, 11.0, fy - 12.0, false, true);
+    thigh(ctx, pal, 11.5, fy - 5.6, 1.55, 2.5, 0.08, false);
+    up(16.9, fy - 4.8, 16.2, fy - 11.4, false, false);
+    /* 頭：後腦勺貼地、下巴朝天，舌頭吐一點出來 */
+    ctx.save(); ctx.translate(22.7, fy - 4.0); ctx.rotate(Math.PI / 2 + 0.25); ctx.scale(-1.1, 1.1);
+    sideHead(ctx, pal, { x: 0, y: 0, eyes: "x", mouth: 0.3, tongue: 1, bk: 0 }, null);
+    ctx.restore();
+    out.eyes = null; out.open = false;
+  }
   function drawBody(ctx, name, pose, bk) {
     const out = {};
+    if (pose.kind === "flop") { drawFlop(ctx, name, pose, out, bk); return out; }
     if (pose.kind === "side") drawSide(ctx, name, pose, out, bk);
     else if (pose.kind === "front") drawFront(ctx, name, pose, out, bk);
     else if (pose.kind === "curl") drawCurl(ctx, name, pose, out, bk);
