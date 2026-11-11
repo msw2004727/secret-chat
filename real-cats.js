@@ -1168,6 +1168,53 @@ export const REAL = (() => {
     return Object.assign({ kind: "front", cx: 12.4, head: { x: 12.5, y: 7.9 }, tail: { x: 15.2, y: fy - 0.9, a: -0.15, curve: -0.1, len: 8.5, w: 1.4, tipCurl: -0.55, floor: 19.6, front: false } }, o);
   }
 
+  /* 點貓選單的反應：餵魚（低頭吃、舔嘴、滿足）、摸肚子（翻肚、被摸、抓住手）、打頭（生氣） */
+  const PET_KEYS = ["eat0", "eat1", "lick", "content", "belly0", "belly1", "trap0", "trap1", "angry0", "angry1", "bonkHit",
+    "rub0", "rub1", "rub2", "rub3", "rub4", "rub5", "rub6", "rub7", "rubT0", "rubT1"];
+  /* 揉肚子：手繞圈揉，第 i 格手按在肚子的哪裡（格子座標）＋往哪個方向推 */
+  const RUB_N = 8, RUB_C = { x: 14.4, y: 15.5, rx: 1.5, ry: 0.85 };
+  function rubPress(th) { return { x: RUB_C.x + Math.cos(th) * RUB_C.rx, y: RUB_C.y + Math.sin(th) * RUB_C.ry, vx: -Math.sin(th), vy: Math.cos(th), k: 1 }; }
+  function petPose(k) {
+    if (k === "eat0" || k === "eat1") {
+      const b = poopPose(k === "eat0" ? 1 : 2);
+      b.head = Object.assign({}, b.head, { y: b.head.y + 0.6, mouth: k === "eat0" ? 0.55 : 0.05, eyes: k === "eat1" ? "closed" : "open", earBack: 0.05 });
+      b.tail = Object.assign({}, b.tail, { a: k === "eat0" ? -2.15 : -2.45 });
+      return b;
+    }
+    if (k === "lick") return frontPose({ head: { x: 12.4, y: 7.9, tilt: 0.06, eyes: "happy", tongue: 1 } });
+    if (k === "content") return frontPose({ head: { x: 12.5, y: 8.1, tilt: -0.1, eyes: "half", pupil: 0.3 }, tail: { x: 15.2, y: fy - 0.9, a: -0.35, curve: -0.12, len: 8.5, w: 1.4, tipCurl: -0.7, floor: 19.6, front: false } });
+    if (k === "belly0" || k === "belly1") {
+      const w = k === "belly1" ? 0.5 : 0;
+      return { kind: "flop", tailA: Math.PI + 0.3 + w * 0.3, tailCurve: 0.05,
+        paws: [[9.6 + w * 0.4, fy - 9.2], [18.0, fy - 9.0 - w * 0.4], [12.6, fy - 10.0 + w * 0.3], [15.6 - w * 0.3, fy - 9.8]],
+        head: { eyes: "happy", mouth: 0.08, tongue: 0 } };
+    }
+    if (k === "trap0" || k === "trap1") { /* 肚子陷阱：前腳抱住手、後腳亂蹬 */
+      const t = k === "trap1" ? 1 : 0;
+      return { kind: "flop", tailA: Math.PI - 0.2 + t * 0.5, tailCurve: 0.1,
+        paws: [[t ? 12.6 : 10.4, t ? fy - 8.6 : fy - 11.4], [16.4, fy - 9.6], [t ? 10.6 : 13.2, t ? fy - 11.6 : fy - 8.8], [15.2, fy - 10.2]],
+        head: { eyes: "open", wide: true, mouth: 0.45, tongue: 0 } };
+    }
+    if (k === "angry0" || k === "angry1") {
+      const t = k === "angry1" ? 1 : 0;
+      return frontPose({ head: { x: 12.4, y: 8.2, tilt: t ? 0.1 : -0.1, eyes: "closed", angry: true, earBack: 0.9 },
+        tail: { x: 15.2, y: fy - 0.9, a: t ? 0.55 : -0.55, curve: t ? 0.12 : -0.12, len: 8.5, w: 1.45, tipCurl: t ? 0.6 : -0.6, floor: 19.6, front: false } });
+    }
+    if (k === "bonkHit") return frontPose({ head: { x: 12.4, y: 8.6, tilt: 0, bk: 1, earBack: 0.7 } });
+    if (/^rub\d$/.test(k)) { /* 正面仰躺被揉肚子：手繞圈、肚子被按的地方凹一點，腳掌一開一合（踩奶），身體、尾巴輕輕晃 */
+      const i = +k.slice(3), th = i / RUB_N * Math.PI * 2;
+      return { kind: "supine", cx: 14.6, press: rubPress(th), open: (i % 4) < 2, sway: Math.sin(th) * 0.035,
+        tailA: -0.25 + Math.sin(th) * 0.28, tailCurl: -0.35 + Math.cos(th) * 0.15,
+        head: { tilt: 0.95 + Math.sin(th) * 0.07, eyes: "happy", mouth: 0.06, tongue: 0 } };
+    }
+    if (k === "rubT0" || k === "rubT1") { /* 肚子陷阱：四腳抱住手、後腳亂蹬 */
+      const t = k === "rubT1" ? 1 : 0;
+      return { kind: "supine", cx: 14.6, trap: true, kick: t, press: { x: 14.6, y: 14.2, vx: 0, vy: 1, k: 0.8 }, open: !!t, sway: t ? 0.05 : -0.05,
+        tailA: t ? -0.7 : 0.1, tailCurl: t ? 0.4 : -0.5,
+        head: { tilt: t ? 0.5 : 0.62, eyes: "open", wide: true, mouth: 0.45, tongue: 0, earBack: 0.35 } };
+    }
+    return frontPose({});
+  }
   function poseFor(anim, i, extra) {
     extra = extra || {};
     switch (anim) {
@@ -1195,6 +1242,7 @@ export const REAL = (() => {
         head: { x: 22.8, y: 7.4, tilt: -0.12, wide: true, mouth: 0.6, earBack: 0.75 },
         tail: { x: 6.6, y: 9.8, a: -Math.PI / 2 - 0.3, curve: 0.03, len: 8.0, w: 2.1, puff: 0.9 } });
       case "poop": return poopPose(i);
+      case "pet": return petPose(PET_KEYS[i]);
       case "claw": return frontPose({ cx: 16, stretch: 3.4, head: { x: 16, y: 5.7, tilt: 0, pupil: 0.36 }, raise: "claw", tail: { x: 18.6, y: fy - 0.9, a: -0.25, curve: -0.12, len: 8.0, w: 1.35, tipCurl: -0.5, floor: 19.6, front: false } });
     }
     return frontPose({});
@@ -1279,13 +1327,100 @@ export const REAL = (() => {
     up(16.9, fy - 4.8, 16.2, fy - 11.4, false, false);
     /* 頭：後腦勺貼地、下巴朝天，舌頭吐一點出來 */
     ctx.save(); ctx.translate(22.7, fy - 4.0); ctx.rotate(Math.PI / 2 + 0.25); ctx.scale(-1.1, 1.1);
-    sideHead(ctx, pal, { x: 0, y: 0, eyes: "x", mouth: 0.3, tongue: 1, bk: 0 }, null);
+    sideHead(ctx, pal, Object.assign({ x: 0, y: 0, eyes: "x", mouth: 0.3, tongue: 1, bk: 0 }, p.head || {}), null);
+    ctx.restore();
+    out.eyes = null; out.open = false;
+  }
+  /* 朝上的腳掌（肉球朝鏡頭）；open＝腳趾張開（踩奶張開那一下） */
+  function pawUp(ctx, pal, x, y, rot, open, s) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s || 1, s || 1);
+    const w = open ? 0.98 : 0.8, h = open ? 0.8 : 0.7;
+    ctx.fillStyle = pal.belly; ctx.beginPath(); ctx.ellipse(0, 0, w, h, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = pal.edge; ctx.lineWidth = 0.08; ctx.stroke();
+    ctx.fillStyle = pal.pad; ctx.globalAlpha = 0.88;
+    ctx.beginPath(); ctx.ellipse(0, 0.14, 0.38, 0.28, 0, 0, TAU); ctx.fill();
+    const sp = open ? 1.28 : 0.86;
+    for (const k of [-0.48, -0.16, 0.16, 0.48]) { ctx.beginPath(); ctx.arc(k * sp, -0.42 - (Math.abs(k) < 0.3 ? 0.1 : 0) - (open ? 0.1 : 0), open ? 0.15 : 0.12, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
+  /* ===== 正面仰躺（揉肚子）：背貼地、整片淡色肚皮朝鏡頭、頭在上面歪一邊享受，四腳彎著朝上 ===== */
+  function drawSupine(ctx, name, p, out, bk) {
+    const pal = PAL[name], fy = 20, cx = p.cx || 14.6;
+    ctx.save();
+    ctx.translate(cx, fy - 1); ctx.rotate(p.sway || 0); ctx.translate(-cx, -(fy - 1));
+    drawTail(ctx, name, { x: cx + 2.4, y: fy - 1.5, a: p.tailA != null ? p.tailA : -0.25, curve: 0.05, len: 7.4, w: 1.4, tipCurl: p.tailCurl || -0.3, floor: 19.6 }, 0);
+    /* 後腳：青蛙腿張開，膝蓋往外、腳掌朝天 */
+    const kick = p.kick || 0, op = !!p.open;
+    const hind = (sx) => {
+      let knee, paw;
+      if (p.trap) { const up = (sx > 0) === !!kick; knee = P(cx + sx * (up ? 5.4 : 6.0), fy - (up ? 5.4 : 3.6)); paw = up ? P(cx + sx * 4.0, fy - 8.8) : P(cx + sx * 7.7, fy - 6.4); }
+      else { knee = P(cx + sx * 6.4, fy - 3.1); paw = P(cx + sx * (op ? 6.1 : 5.6), fy - (op ? 7.6 : 7.0)); }
+      const hip = P(cx + sx * 2.7, fy - 3.3);
+      thigh(ctx, pal, cx + sx * 3.5, fy - 3.4, 2.3, 2.5, sx * 0.6, false);
+      leg(ctx, pal, [hip, knee, P(lerp(knee.x, paw.x, 0.55), lerp(knee.y, paw.y, 0.55)), paw], [2.2, 1.45, 1.1, 1.05], false, true, true);
+      pawUp(ctx, pal, paw.x, paw.y, Math.atan2(paw.y - knee.y, paw.x - knee.x) + Math.PI / 2, op, 1.05);
+    };
+    hind(-1); hind(1);
+    ctx.fillStyle = "rgba(0,0,0,.2)"; ctx.beginPath(); ctx.ellipse(cx, fy - 0.45, 6.0, 0.7, 0, 0, TAU); ctx.fill(); /* 背貼在地上 */
+    /* 身體：下面（肚子）比較寬、上面是胸口；手按的地方外形被推開一點點 */
+    const pr = p.press, sq = pr ? pr.k || 0 : 0;
+    let pts = blobPts([{ x: cx, y: fy - 3.9, rx: 4.7 + sq * 0.12, ry: 3.3 - sq * 0.08 }, { x: cx, y: fy - 7.1, rx: 3.8, ry: 2.7 }, { x: cx, y: fy - 9.0, rx: 3.1, ry: 1.7 }], 28);
+    if (pr) pts = pts.map((q) => { const d = Math.hypot(q.x - pr.x, q.y - pr.y); if (d > 3.4) return q; const f = (1 - d / 3.4) * 0.5 * sq; return P(q.x + (q.x - pr.x) / (d || 1) * f, q.y + (q.y - pr.y) / (d || 1) * f); });
+    const g = ctx.createLinearGradient(cx - 4.6, 0, cx + 4.6, 0);
+    g.addColorStop(0, pal.top); g.addColorStop(0.28, pal.base); g.addColorStop(0.72, pal.base); g.addColorStop(1, pal.top);
+    smoothPath(ctx, pts); ctx.fillStyle = g; ctx.fill();
+    ctx.save(); smoothPath(ctx, pts); ctx.clip();
+    if (pal.tabby) {
+      ctx.strokeStyle = pal.stripe; ctx.lineWidth = 0.5; ctx.lineCap = "round";
+      for (const sx of [-1, 1]) for (let i = 0; i < 4; i++) { const y = fy - 9 + i * 1.8; ctx.beginPath(); ctx.moveTo(cx + sx * 4.8, y); ctx.quadraticCurveTo(cx + sx * 3.7, y + 0.5, cx + sx * 3.1, y + 1.1); ctx.stroke(); }
+    }
+    /* 整片淡色肚皮 */
+    const bx = cx, by = fy - 5.6, brx = 3.25, bry = 4.6;
+    ctx.save(); ctx.translate(bx, by); ctx.scale(1, bry / brx);
+    const bg = ctx.createRadialGradient(0, 0, 0.2, 0, 0, brx);
+    bg.addColorStop(0, pal.belly); bg.addColorStop(0.62, pal.belly); bg.addColorStop(0.86, pal.light); bg.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(0, 0, brx, 0, TAU); ctx.fill(); ctx.restore();
+    /* 肚子上的細毛（軟軟的） */
+    ctx.strokeStyle = shade(pal.belly, -0.1); ctx.lineWidth = 0.09; ctx.globalAlpha = 0.7;
+    for (let i = 0; i < 9; i++) { const x = bx - 2 + (i % 3) * 2 + (i > 5 ? 0.6 : 0), y = by - 2.6 + Math.floor(i / 3) * 2.2; ctx.beginPath(); ctx.moveTo(x - 0.3, y); ctx.quadraticCurveTo(x, y + 0.35, x + 0.3, y); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    if (pr && sq > 0) {
+      /* 被手按下去：中間凹（陰影）、往推的方向那邊皮膚擠起來（亮面）、旁邊的毛跟著倒 */
+      ctx.save(); ctx.translate(pr.x, pr.y); ctx.scale(1, 0.78);
+      const dg = ctx.createRadialGradient(0, 0, 0.1, 0, 0, 2.1);
+      dg.addColorStop(0, "rgba(120,70,35," + (0.42 * sq).toFixed(3) + ")"); dg.addColorStop(0.6, "rgba(120,70,35," + (0.18 * sq).toFixed(3) + ")"); dg.addColorStop(1, "rgba(120,70,35,0)");
+      ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(0, 0, 2.1, 0, TAU); ctx.fill();
+      ctx.restore();
+      const hx = pr.x + (pr.vx || 0) * 1.55, hy = pr.y + (pr.vy || 0) * 1.2;
+      const hg = ctx.createRadialGradient(hx, hy, 0.1, hx, hy, 1.2);
+      hg.addColorStop(0, "rgba(255,255,255," + (0.5 * sq).toFixed(3) + ")"); hg.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = hg; ctx.beginPath(); ctx.ellipse(hx, hy, 1.25, 0.9, Math.atan2(pr.vy || 0, pr.vx || 1), 0, TAU); ctx.fill();
+      ctx.strokeStyle = "rgba(120,75,40," + (0.35 * sq).toFixed(3) + ")"; ctx.lineWidth = 0.09;
+      for (let k = 0; k < 6; k++) { const an = k / 6 * TAU, r0 = 1.25, r1 = 1.85; ctx.beginPath(); ctx.moveTo(pr.x + Math.cos(an) * r0, pr.y + Math.sin(an) * r0 * 0.78); ctx.lineTo(pr.x + Math.cos(an + 0.25) * r1, pr.y + Math.sin(an + 0.25) * r1 * 0.78); ctx.stroke(); }
+    }
+    ctx.restore();
+    contour(ctx, pts, pal);
+    furEdge(ctx, pts, pal.base, 0.36, fy - 0.8);
+    /* 頭：在上面、歪一邊，瞇眼享受 */
+    const hd = Object.assign({ x: cx + 1.3, y: fy - 11.0, s: 0.98, tilt: 0.95, eyes: "happy" }, p.head || {}, { bk: bk || 0 });
+    frontHead(ctx, pal, hd, {});
+    /* 前腳：縮在胸前（兔子手），一開一合踩奶；陷阱時往中間抱住手 */
+    for (const sx of [-1, 1]) {
+      const sh = P(cx + sx * 2.2, fy - 7.4);
+      let el, pw;
+      if (p.trap) { el = P(cx + sx * 3.9, fy - 7.6); pw = P(cx + sx * 1.7, fy - 6.0 + (kick && sx > 0 ? -0.35 : 0)); }
+      else { el = P(cx + sx * 3.7, fy - (op ? 8.4 : 8.0)); pw = P(cx + 0.4 + sx * (op ? 2.5 : 2.0), fy - (op ? 9.3 : 8.7)); }
+      leg(ctx, pal, [sh, P(lerp(sh.x, el.x, 0.5), lerp(sh.y, el.y, 0.5)), el], [1.7, 1.5, 1.35], false, false, true);
+      leg(ctx, pal, [el, P(lerp(el.x, pw.x, 0.5), lerp(el.y, pw.y, 0.5)), pw], [1.35, 1.15, 1.0], false, false, true);
+      pawUp(ctx, pal, pw.x, pw.y, Math.atan2(pw.y - el.y, pw.x - el.x) + Math.PI / 2, op, 0.95);
+    }
     ctx.restore();
     out.eyes = null; out.open = false;
   }
   function drawBody(ctx, name, pose, bk) {
     const out = {};
     if (pose.kind === "flop") { drawFlop(ctx, name, pose, out, bk); return out; }
+    if (pose.kind === "supine") { drawSupine(ctx, name, pose, out, bk); return out; }
     if (pose.kind === "side") drawSide(ctx, name, pose, out, bk);
     else if (pose.kind === "front") drawFront(ctx, name, pose, out, bk);
     else if (pose.kind === "curl") drawCurl(ctx, name, pose, out, bk);
@@ -1328,5 +1463,5 @@ export const REAL = (() => {
     else { ctx.fillStyle = pal.belly; ctx.beginPath(); ctx.arc(e.x, e.y, ws[ws.length - 1] * 0.5, 0, TAU); ctx.fill();
       if (kind === "paw") { ctx.fillStyle = pal.pad; for (const a of [-0.6, 0, 0.6]) { ctx.beginPath(); ctx.arc(e.x + Math.cos(a) * 0.35, e.y + Math.sin(a) * 0.35, 0.14, 0, TAU); ctx.fill(); } } }
   }
-  return { PAL, poseFor, drawBody, drawTail, blinkLids, drawTailHeart, furLimb, shade, HF, hangLimbs, hangTail, hangMouthCut, hangState, hangBodyXf, clawArms };
+  return { PAL, PET_KEYS, RUB_N, RUB_C, rubPress, poseFor, drawBody, drawTail, blinkLids, drawTailHeart, furLimb, shade, HF, hangLimbs, hangTail, hangMouthCut, hangState, hangBodyXf, clawArms };
 })();
