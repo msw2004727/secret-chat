@@ -3180,10 +3180,10 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
 }
 .cat-shadow {
   position: absolute;
-  bottom: -2px;
-  height: 5px;
+  bottom: -3px;
+  height: 7px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, .32);
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, .34) 0%, rgba(0, 0, 0, .2) 45%, rgba(0, 0, 0, 0) 72%);
   transform-origin: center;
 }
 .cat-body {
@@ -3196,8 +3196,6 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   display: block;
   width: 100%;
   height: 100%;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
 }
 /* 點貓之後的心情泡泡：正圓，愛心置中，下面留一小截尾巴。 */
 .cat-bubble {
@@ -3217,7 +3215,7 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   transform: translateX(-50%) scale(0);
   transform-origin: 50% 100%;
   opacity: 0;
-  transition: transform .18s steps(3, end), opacity .12s linear;
+  transition: transform .2s cubic-bezier(.3, 1.4, .5, 1), opacity .12s linear;
   line-height: 0;
 }
 .cat-bubble.show { transform: translateX(-50%) scale(1); opacity: 1; }
@@ -3234,9 +3232,9 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   transform: rotate(45deg);
   border-radius: 1px;
 }
-.cat-bubble svg { display: block; width: 16px; height: 16px; shape-rendering: crispEdges; position: relative; z-index: 1; }
+.cat-bubble svg { display: block; width: 17px; height: 17px; position: relative; z-index: 1; }
 .cat-fight { position: absolute; left: 0; bottom: 0; will-change: transform; z-index: 6; }
-.cat-fight canvas { position: absolute; left: 0; bottom: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+.cat-fight canvas { position: absolute; left: 0; bottom: 0; display: block; }
 .ball {
   position: absolute;
   left: 0;
@@ -3285,10 +3283,8 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   bottom: 0;
   display: none;
   pointer-events: none !important;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
 }
-.cat-hang { position: absolute; left: 0; bottom: 0; display: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+.cat-hang { position: absolute; left: 0; bottom: 0; display: none; }
 /* 被咬著時先把原泡泡藏起來，改畫一張不佔高度的扭曲圖；放開後拿掉，尺寸回到原樣。 */
 .bub.jelly { background: transparent !important; color: transparent !important; }
 .bub.jelly > canvas.bub-shade { display: none; }
@@ -3300,14 +3296,17 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   overflow: visible;
 }
 .bub-warp { position: absolute; pointer-events: none; }
-.love-tail { position: absolute; left: 0; bottom: 0; z-index: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; transform-origin: 50% 50%; }
+.love-tail { position: absolute; left: 0; bottom: 0; z-index: 0; display: block; transform-origin: 50% 50%; }
+/* 磨爪留下的細爪痕：貓圖層最底下，固定在畫面上；不擋點擊，在訊息泡泡和貓後面 */
+.claw-marks { position: absolute; left: 0; bottom: 0; width: 0; height: 0; z-index: 0; pointer-events: none; }
+.claw-mark { position: absolute; display: block; opacity: 1; transition: opacity 1.8s ease; pointer-events: none; }
 .love-heart { position: absolute; z-index: 5; line-height: 0; animation: loveUp 1.6s ease-out forwards; }
-.love-heart svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
+.love-heart svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
 .cat-bonk { position: absolute; left: 0; bottom: 0; width: 0; height: 0; display: none; z-index: 2; pointer-events: none; }
 .cat-bonk i { position: absolute; display: block; line-height: 0; }
-.cat-bonk svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
-.cat-bonk .bk-star { width: 13px; height: 13px; left: calc(var(--bk, -1) * 15px - 6px); bottom: 2px; animation: bkStar .7s steps(6, end) forwards; }
-.cat-bonk .bk-sweat { width: 6px; height: 9px; left: calc(var(--bk, -1) * -19px - 3px); bottom: -8px; animation: bkSweat .8s steps(6, end) forwards; }
+.cat-bonk svg { display: block; width: 100%; height: 100%; }
+.cat-bonk .bk-star { width: 13px; height: 13px; left: calc(var(--bk, -1) * 15px - 6px); bottom: 2px; animation: bkStar .7s ease-out forwards; }
+.cat-bonk .bk-sweat { width: 6px; height: 9px; left: calc(var(--bk, -1) * -19px - 3px); bottom: -8px; animation: bkSweat .8s ease-in-out forwards; }
 @keyframes bkStar { 0% { transform: scale(.2) rotate(0deg); opacity: 0; } 20% { transform: scale(1.15) rotate(20deg); opacity: 1; } 75% { transform: scale(1) rotate(40deg); opacity: 1; } 100% { transform: scale(.6) rotate(60deg); opacity: 0; } }
 @keyframes bkSweat { 0% { transform: translateY(-3px) scale(.4); opacity: 0; } 20% { transform: translateY(0) scale(1); opacity: 1; } 80% { transform: translateY(5px) scale(1); opacity: 1; } 100% { transform: translateY(8px) scale(.8); opacity: 0; } }
 #chat.pets-off .c-scroll { padding-bottom: 6px; }
