@@ -1,5 +1,6 @@
-/* 聊天室裡的兩隻貓、螢光球、咬泡泡與談戀愛。只在這台瀏覽器裡跑，不上傳。 */
+/* 聊天室裡的兩隻擬真貓（棕色虎斑、灰貓）、螢光球、咬泡泡、吊著與談戀愛。只在這台瀏覽器裡跑，不上傳。 */
 import { Droop } from "./droop.js";
+import { REAL } from "./real-cats.js";
 export function mountRoomPets() {
     "use strict";
     const DATA = {"W":32,"H":20,"pal":{"gray":{"k":"#010101","b":"#a79e99","d":"#6f645e","p":"#efaea1","w":"#fefdfb","t":"#e27880","f":"#807873"},"brown":{"k":"#010101","b":"#cd804e","d":"#c86b2b","p":"#ebcebf","w":"#fcfefc","t":"#e27880","f":"#ac6230"}},"frames":{"gray":{"sit":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbwbbbwbbdk/....kkkbbbkbkbkbbbkkk/......kdbbbbbbbbbdk/....kkkbbbbbbbbbbbkkk/.......kkbbbbbbbkk....kkk/.........kbbbbbk.....kdddk/.........kppbbddk...kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk"],"walk":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbppppppbbbbbk/...kbbkkffkkkkkbbkffk/...kbbkkffk...kbbkffk/...kbbkkffk...kbbkffk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbpppppppbbbbk/....kbbffkkkkkkkbbfk/....kbbffk.....kbbfk/....kbbkk.......kffk/.....kk..........kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbbpppppppbbbk/...kffkkbbkkkkkffkbbk/...kffkkbbk...kffkbbk/...kffkkbbk...kffkbbk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbppppppppbbbk/....kffbbkkkkkkkfbbk/....kffbbk.....kfbbk/....kffkk.......kbbk/.....kk..........kk"],"run":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkbbkffkkffkbbkk/......kbbkffkkffkbbk/......kbbkffkkffkbbk/.......kbbkffffkbbk/........kk.kkkk.kk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbdbbdbbdbbbbbbbbbbbbkk.kk/..kkbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbbbkkk/...kbbbbbppppppppppbbbk/..kffbbkkkkkkkkkkkkbbffk/..kfbbk............kbbfk/.kfbbk..............kbbfk/.kbbk................kbbk/..kk..................kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kfbbkkkkkkkbbfkk/.....kfbbk.....kbbfk/.....kfbbk.....kbbfk/....kfbbk.......kbbfk/.....kkk.........kkk","////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkkkbbfffbbkkkkk/........kbbfffbbk/.......kbbffffkbbk/........kkkkkk.kk"],"jump":["//////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbffbpppppppffbbk/...kbbffkkkkkkkkffbbk/....kkkk........kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/.............kbbbbbbbbbkbbbtkk/....kkkkkkkkkkbbbbbbbbbbbbbk/...kbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/.kddbbbbbbbbbbbbbbbbkbbkk/kbbkbbbbbbbbbbbbbbbbbbk/ddkkbbbbbppppppppbbbkk/kkkffbbkkkkkkkkkkkkk/.kffbbk/kffbbk/.kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/...kk........kbbbdbdbbbbbbk/..kbbk.......kbbbbbbbbbwbbkk..k/.kbbk........kbbbbbbbbbkbbbtkk/.kddkkkkkkkkkkbbbbbbbbbbbbbk/..kbbbbdbbdbbdbbbbbbbbbbbkk.kk/...kbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbkkkkk/....kbbbbbbbbbbbbbbbk/....kbbbfbpppppfbbbbk/.....kbbfkkkkkkfbbkk/......kbbk....kbbk/.......kk......kk"],"sleep":["///////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/...kkbbbbbbbbbkdbbbbbbbbbdk/..kdbbbbbbbbkkkbbkkbkbkkbbkkk/..kbdbbbdbbbdbkdbbbbbbbbbdk/...kkkkkkkkkkkkbbbbbbbbbbbkkk","//////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/....kbbbbbbbbbkdbbbbbbbbbdk/...kkbbbbbbbkkkbbkkbkbkkbbkkk/..kdbbbbbbbbbbkdbbbbbbbbbdk/..kbdbbbdbbbkkkbbbbbbbbbbbkkk/...kkkkkkkkk...kkkkkkkkkkk"],"scratch":["/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk/..........kdbbwbbbwbbdk...kk/........kkkbbbkbkbkbbbkkkkbbk/..........kdbbbbbbbbbdkkbbbbk/........kkkbbbbbbbbbbbbbbbkk/...........kbbbbbbbbbbbbkk/...........kbbppppbbbbkkkkkk/...........kbbppppbbffffffffk/...........kbbppppbbffffffffk/.......kk..kbbppppbbkkkkkkkk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk","/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk...kk/..........kdbbwbbbwbbdk.kkffk/........kkkbbbkbkbkbbbkkffffk/..........kdbbbbbbbbbdffffkk/........kkkbbbbbbbbbffffkkkk/...........kbbbbbbbbffkkbbbbk/...........kbbppppbbbbbbbbbbk/...........kbbppppbbbbbbkkkk/...........kbbppppbbkkkk/.......kk..kbbppppbbk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk"],"lick1":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdkkkkbbbbbdk/....kkkbkppkkbkkbbkkk/......kdkbbktbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk","///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbkkkkkbkkbbkkk/......kdkppkbbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk"],"lick2":["/////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk/......kdbbbbtbbbbdk...kkk/....kkkbbbbbbbbbbbkkkkdddk/.......kkkppbbddkk..kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk","//////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk.kkk/......kdbbbbtbbbbdk..kdddk/....kkkbbbbbbbbbbbkkkdbdbk/.......kkkpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk"],"lick3":["//......kkk/.....kpppk/.....kpppk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbkkdbbbbtbbbbdk/.....kbbkkkbbbbbbbbbbbkkk/.....kbbbbbbbbbbbbbbbbbk...kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk","//......kkk/.....kpppk/.....kpppk/.....kbbbk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbbkdbbbbbbbbbdk/.....kbbkkkbbbbbbbbbbbkkk..kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk"]},"brown":{"sit":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbwbbbwbbdk/....kkkbbbkbkbkbbbkkk/......kdbbbbbbbbbdk/....kkkbbbbbbbbbbbkkk/.......kkbbbbbbbkk....kkk/.........kbbbbbk.....kdddk/.........kppbbddk...kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk"],"walk":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbppppppbbbbbk/...kbbkkffkkkkkbbkffk/...kbbkkffk...kbbkffk/...kbbkkffk...kbbkffk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbpppppppbbbbk/....kbbffkkkkkkkbbfk/....kbbffk.....kbbfk/....kbbkk.......kffk/.....kk..........kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbbpppppppbbbk/...kffkkbbkkkkkffkbbk/...kffkkbbk...kffkbbk/...kffkkbbk...kffkbbk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbppppppppbbbk/....kffbbkkkkkkkfbbk/....kffbbk.....kfbbk/....kffkk.......kbbk/.....kk..........kk"],"run":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkbbkffkkffkbbkk/......kbbkffkkffkbbk/......kbbkffkkffkbbk/.......kbbkffffkbbk/........kk.kkkk.kk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbdbbdbbdbbbbbbbbbbbbkk.kk/..kkbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbbbkkk/...kbbbbbppppppppppbbbk/..kffbbkkkkkkkkkkkkbbffk/..kfbbk............kbbfk/.kfbbk..............kbbfk/.kbbk................kbbk/..kk..................kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kfbbkkkkkkkbbfkk/.....kfbbk.....kbbfk/.....kfbbk.....kbbfk/....kfbbk.......kbbfk/.....kkk.........kkk","////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkkkbbfffbbkkkkk/........kbbfffbbk/.......kbbffffkbbk/........kkkkkk.kk"],"jump":["//////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbffbpppppppffbbk/...kbbffkkkkkkkkffbbk/....kkkk........kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/.............kbbbbbbbbbkbbbtkk/....kkkkkkkkkkbbbbbbbbbbbbbk/...kbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/.kddbbbbbbbbbbbbbbbbkbbkk/kbbkbbbbbbbbbbbbbbbbbbk/ddkkbbbbbppppppppbbbkk/kkkffbbkkkkkkkkkkkkk/.kffbbk/kffbbk/.kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/...kk........kbbbdbdbbbbbbk/..kbbk.......kbbbbbbbbbwbbkk..k/.kbbk........kbbbbbbbbbkbbbtkk/.kddkkkkkkkkkkbbbbbbbbbbbbbk/..kbbbbdbbdbbdbbbbbbbbbbbkk.kk/...kbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbkkkkk/....kbbbbbbbbbbbbbbbk/....kbbbfbpppppfbbbbk/.....kbbfkkkkkkfbbkk/......kbbk....kbbk/.......kk......kk"],"sleep":["///////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/...kkbbbbbbbbbkdbbbbbbbbbdk/..kdbbbbbbbbkkkbbkkbkbkkbbkkk/..kbdbbbdbbbdbkdbbbbbbbbbdk/...kkkkkkkkkkkkbbbbbbbbbbbkkk","//////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/....kbbbbbbbbbkdbbbbbbbbbdk/...kkbbbbbbbkkkbbkkbkbkkbbkkk/..kdbbbbbbbbbbkdbbbbbbbbbdk/..kbdbbbdbbbkkkbbbbbbbbbbbkkk/...kkkkkkkkk...kkkkkkkkkkk"],"scratch":["/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk/..........kdbbwbbbwbbdk...kk/........kkkbbbkbkbkbbbkkkkbbk/..........kdbbbbbbbbbdkkbbbbk/........kkkbbbbbbbbbbbbbbbkk/...........kbbbbbbbbbbbbkk/...........kbbppppbbbbkkkkkk/...........kbbppppbbffffffffk/...........kbbppppbbffffffffk/.......kk..kbbppppbbkkkkkkkk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk","/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk...kk/..........kdbbwbbbwbbdk.kkffk/........kkkbbbkbkbkbbbkkffffk/..........kdbbbbbbbbbdffffkk/........kkkbbbbbbbbbffffkkkk/...........kbbbbbbbbffkkbbbbk/...........kbbppppbbbbbbbbbbk/...........kbbppppbbbbbbkkkk/...........kbbppppbbkkkk/.......kk..kbbppppbbk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk"],"lick1":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdkkkkbbbbbdk/....kkkbkppkkbkkbbkkk/......kdkbbktbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk","///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbkkkkkbkkbbkkk/......kdkppkbbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk"],"lick2":["/////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk/......kdbbbbtbbbbdk...kkk/....kkkbbbbbbbbbbbkkkkdddk/.......kkkppbbddkk..kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk","//////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk.kkk/......kdbbbbtbbbbdk..kdddk/....kkkbbbbbbbbbbbkkkdbdbk/.......kkkpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk"],"lick3":["//......kkk/.....kpppk/.....kpppk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbkkdbbbbtbbbbdk/.....kbbkkkbbbbbbbbbbbkkk/.....kbbbbbbbbbbbbbbbbbk...kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk","//......kkk/.....kpppk/.....kpppk/.....kbbbk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbbkdbbbbbbbbbdk/.....kbbkkkbbbbbbbbbbbkkk..kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk"]}}};
@@ -16,6 +17,7 @@ export function mountRoomPets() {
     }
     const PADT = 0; /* 所有影格都是 32×20，和平常走路、坐著同一個大小 */
     const W = DATA.W, H = DATA.H + PADT;
+    const HANG_W = 20, HANG_H = 32; /* 吊著的畫布：頭在上、身體垂下來 */
     const chat = document.getElementById("chat");
     const layer = document.getElementById("cats");
     const inputBar = document.querySelector(".c-input");
@@ -33,28 +35,18 @@ export function mountRoomPets() {
       return Object.keys(table)[0];
     };
 
-    /* ----- 像素圖示（心情泡泡裡的 SVG） ----- */
-    const ICONS = {
-      heart: { c: "#e2455a", g: [".xx.xx.", "xxxxxxx", "xxxxxxx", ".xxxxx.", "..xxx..", "...x..."] },
-      note: { c: "#4f63e8", g: ["...xxxxx", "...xxxxx", "...x...x", "...x...x", ".xxx.xxx", "xxxxxxxx", ".xx..xx."] },
-      zzz: { c: "#5c7cfa", g: ["....xxxx", ".......x", "xxx...x.", "..x..x..", ".x..xxxx", "xxx.....", ] },
-      sparkle: { c: "#f0a81c", g: ["...x...", "...x...", "..xxx..", "xxxxxxx", "..xxx..", "...x...", "...x..."] },
-      fish: { c: "#2f97d4", g: ["....xxxx...", "x..xxxxxxx.", "xxxxxxxx.xx", "xxxxxxxxxxx", "x..xxxxxxx.", "....xxxx..."] },
-      question: { c: "#8a5cf0", g: [".xxxx.", "xx..xx", "....xx", "...xx.", "..xx..", "......", "..xx.."] },
-      bang: { c: "#e8590c", g: ["xx", "xx", "xx", "xx", "..", "xx"] }
+    /* 心情泡泡、愛心、星星：平滑的向量圖示（配合擬真貓） */
+    const SMOOTH_ICONS = {
+      heart: '<path d="M12 21.2s-7.6-4.7-9.7-9.4C.8 8.3 2.9 4.3 6.7 4.3c2.2 0 3.7 1.2 5.3 3.1 1.6-1.9 3.1-3.1 5.3-3.1 3.8 0 5.9 4 4.4 7.5-2.1 4.7-9.7 9.4-9.7 9.4z" fill="#e8475f"/><path d="M6.4 6.6c-1.6.2-2.6 1.6-2.4 3.2" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" fill="none" stroke-linecap="round"/>',
+      note: '<path d="M9 17.5V5.2l10-2v11.6" stroke="#4f63e8" stroke-width="2.2" fill="none" stroke-linejoin="round"/><ellipse cx="6.6" cy="17.8" rx="3.2" ry="2.5" fill="#4f63e8"/><ellipse cx="16.6" cy="15.2" rx="3.2" ry="2.5" fill="#4f63e8"/>',
+      zzz: '<path d="M11 4h8l-8 9h8M4 13h5.5L4 19.5h5.5" stroke="#5c7cfa" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+      sparkle: '<path d="M12 1.5c.9 5.4 2.7 8.1 9.5 10.5-6.8 2.4-8.6 5.1-9.5 10.5-.9-5.4-2.7-8.1-9.5-10.5C9.3 9.6 11.1 6.9 12 1.5z" fill="#f4b223"/><circle cx="12" cy="12" r="2.2" fill="#fff6c8"/>',
+      fish: '<path d="M2.5 12c3.2-4.6 8-6.2 12.5-4.4L20 4.5v15l-5-3.1C10.5 18.2 5.7 16.6 2.5 12z" fill="#2f97d4"/><circle cx="7.2" cy="11" r="1.2" fill="#fff"/><path d="M11 9.5c1 1.5 1 3.5 0 5" stroke="#1d6f9f" stroke-width="1.2" fill="none" stroke-linecap="round"/>',
+      question: '<path d="M8 8.5a4 4 0 1 1 6.2 3.3c-1.4.9-2.2 1.8-2.2 3.4" stroke="#8a5cf0" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="12" cy="19.6" r="1.7" fill="#8a5cf0"/>',
+      bang: '<path d="M12 3.5v10.5" stroke="#e8590c" stroke-width="3.4" stroke-linecap="round"/><circle cx="12" cy="19.4" r="2" fill="#e8590c"/>'
     };
     function iconSVG(name) {
-      const ic = ICONS[name];
-      const gh = ic.g.length, gw = Math.max(...ic.g.map((r) => r.length));
-      const n = Math.max(gw, gh) + 2;
-      const ox = (n - gw) / 2, oy = (n - gh) / 2;
-      let rects = "";
-      ic.g.forEach((row, y) => {
-        for (let x = 0; x < row.length; x++) {
-          if (row[x] === "x") rects += '<rect x="' + (x + ox) + '" y="' + (y + oy) + '" width="1.02" height="1.02"/>';
-        }
-      });
-      return '<svg viewBox="0 0 ' + n + " " + n + '" fill="' + ic.c + '" aria-hidden="true">' + rects + "</svg>";
+      return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (SMOOTH_ICONS[name] || SMOOTH_ICONS.heart) + "</svg>";
     }
     const MOOD_ICONS = {
       happy: ["heart", "heart", "sparkle"],
@@ -160,7 +152,61 @@ export function mountRoomPets() {
         str.split("/").forEach((row, y) => { for (let x = 24; x < row.length; x++) if (row[x] === "w") pt = { x: y + 0.5, y: 31 - x + 1.2 }; });
         return { cv, mask, pt, top: 0, cx: 10, side: false, mouth: { x: pt.x, y: pt.y } };
       });
+      /* 走路、跑步多補中間格（4 格變 8 格），動起來比較順；碰撞範圍沿用前一格 */
+      for (const an of ["walk", "run"]) { const a0 = SPRITES[name][an], a8 = []; a0.forEach((f) => { a8.push(f, Object.assign({}, f)); }); SPRITES[name][an] = a8; }
       for (const f of SPRITES[name].walk.concat(SPRITES[name].run)) f.stand = true;
+      /* 磨爪：正面站高高、兩隻前腳輪流往下抓（腳是每格即時畫的） */
+      { const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+        SPRITES[name].claw = [{ cv, mask: new Uint8Array(W * H), top: 0, minx: 11, maxx: 21, cx: 15.5, side: false, mouth: { x: 16, y: 7.8 } }]; }
+    }
+    /* 每張影格配一個擬真姿勢；頭和嘴的位置跟著擬真的頭（泡泡、球、被打頭的位置才對得上） */
+    const LOVE_NAMES = Object.values(LOVE_KEYS);
+    for (const name of Object.keys(SPRITES)) for (const anim of Object.keys(SPRITES[name])) SPRITES[name][anim].forEach((f, i) => {
+      f.anim = anim; f.fi = i;
+      if (anim === "hang") {
+        /* 吊著：仰頭朝上咬住泡泡、身體垂在下面四肢亂揮（不再把側面影格轉 90°）；頭另外存一張，畫在泡泡前面 */
+        f.rot = false; f.hangF = true; f.pose = REAL.poseFor("hangFront", i, { part: "torso" });
+        f.headF = { anim: "hangHead", fi: i, hangF: true, pose: REAL.poseFor("hangFront", i, { part: "head" }) };
+        f.pt = { x: REAL.HF.pt.x, y: REAL.HF.pt.y }; f.mouth = { x: f.pt.x, y: f.pt.y }; f.cx = REAL.HF.cx;
+        return;
+      }
+      f.pose = REAL.poseFor(anim, anim === "walk" || anim === "run" ? i / 2 : i, { pt: anim === "bite" ? BITE_PT[i] : null, key: anim === "love" ? LOVE_NAMES[i] : null });
+      const pose = f.pose;
+      let hx = null, hy = null;
+      if (pose.kind === "side" || pose.kind === "front") { hx = pose.head.x; hy = pose.head.y; }
+      else if (pose.kind === "sideSit") { hx = pose.head.x != null ? pose.head.x : 21.0; hy = pose.head.y != null ? pose.head.y : 7.2 - (pose.tall || 0); }
+      if (hx != null && anim !== "lick3") {
+        f.cx = hx - 0.5; f.top = Math.max(0, Math.round(hy - 5.4));
+        if (f.side && anim !== "bite") f.mouth = { x: hx + 3.1, y: hy + 2.0 };
+        else if (!f.side) f.mouth = { x: hx, y: hy + 2.1 };
+      }
+    });
+    /* 點擊範圍：直接用擬真圖算（吊著／磨爪的腳會動，取幾個時間點的聯集） */
+    function realMask(gw, gh, draws) {
+      const cv = document.createElement("canvas"); cv.width = gw * 2; cv.height = gh * 2;
+      const c = cv.getContext("2d");
+      for (const d of draws) { c.setTransform(2, 0, 0, 2, 0, 0); d(c); }
+      const px = c.getImageData(0, 0, gw * 2, gh * 2).data;
+      const mask = new Uint8Array(gw * gh);
+      let top = gh, minx = gw, maxx = -1;
+      for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+        let on = false;
+        for (let k = 0; k < 4 && !on; k++) { const X = x * 2 + (k & 1), Y = y * 2 + (k >> 1); if (px[(Y * gw * 2 + X) * 4 + 3] > 90) on = true; }
+        if (on) { mask[y * gw + x] = 1; if (y < top) top = y; if (x < minx) minx = x; if (x > maxx) maxx = x; }
+      }
+      return { mask, top, minx, maxx };
+    }
+    for (const name of Object.keys(SPRITES)) {
+      try {
+        const sd = name === "gray" ? 2.1 : 0;
+        const hd = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.05, 1.2, 1.35, 1.5].map((t) => (c) => { const st = REAL.hangState(t, sd); c.save(); REAL.hangBodyXf(c, st); REAL.drawTail(c, name, REAL.hangTail(t, st), 1); REAL.hangLimbs(c, name, t, sd, st, "hind"); REAL.drawBody(c, name, SPRITES[name].hang[0].pose, 0); REAL.hangLimbs(c, name, t, sd, st, "front"); c.restore(); REAL.drawBody(c, name, SPRITES[name].hang[0].headF.pose, 0); });
+        const hm = realMask(20, 32, hd);
+        for (const f of SPRITES[name].hang) f.mask = hm.mask;
+        const cf = SPRITES[name].claw[0];
+        const cd = [[3.0, 9.3], [9.3, 3.0], [6, 6]].map(([a, b]) => (c) => { REAL.drawBody(c, name, cf.pose, 0); REAL.clawArms(c, name, cf.pose, [{ x: 4.4, y: a }, { x: 4.4, y: b }]); });
+        const cm = realMask(W, H, cd);
+        cf.mask = cm.mask; cf.minx = cm.minx; cf.maxx = cm.maxx;
+      } catch (_) {}
     }
 
     /* ----- 打架煙霧團（卡通「一團煙」，只露出爪子、腳、尾巴） ----- */
@@ -210,91 +256,90 @@ export function mountRoomPets() {
       const t = now - fs.t0;
       while (fs.limbs.length < 3 || (fs.limbs.length < 5 && Math.random() < 0.08)) fs.limbs.push(newLimb(now + rand(0, 120)));
       fs.limbs = fs.limbs.filter((l) => now - l.t0 < l.life);
-      const cx = FW / 2 + Math.round(Math.sin(t / 37) * 1.2), cy = FH - 11 - (Math.round(t / 70) % 2);
+      const cx = FW / 2 + Math.sin(t / 37) * 1.2, cy = FH - 11 - (Math.round(t / 70) % 2) * 0.6;
       const R = 9;
-      /* 1) 先畫爪子／腳／尾巴（從煙裡伸出來再縮回去） */
-      const L = new Array(FW * FH).fill(0);
+      const c = fctx, KR = fightCv.width / FW;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.clearRect(0, 0, fightCv.width, fightCv.height);
+      c.setTransform(KR, 0, 0, KR, 0, 0);
+      /* 1) 從煙裡伸出來的爪子／腳／尾巴（毛色跟兩隻貓一樣） */
       for (const l of fs.limbs) {
         const p = (now - l.t0) / l.life;
         if (p < 0) continue;
         const out = Math.sin(clamp(p, 0, 1) * Math.PI);
-        /* 煙團邊緣（橢圓）在這個角度的距離，爪子從邊緣再往外伸 */
         const ca = Math.cos(l.ang), sa = Math.sin(l.ang);
         const edge = 1 / Math.sqrt((ca * ca) / (15.5 * 15.5) + (sa * sa) / (11.5 * 11.5));
         const len = edge - 1 + l.len * out;
-        const [cb, cd, cp] = LIMB_COL[l.cat];
+        const pts = [];
         let a = l.ang;
-        for (let s = edge * 0.55; s <= len; s += 0.5) {
-          if (l.kind === "tail") a = l.ang + Math.sin(t / 70 + s * 0.35) * 0.25;
-          const x = cx + Math.cos(a) * s, y = cy + Math.sin(a) * s;
-          let col = cb;
-          if (l.kind === "tail" && Math.floor(s) % 3 === 2) col = cd;
-          const tip = s > len - 2 && l.kind !== "tail";
-          if (tip && l.kind === "paw") col = cp;
-          /* 兩格粗，粗粗的像素腳 */
-          const nx = -Math.sin(a), ny = Math.cos(a);
-          plot(L, x, y, col);
-          plot(L, x + nx, y + ny, col);
-          if (tip) { plot(L, x - nx, y - ny, col); }
+        for (let s2 = edge * 0.55, n = 0; n < 10; n++, s2 += (len - edge * 0.55) / 9) {
+          if (l.kind === "tail") a = l.ang + Math.sin(t / 70 + s2 * 0.35) * 0.25;
+          pts.push({ x: cx + Math.cos(a) * s2, y: Math.min(FH - 1.2, cy + Math.sin(a) * s2) });
         }
+        const ws = pts.map((_, i) => l.kind === "tail" ? 2.3 - i * 0.1 : 2.7 - i * 0.04);
+        REAL.furLimb(c, l.cat, pts, ws, l.kind);
       }
-      outlineGrid(L);
-      /* 2) 再畫煙霧團：幾顆圓滾滾的煙球繞著中心轉，看起來在翻滾 */
-      const C = new Array(FW * FH).fill(0);
+      /* 2) 煙霧團：幾顆圓滾滾的煙球繞著中心轉，看起來在翻滾 */
       const puffs = [{ x: cx, y: cy, rx: R + 2, ry: R - 2 }];
       const n = 7, spin = t / 210;
       for (let i = 0; i < n; i++) {
         const a = spin + i * Math.PI * 2 / n + Math.sin(t / 90 + i) * 0.15;
         const r = 4 + ((i + Math.floor(t / 110)) % 3) * 0.8;
-        puffs.push({ x: cx + Math.cos(a) * (R + 1.5), y: cy + Math.sin(a) * (R - 2.5), rx: r, ry: r * 0.9 });
+        puffs.push({ x: cx + Math.cos(a) * (R + 1.5), y: Math.min(FH - 1 - r * 0.9, cy + Math.sin(a) * (R - 2.5)), rx: r, ry: r * 0.9 });
       }
-      for (const p of puffs) {
-        for (let y = Math.floor(p.y - p.ry); y <= Math.ceil(p.y + p.ry); y++) {
-          for (let x = Math.floor(p.x - p.rx); x <= Math.ceil(p.x + p.rx); x++) {
-            const dx = (x - p.x) / p.rx, dy = (y - p.y) / p.ry;
-            const d = dx * dx + dy * dy;
-            if (d <= 1 && y < FH - 1 && x >= 0 && x < FW && y >= 0) {
-              const shade = dy > 0.35 || (dx > 0.55 && dy > 0) ;
-              const cur = C[y * FW + x];
-              C[y * FW + x] = shade && cur !== "c" ? "e" : "c";
-            }
-          }
-        }
+      c.fillStyle = "rgba(70,60,52,.55)";
+      for (const q of puffs) { c.beginPath(); c.ellipse(q.x, q.y, q.rx + 0.35, q.ry + 0.35, 0, 0, Math.PI * 2); c.fill(); }
+      for (const q of puffs) {
+        const g = c.createRadialGradient(q.x - q.rx * 0.35, q.y - q.ry * 0.45, 0.2, q.x, q.y, Math.max(q.rx, q.ry) * 1.05);
+        g.addColorStop(0, "#ffffff"); g.addColorStop(0.6, "#f1ede7"); g.addColorStop(1, "#d9d1c6");
+        c.fillStyle = g; c.beginPath(); c.ellipse(q.x, q.y, q.rx, q.ry, 0, 0, Math.PI * 2); c.fill();
       }
-      outlineGrid(C);
       /* 煙團上的小捲捲線 */
+      c.strokeStyle = "rgba(150,138,124,.7)"; c.lineWidth = 0.35; c.lineCap = "round";
       for (let i = 0; i < 3; i++) {
         const a = -spin * 1.3 + i * 2.1;
-        const x = Math.round(cx + Math.cos(a) * 5), y = Math.round(cy + Math.sin(a) * 3);
-        if (C[y * FW + x] === "c") { C[y * FW + x] = "e"; if (C[y * FW + x + 1] === "c") C[y * FW + x + 1] = "e"; }
+        const x = cx + Math.cos(a) * 5, y = cy + Math.sin(a) * 3;
+        c.beginPath(); c.arc(x, y, 1.3, a, a + 3.6); c.stroke();
       }
-      /* 3) 合成，再撒兩顆星星 */
-      const G2 = L.map((v, i) => C[i] || v);
+      /* 3) 兩顆小星星 */
       if (Math.floor(t / 140) % 3 !== 0) {
+        c.fillStyle = "#f6c544"; c.strokeStyle = "rgba(160,110,10,.6)"; c.lineWidth = 0.15;
         for (let i = 0; i < 2; i++) {
           const a = t / 300 + i * Math.PI;
-          const sx = Math.round(cx + Math.cos(a) * 17), sy = Math.round(cy - 8 + Math.sin(a) * 4);
-          for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
-            const X = sx + dx, Y = sy + dy;
-            if (X >= 0 && X < FW && Y >= 0 && Y < FH - 1 && !G2[Y * FW + X]) G2[Y * FW + X] = "y";
-          }
+          const sx = cx + Math.cos(a) * 17, sy = cy - 8 + Math.sin(a) * 4;
+          c.beginPath();
+          for (let k = 0; k < 8; k++) { const rr = k % 2 ? 0.55 : 1.6, aa = k * Math.PI / 4 + t / 400; k ? c.lineTo(sx + Math.cos(aa) * rr, sy + Math.sin(aa) * rr) : c.moveTo(sx + Math.cos(aa) * rr, sy + Math.sin(aa) * rr); }
+          c.closePath(); c.fill(); c.stroke();
         }
       }
-      const d = fimg.data;
-      for (let i = 0; i < FW * FH; i++) {
-        const c = G2[i];
-        if (!c) { d[i * 4 + 3] = 0; continue; }
-        const [r, g, b] = FPAL[c];
-        d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b; d[i * 4 + 3] = 255;
-      }
-      fctx.putImageData(fimg, 0, 0);
+      c.setTransform(1, 0, 0, 1, 0, 0);
       const drift = Math.sin(t / 420) * 10 + Math.sin(t / 53) * 1.5;
       const x = Math.round(clamp(fs.cx + drift - FW * S / 2, -FW * S * 0.15, areaW - FW * S * 0.85));
       fightEl.style.transform = "translate3d(" + x + "px," + (-(Math.round(t / 90) % 2)) + "px,0)";
       fs.drawnX = x;
     }
 
-    /* ----- 尺寸：手機上 3 倍、很窄時 2 倍（整數放大，邊緣銳利） ----- */
+    /* 身體（不含尾巴）先畫好存起來：同一個姿勢只畫一次，之後每格只貼圖＋畫尾巴 */
+    let RES = 5; /* 每一格用幾個裝置像素畫 */
+    const resHooks = [];
+    const realCache = new Map();
+    function realBody(name, f, bk, gw, gh) {
+      const key = name + ":" + f.anim + ":" + f.fi + ":" + (bk ? 1 : 0) + (bk === 2 ? "s" : "");
+      let cv = realCache.get(key);
+      if (cv) return cv;
+      cv = document.createElement("canvas");
+      cv.width = Math.round(gw * RES); cv.height = Math.round(gh * RES);
+      const c = cv.getContext("2d");
+      c.setTransform(cv.width / gw, 0, 0, cv.height / gh, 0, 0);
+      if (f.rot) { c.translate(0, 32); c.rotate(-Math.PI / 2); }
+      const pose = bk ? Object.assign({}, f.pose, { head: Object.assign({}, f.pose.head) }) : f.pose;
+      const out = REAL.drawBody(c, name, pose, bk);
+      cv.eyes = out.eyes || null; cv.open = !!out.open;
+      realCache.set(key, cv);
+      return cv;
+    }
+
+    /* ----- 尺寸：手機上 3 倍、很窄時 2 倍，再縮小 15% ----- */
     let S = 2.55, areaW = 360, floorPx = 60, floorY = 500, topY = 54;
     let spawned = false;
     function chatLive() { return !chat.hidden && chat.clientWidth >= 20; }
@@ -311,6 +356,12 @@ export function mountRoomPets() {
       chat.style.setProperty("--cat-walk", Math.round(4 * S) + "px");
       geom();
       sizeShade();
+      {
+        const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+        const r = Math.max(2, Math.round(S * dpr * 2) / 2);
+        if (r !== RES) { RES = r; realCache.clear(); }
+        for (const h of resHooks) { try { h(); } catch (_) {} }
+      }
       if (typeof ball !== "undefined") { ball.x = clamp(ball.x, BR, areaW - BR); ball.y = clamp(ball.y, topY + BR, floorY - BR); }
       for (const c of cats) {
         c.el.style.width = W * S + "px";
@@ -318,11 +369,18 @@ export function mountRoomPets() {
         c.body.style.width = W * S + "px";
         c.body.style.height = H * S + "px";
         c.shadow.style.width = 18 * S + "px";
+        if (c.cv.width !== Math.round(W * RES)) { c.cv.width = Math.round(W * RES); c.cv.height = Math.round(H * RES); }
+        if (c.hangCv && c.hangCv.width !== Math.round(HANG_W * RES)) {
+          c.hangCv.width = c.hangFront.width = Math.round(HANG_W * RES);
+          c.hangCv.height = c.hangFront.height = Math.round(HANG_H * RES);
+          c.hangKey = null;
+        }
         c.x = clamp(c.x, Math.min(minX(), wallX(-1)), Math.max(maxX(), wallX(1)));
         c.cur = null;
       }
       fightEl.style.width = FW * S + "px";
       fightEl.style.height = FH * S + "px";
+      if (fightCv.width !== Math.round(FW * RES)) { fightCv.width = Math.round(FW * RES); fightCv.height = Math.round(FH * RES); }
       fightCv.style.width = FW * S + "px";
       fightCv.style.height = FH * S + "px";
       fightShadow.style.left = 15 * S + "px";
@@ -604,7 +662,7 @@ export function mountRoomPets() {
     function ballThink(cat, now, fromFinish) {
       if (inSoc(cat) || cat.hidden) return false;
       const a = cat.act;
-      if (!fromFinish && a && (a.tapped || a.type === "jump" || a.type === "hang" || cat.pendingTap)) return false;
+      if (!fromFinish && a && (a.tapped || a.type === "jump" || a.type === "hang" || a.type === "claw" || cat.pendingTap)) return false;
       const want = desiredBallAct(cat, now);
       if (!fromFinish && a && a.type === "stun" && want !== "ballchase") return false;
       if (!want) {
@@ -787,13 +845,16 @@ export function mountRoomPets() {
     const silDark = document.createElement("canvas");
     const silLight = document.createElement("canvas");
     function makeSil(cv, src, flip, dark) {
-      if (cv.width !== src.width || cv.height !== src.height) { cv.width = src.width; cv.height = src.height; }
+      /* 影子本來就是糊的：用小一點的圖做剪影就好（擬真貓的畫布解析度比較高） */
+      const k = Math.min(1, 80 / src.width);
+      const sw = Math.max(1, Math.round(src.width * k)), sh = Math.max(1, Math.round(src.height * k));
+      if (cv.width !== sw || cv.height !== sh) { cv.width = sw; cv.height = sh; }
       const c = cv.getContext("2d");
       c.globalCompositeOperation = "source-over";
       c.clearRect(0, 0, cv.width, cv.height);
       c.save();
       if (flip) { c.translate(cv.width, 0); c.scale(-1, 1); }
-      c.drawImage(src, 0, 0);
+      c.drawImage(src, 0, 0, sw, sh);
       c.restore();
       c.globalCompositeOperation = "source-in";
       if (dark) {
@@ -902,7 +963,7 @@ export function mountRoomPets() {
       const body = document.createElement("div");
       body.className = "cat-body";
       const cv = document.createElement("canvas");
-      cv.width = W; cv.height = H;
+      cv.width = Math.round(W * RES); cv.height = Math.round(H * RES);
       const bubble = document.createElement("div");
       bubble.className = "cat-bubble";
       body.appendChild(cv);
@@ -911,9 +972,8 @@ export function mountRoomPets() {
       el.appendChild(body);
       layer.appendChild(el);
       const ctx = cv.getContext("2d");
-      ctx.imageSmoothingEnabled = false;
       return {
-        name, el, shadow, body, cv, ctx, bubble,
+        name, el, shadow, body, cv, ctx, bubble, paintT: 0, blinkNext: performance.now() + rand(1500, 4000), blinkT0: -1e9, tailPh: rand(0, 6),
         x, y: 0, dir, cur: null, curDir: 0, hidden: false,
         act: null, queue: [],
         mood: pick(Object.keys(MOOD_ICONS)),
@@ -933,7 +993,7 @@ export function mountRoomPets() {
     cats[0].act = { type: "sit", t0: now0, dur: rand(1200, 2000) };
     cats[1].act = { type: "lick1", t0: now0, dur: rand(2000, 2800) };
 
-    const FPS = { walk: 7, run: 8, lick1: 4, lick2: 3, lick3: 4, sleep: 1.1, scratch: 6 };
+    const FPS = { walk: 14, run: 16, lick1: 4, lick2: 3, lick3: 4, sleep: 1.1, scratch: 6 }; /* 走路、跑步 8 格，速度不變 */
 
     function other(cat) { return cats[0] === cat ? cats[1] : cats[0]; }
     function plannedX(cat) {
@@ -962,6 +1022,22 @@ export function mountRoomPets() {
 
     /* ----- 單獨行為 ----- */
     function plan(cat) {
+      /* 磨爪：每隻大約每 25–45 秒一次，走到一個空的地方，站起來對著畫面抓幾下 */
+      {
+        const n = performance.now();
+        if (cat.nextClawAt == null) cat.nextClawAt = n + rand(10000, 25000);
+        const oa = other(cat).act;
+        if (petsOn !== false && n >= cat.nextClawAt && !cat.hidden && cat.y < 0.5) {
+          if (oa && oa.type === "claw") cat.nextClawAt = n + rand(4000, 8000);
+          else {
+            cat.nextClawAt = n + rand(25000, 45000);
+            const x = clawSpot(cat);
+            if (Math.abs(x - cat.x) > 3) cat.queue.push(moveAct("walk", x));
+            cat.queue.push({ type: "claw", dur: rand(2600, 3600) });
+            return;
+          }
+        }
+      }
       /* 平常多半安安靜靜：坐著、趴著、舔毛、睡覺；偶爾才走動 */
       const t = weighted({ walk: 8, run: 3, jump: 4, sit: 14, loaf: 12, lick1: 8, lick2: 8, lick3: 8, sleep: 14, scratch: 4, look: 8,
         ball: ball.state === "loose" ? 3 : 0 });
@@ -1006,6 +1082,146 @@ export function mountRoomPets() {
     }
 
     const MOVE_TYPES = { walk: 1, run: 1, flee: 1, chase: 1, follow: 1, ballchase: 1, carry: 1, steal: 1 };
+    /* ===== 磨爪 ===== */
+    const CLAW_TOP = 2.6, CLAW_BOT = 9.4, CLAW_TIP = 1.05, CLAW_X = 4.4; /* 爪子在格子裡的上下範圍；爪尖在肉球上面多少 */
+    function clawPt(cat, gx, gy) { /* 格子座標 → 聊天室座標 */
+      return { x: cat.x + (cat.dir < 0 ? W - gx : gx) * S, y: floorY - cat.y - (H - gy) * S };
+    }
+    function clawSpot(cat) {
+      /* 找一個爪痕不會被訊息泡泡蓋住、也不會跟另一隻擠在一起的地方 */
+      let best = null;
+      for (let k = 0; k < 8; k++) {
+        const x = clamp(k === 0 ? cat.x : freeSpot(cat), minX() + 4, maxX() - 4);
+        if (k && crowded(cat, x)) continue;
+        let ok = true;
+        if (chatR) for (const gx of [16 - CLAW_X, 16 + CLAW_X]) for (const gy of [CLAW_TOP - CLAW_TIP, CLAW_BOT]) {
+          const p = { x: x + gx * S, y: floorY - (H - gy) * S };
+          if (underBubble(chatR.left + p.x, chatR.top + p.y)) ok = false;
+        }
+        if (ok) { best = x; break; }
+        if (best == null) best = x;
+      }
+      return best == null ? cat.x : best;
+    }
+    const lerpC = (a, b, t) => a + (b - a) * t;
+    const ease2 = (u) => u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) * (1 - u);
+    function clawStep(cat, a, now) {
+      cat.y = 0;
+      const e = now - a.t0;
+      if (!a.paws) {
+        a.paws = [{ x: CLAW_X - 0.6, y: 11.2, press: 0 }, { x: CLAW_X - 0.6, y: 11.2, press: 0 }];
+        a.per = rand(400, 480); a.first = Math.random() < 0.5 ? 0 : 1; a.k = -1; a.groups = [null, null];
+        a.jx = [rand(-0.15, 0.15), rand(-0.15, 0.15)];
+      }
+      const RISE = 300;
+      if (e < RISE) {
+        /* 站起來：先出手的那隻舉到最高，另一隻放在下面 */
+        const u = ease2(e / RISE);
+        a.paws.forEach((q, j) => { q.y = lerpC(11.2, j === a.first ? CLAW_TOP : CLAW_BOT, u); q.x = lerpC(CLAW_X - 0.6, CLAW_X, u); q.press = 0; });
+      } else {
+        /* 兩隻前腳輪流：一隻壓著往下耙（留下爪痕），同時另一隻離開畫面往上收回去，準備下一耙 */
+        const qn = (e - RISE) / a.per, k = Math.floor(qn), u = qn - k, i = (k + a.first) % 2;
+        const act = a.paws[i], rest = a.paws[1 - i];
+        if (k !== a.k) { a.k = k; a.stroke = null; }
+        rest.press = 0; rest.x = CLAW_X - 0.45 + a.jx[1 - i];
+        rest.y = lerpC(CLAW_BOT, CLAW_TOP, ease2(Math.min(1, u / 0.9)));
+        act.x = CLAW_X + a.jx[i];
+        if (u < 0.12) { act.y = CLAW_TOP; act.press = u / 0.12; }
+        else if (u < 0.85) {
+          const v = (u - 0.12) / 0.73;
+          act.y = lerpC(CLAW_TOP, CLAW_BOT, ease2(v)); act.press = 1;
+          clawMark(cat, a, i, v, now);
+        } else { act.y = CLAW_BOT; act.press = Math.max(0, 1 - (u - 0.85) / 0.1); }
+      }
+      if (e >= a.dur) { a.paws = null; finish(cat, now); }
+    }
+    /* ----- 爪痕：每隻腳一組 3–4 道細線，最多同時 6 組，約 10 秒後慢慢淡掉 ----- */
+    const markWrap = document.createElement("div");
+    markWrap.className = "claw-marks";
+    markWrap.setAttribute("aria-hidden", "true");
+    layer.appendChild(markWrap);
+    const clawMarks = [];
+    const MARK_MAX = 6, MARK_LIFE = 10000, MARK_FADE = 1800, MARK_W = 24;
+    function killMark(g) {
+      const i = clawMarks.indexOf(g);
+      if (i >= 0) clawMarks.splice(i, 1);
+      try { g.el.remove(); } catch (_) {}
+    }
+    function clearClawMarks() { for (const g of clawMarks.slice()) killMark(g); }
+    function newMarkGroup(cat, a, i, now) {
+      while (clawMarks.length >= MARK_MAX) killMark(clawMarks[0]);
+      const sx = i ? 1 : -1;
+      const p0 = clawPt(cat, 16 + sx * a.paws[i].x, CLAW_TOP - CLAW_TIP), p1 = clawPt(cat, 16 + sx * a.paws[i].x, CLAW_BOT - CLAW_TIP);
+      const len = p1.y - p0.y, h = Math.ceil(len + 8);
+      const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+      const cv = document.createElement("canvas");
+      cv.className = "claw-mark";
+      cv.width = Math.round(MARK_W * dpr); cv.height = Math.round(h * dpr);
+      cv.style.width = MARK_W + "px"; cv.style.height = h + "px";
+      const left = Math.round(p0.x - MARK_W / 2), top = Math.round(p0.y - 3);
+      cv.style.left = left + "px";
+      cv.style.bottom = Math.round(floorY - (top + h)) + "px";
+      markWrap.appendChild(cv);
+      const n = Math.random() < 0.55 ? 4 : 3, gap = rand(1.55, 1.95), slant = rand(-0.07, 0.07) * (sx > 0 ? 1 : -1);
+      const lines = [];
+      for (let j = 0; j < n; j++) {
+        lines.push({
+          dx: (j - (n - 1) / 2) * gap + rand(-0.3, 0.3), fan: rand(0.02, 0.22), bow: rand(-0.7, 0.7),
+          w: rand(0.45, 0.95) * (j === 0 || j === n - 1 ? 0.8 : 1), al: rand(0.3, 0.5), f0: rand(0, 0.2), f1: rand(0.68, 1),
+          amp: rand(0.08, 0.25), fq: rand(0.25, 0.6), ph: rand(0, 6.3),
+          gapAt: Math.random() < 0.35 ? rand(0.3, 0.75) : -1
+        });
+      }
+      const g = { el: cv, ctx: cv.getContext("2d"), dpr, t0: now, h, len, x: p0.x - left, y0: p0.y - top, lines, slant, reach: 0, passes: 0, cat, a, i, fading: false };
+      clawMarks.push(g);
+      return g;
+    }
+    function drawMarkGroup(g) {
+      const c = g.ctx, d = g.dpr;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.clearRect(0, 0, g.el.width, g.el.height);
+      c.setTransform(d, 0, 0, d, 0, 0);
+      const deep = Math.min(1, 0.72 + 0.16 * (g.passes - 1));
+      for (const L of g.lines) {
+        const fe = Math.min(L.f1, g.reach);
+        if (fe <= L.f0 + 0.02) continue;
+        const pts = [];
+        const steps = Math.max(3, Math.ceil((fe - L.f0) * g.len / 0.8));
+        for (let s2 = 0; s2 <= steps; s2++) {
+          const f = L.f0 + (fe - L.f0) * s2 / steps;
+          const y = g.y0 + f * g.len;
+          const x = g.x + L.dx * (1 + L.fan * f) + g.slant * f * g.len + L.bow * Math.sin(Math.PI * f) + L.amp * Math.sin(L.fq * f * g.len + L.ph);
+          const u = (f - L.f0) / (L.f1 - L.f0);
+          let w = L.w * (0.28 + 0.72 * Math.pow(Math.sin(Math.PI * Math.min(1, u)), 0.6));
+          if (L.gapAt > 0 && Math.abs(u - L.gapAt) < 0.05) w *= 0.15;
+          pts.push({ x, y, w });
+        }
+        const poly = (k, ox, oy) => {
+          c.beginPath();
+          pts.forEach((pt, j) => { const X = pt.x + ox - pt.w * k / 2; j ? c.lineTo(X, pt.y + oy) : c.moveTo(X, pt.y + oy); });
+          for (let j = pts.length - 1; j >= 0; j--) { const pt = pts[j]; c.lineTo(pt.x + ox + pt.w * k / 2, pt.y + oy); }
+          c.closePath();
+        };
+        const al = L.al * deep;
+        c.fillStyle = "rgba(20,24,32," + (al * 0.45).toFixed(3) + ")"; poly(1.05, 0.45, 0.35); c.fill();
+        c.fillStyle = "rgba(226,232,240," + al.toFixed(3) + ")"; poly(1, 0, 0); c.fill();
+        c.fillStyle = "rgba(255,255,255," + (al * 0.55).toFixed(3) + ")"; poly(0.38, -0.12, 0); c.fill();
+      }
+    }
+    function clawMark(cat, a, i, v, now) {
+      if (petsOn === false || cat.hidden) return;
+      let g = a.groups[i];
+      if (!g || !g.el.isConnected) { g = a.groups[i] = newMarkGroup(cat, a, i, now); }
+      if (!a.stroke) { a.stroke = true; g.passes++; }
+      if (v > g.reach || g.passes > 1 && v < 0.05) { g.reach = Math.max(g.reach, v); drawMarkGroup(g); }
+    }
+    function clawMarksStep(now) {
+      for (const g of clawMarks.slice()) {
+        const age = now - g.t0;
+        if (!g.fading && age > MARK_LIFE) { g.fading = true; g.el.style.opacity = "0"; }
+        if (age > MARK_LIFE + MARK_FADE + 150) killMark(g);
+      }
+    }
     function start(cat, a, now) {
       a.t0 = now;
       const d0 = cat.dir;
@@ -1097,7 +1313,7 @@ export function mountRoomPets() {
     function bothReady() { return soc.ready.has(soc.a) && soc.ready.has(soc.b); }
     function canJoin(c, now) {
       const a = c.act;
-      if (!a || a.tapped || a.type === "jump" || a.type === "bite" || a.type === "hang" || c.pendingTap) return false;
+      if (!a || a.tapped || a.type === "jump" || a.type === "bite" || a.type === "hang" || a.type === "claw" || c.pendingTap) return false;
       if (biteBusy(c)) return false;
       if (a.type === "sleep" && now - a.t0 < 4500) return false;
       if (ballBusy(c, now) || ball.state !== "loose" && ball.state !== "carried") return false;
@@ -1481,6 +1697,7 @@ export function mountRoomPets() {
       if (a.type === "carry") { carryStep(cat, a, now, dt); return; }
       if (a.type === "steal") { stealStep(cat, a, now, dt); return; }
       if (a.type === "bite") { biteStep(cat, a, now, dt); return; }
+      if (a.type === "claw") { clawStep(cat, a, now); return; }
       if (a.type === "walk" || a.type === "run") {
         const step = a.speed * dt;
         const d = a.tx - cat.x;
@@ -1542,7 +1759,7 @@ export function mountRoomPets() {
 
     const BONK_MIN_V = 260;
     const BONK_CD = 2500;
-    const BONK_OK = { walk: 1, run: 1, sit: 1, loaf: 1, lick1: 1, lick2: 1, lick3: 1, sleep: 1, scratch: 1, stun: 1, ballchase: 1, steal: 1, bonk: 1, chase: 1, follow: 1, flee: 1 };
+    const BONK_OK = { walk: 1, run: 1, sit: 1, loaf: 1, lick1: 1, lick2: 1, lick3: 1, sleep: 1, scratch: 1, claw: 1, stun: 1, ballchase: 1, steal: 1, bonk: 1, chase: 1, follow: 1, flee: 1 };
     function eyesOf(f) {
       if (f.eyes) return f.eyes;
       const src = f.src || f;
@@ -1584,15 +1801,88 @@ export function mountRoomPets() {
         for (const [a, b] of px) ctx.fillRect(a, b, 1, 1);
       });
     }
-    function paintCat(ctx, f, bk, w, h) {
-      ctx.clearRect(0, 0, w, h);
-      if (!f || !f.cv) return;
-      if (bk === 2 && !f.src) {
-        const hb = Math.min(h - 1, f.top + 9);
-        ctx.drawImage(f.cv, 0, hb, w, h - hb, 0, hb, w, h - hb);
-        ctx.drawImage(f.cv, 0, 0, w, hb, 0, 1, w, hb);
-      } else ctx.drawImage(f.cv, 0, 0);
-      if (bk) drawBonkEyes(ctx, f, bk === 2 && !f.src ? 1 : 0);
+    /* 畫一張影格：先畫會擺動的尾巴，再貼上畫好的身體；靜止時有呼吸起伏、偶爾眨眼；被打到時眼睛變 >< */
+    const LIVE_MS = 1000 / 24; /* 尾巴／呼吸／眨眼每秒重畫 24 次就夠順，也省電 */
+    const STILL_ANIM = { sit: 1, love: 1, sleep: 1, lick1: 1, lick2: 1, lick3: 1, scratch: 0 };
+    function liveOf(cat, f, now) {
+      const an = f.anim;
+      let sway = 1, sp = 1.5, breath = 0;
+      if (an === "walk") { sway = 0.65; sp = 5.2; }
+      else if (an === "run") { sway = 0.35; sp = 9; }
+      else if (an === "jump" || an === "hang") { sway = 0.6; sp = 7; }
+      else if (an === "bite") { sway = 0.9; sp = 4.5; }
+      else if (an === "sleep") { sway = 0.25; sp = 0.7; breath = 0.028 * (0.5 + 0.5 * Math.sin(now / 1000 * Math.PI * 2 / 3.4)); }
+      else if (STILL_ANIM[an]) { breath = 0.012 * (0.5 + 0.5 * Math.sin(now / 1000 * Math.PI * 2 / 2.6 + (cat.name === "gray" ? 1.3 : 0))); }
+      const dt = Math.min(0.1, Math.max(0, (now - (cat.liveT || now)) / 1000));
+      cat.liveT = now;
+      cat.tailPh = (cat.tailPh || 0) + dt * sp;
+      /* 眨眼：每 2.5～6.5 秒一次，偶爾連眨兩下 */
+      let blink = 0;
+      if (now > cat.blinkNext) { cat.blinkT0 = now; cat.blinkNext = now + (Math.random() < 0.2 ? 320 : rand(2500, 6500)); }
+      const be = now - cat.blinkT0;
+      if (be >= 0 && be < 190) blink = Math.sin(be / 190 * Math.PI);
+      return { sway, ph: cat.tailPh, breath, blink };
+    }
+    function paintCat(ctx, f, bk, w, h, cat, now) {
+      const cv = ctx.canvas, R = cv.width / w;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      if (!f || !f.pose) {
+        if (f && f.cv) { ctx.imageSmoothingEnabled = false; ctx.drawImage(f.cv, 0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = true; }
+        return;
+      }
+      now = now || performance.now();
+      cat.paintT = now;
+      const body = realBody(cat.name, f, bk, w, h);
+      const lv = liveOf(cat, f, now);
+      if (f.pose.kind === "hangFront") {
+        /* 仰頭咬住吊著：整隻以咬住點為支點小幅擺盪，四肢和尾巴每格重畫（亂揮亂踢）；
+           頭另外畫到前面那張畫布，蓋在被咬的泡泡上面 */
+        const tt = now / 1000 + (cat.name === "gray" ? 1.7 : 0), pt = f.pt, sd = cat.name === "gray" ? 2.1 : 0;
+        const st = REAL.hangState(tt, sd);
+        const head = f.headF ? realBody(cat.name, f.headF, bk, w, h) : null;
+        const tf = (c2) => { c2.setTransform(R, 0, 0, R, 0, 0); c2.translate(pt.x, pt.y); c2.rotate(st.rot); c2.translate(-pt.x, -pt.y); };
+        tf(ctx);
+        ctx.save(); REAL.hangBodyXf(ctx, st);
+        REAL.drawTail(ctx, cat.name, Object.assign(REAL.hangTail(tt, st), { ph: lv.ph }), 1.6);
+        REAL.hangLimbs(ctx, cat.name, tt, sd, st, "hind");
+        ctx.drawImage(body, 0, 0, w, h);
+        REAL.hangLimbs(ctx, cat.name, tt, sd, st, "front");
+        ctx.restore();
+        if (head) ctx.drawImage(head, 0, 0, w, h);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const fc = cat.hangFrontCtx;
+        if (head && fc && ctx === cat.hangCtx) {
+          /* 嘴裡那一小片用「被咬的那則泡泡」本身的顏色（只查一次） */
+          const a = cat.act;
+          if (a && a.el && a.bubCol == null) { try { const bc = getComputedStyle(a.el).backgroundColor; a.bubCol = bc && bc !== "rgba(0, 0, 0, 0)" && bc !== "transparent" ? bc : ""; } catch (_) { a.bubCol = ""; } }
+          fc.setTransform(1, 0, 0, 1, 0, 0); fc.clearRect(0, 0, fc.canvas.width, fc.canvas.height);
+          tf(fc); fc.drawImage(head, 0, 0, w, h); REAL.hangMouthCut(fc, bk, (a && a.bubCol) || ""); fc.setTransform(1, 0, 0, 1, 0, 0);
+        }
+        return;
+      }
+      const k = f.rot ? 1 : 1 + lv.breath;
+      const grid = () => {
+        ctx.setTransform(R, 0, 0, R, 0, 0);
+        if (f.rot) { ctx.translate(0, 32); ctx.rotate(-Math.PI / 2); }
+      };
+      const t = f.pose.tail;
+      const tail = () => { grid(); REAL.drawTail(ctx, cat.name, Object.assign({}, t, { ph: lv.ph }), lv.sway); };
+      if (t && !t.front) tail();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (k !== 1) ctx.drawImage(body, 0, cv.height * (1 - k), cv.width, cv.height * k);
+      else ctx.drawImage(body, 0, 0);
+      if (lv.blink > 0 && body.open && body.eyes && !bk) {
+        grid();
+        if (k !== 1) { ctx.translate(0, h * (1 - k)); ctx.scale(1, k); }
+        REAL.blinkLids(ctx, body.eyes, lv.blink);
+      }
+      if (f.anim === "claw") {
+        const ca = cat.act && cat.act.type === "claw" && cat.act.paws;
+        grid(); REAL.clawArms(ctx, cat.name, f.pose, ca || [{ x: 3.8, y: 11.0 }, { x: 3.8, y: 11.0 }]);
+      }
+      if (t && t.front) tail();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     function bonkStage(cat, now) {
       if (!(now < cat.bonkUntil)) return 0;
@@ -1600,8 +1890,8 @@ export function mountRoomPets() {
     }
     function headOf(cat) {
       if (cat._hangOn && cat.act && cat.act.type === "hang" && cat.act.hl != null) {
-        const hx = cat.dir < 0 ? 20 - 7.5 : 7.5;
-        return { x: cat.act.hl + hx * S, y: cat.act.ht + 10.5 * S, r: 6.5 * S, top: cat.act.ht };
+        const hx = cat.dir < 0 ? HANG_W - REAL.HF.hx : REAL.HF.hx;
+        return { x: cat.act.hl + hx * S, y: cat.act.ht + REAL.HF.hy * S, r: 5.5 * S, top: cat.act.ht };
       }
       const f = cat.cur;
       if (!f) return null;
@@ -1659,7 +1949,7 @@ export function mountRoomPets() {
       }
       return true;
     }
-    const SWEAT_SVG = '<svg viewBox="0 0 5 7" aria-hidden="true"><rect x="2" y="0" width="1" height="1" fill="#7cc7ff"/><rect x="1" y="1" width="3" height="2" fill="#7cc7ff"/><rect x="0" y="3" width="5" height="3" fill="#7cc7ff"/><rect x="1" y="6" width="3" height="1" fill="#7cc7ff"/><rect x="1" y="3" width="1" height="1" fill="#e9f7ff"/></svg>';
+    const SWEAT_SVG = '<svg viewBox="0 0 10 14" aria-hidden="true"><path d="M5 .8C6.6 4 9 6.4 9 9.2A4 4 0 0 1 1 9.2C1 6.4 3.4 4 5 .8z" fill="#7cc7ff"/><ellipse cx="3.6" cy="9" rx="1" ry="1.6" fill="#e9f7ff"/></svg>';
     function renderBonkFx(cat, now) {
       if (!cat.bonkFx) {
         const el = document.createElement("div");
@@ -1685,8 +1975,9 @@ export function mountRoomPets() {
     function render(cat, now) {
       const f = frameFor(cat, now) || SPRITES[cat.name].sit[0];
       const bk = bonkStage(cat, now);
-      if (f !== cat.cur || cat.dir !== cat.curDir || bk !== cat._bk) {
-        paintCat(cat.ctx, f, bk, W, H);
+      const changed = f !== cat.cur || cat.dir !== cat.curDir || bk !== cat._bk;
+      if (changed || now - cat.paintT > LIVE_MS) { if (!cat._hangOn) paintCat(cat.ctx, f, bk, W, H, cat, now); }
+      if (changed) {
         cat._bk = bk;
         cat.cv.style.transform = cat.dir < 0 ? "scaleX(-1)" : "";
         cat.cur = f;
@@ -1722,11 +2013,10 @@ export function mountRoomPets() {
     frontWrap.className = "cat-front";
     frontWrap.setAttribute("aria-hidden", "true");
     const frontCv = document.createElement("canvas");
-    frontCv.width = W; frontCv.height = H;
+    frontCv.width = Math.round(W * RES); frontCv.height = Math.round(H * RES);
     frontWrap.appendChild(frontCv);
     chat.insertBefore(frontWrap, inputBar);
     const frontCtx = frontCv.getContext("2d");
-    frontCtx.imageSmoothingEnabled = false;
     const HEAD_COL = 19; /* 頭從這一欄開始（朝右的影格） */
     const jellies = [];
     let nextBiteAt = now0 + rand(7000, 12000);
@@ -1782,7 +2072,7 @@ export function mountRoomPets() {
     function canBite(c, now, watcher) {
       const a = c.act;
       if (c.hidden || inSoc(c) || ballBusy(c, now) || c.pendingTap || !a) return false;
-      if (a.tapped || a.type === "jump" || a.type === "stun" || a.type === "bite" || a.type === "hang" || a.watch) return false;
+      if (a.tapped || a.type === "jump" || a.type === "stun" || a.type === "bite" || a.type === "hang" || a.type === "claw" || a.watch) return false;
       /* 一次只會有一隻在咬泡泡 */
       if (biteBusy(c) || (!watcher && cats.some((o) => o !== c && biteBusy(o)))) return false;
       if (a.type === "sleep" && Math.random() > 0.2) return false;
@@ -1945,7 +2235,7 @@ export function mountRoomPets() {
       if (j.mode === "bottom") {
         /* 底邊被咬著往下拉：上緣不動，越靠近咬住點被拉越多，拉成尖尖的、兩側往嘴巴收 */
         const fy = Math.pow(clamp(y / j.h, 0, 1), 2.1);
-        const dx = (x - j.bx) / Math.max(26, j.w * 0.24);
+        const dx = (x - j.bx) / Math.max(17, j.w * 0.16); /* 咬住的地方拉成比較尖，看得出被咬進嘴裡 */
         const pull = j.oy;
         const g = Math.exp(-dx * dx);
         const gx = pull >= 0 ? 0.08 + 0.92 * g : 1;
@@ -2065,8 +2355,10 @@ export function mountRoomPets() {
       let c = null;
       for (const k of cats) if (!k.hidden && k.act && k.act.type === "bite" && k.act.front && k.cur) c = k;
       if (!c) { if (frontCv.style.display !== "none") frontCv.style.display = "none"; return; }
-      frontCtx.clearRect(0, 0, W, H);
-      frontCtx.drawImage(c.cur.cv, HEAD_COL, 0, W - HEAD_COL, H, HEAD_COL, 0, W - HEAD_COL, H);
+      if (frontCv.width !== c.cv.width || frontCv.height !== c.cv.height) { frontCv.width = c.cv.width; frontCv.height = c.cv.height; }
+      const Rc = c.cv.width / W;
+      frontCtx.clearRect(0, 0, frontCv.width, frontCv.height);
+      frontCtx.drawImage(c.cv, HEAD_COL * Rc, 0, (W - HEAD_COL) * Rc, c.cv.height, HEAD_COL * Rc, 0, (W - HEAD_COL) * Rc, c.cv.height);
       frontCv.style.display = "block";
       frontCv.style.width = W * S + "px";
       frontCv.style.height = H * S + "px";
@@ -2125,7 +2417,6 @@ export function mountRoomPets() {
        泡泡被往下拉尖、跟著貓晃；泡泡往上移（捲動／新訊息）貓跟著上去；
        3–6 秒後鬆口掉下來，落地蹲一下，泡泡像果凍一樣彈回原狀
        ===================================================================== */
-    const HANG_W = 20, HANG_H = 32;
     const J1M = SPRITES.gray.jump[1].mouth;
     const HANG_D0 = 13, HANG_DMAX = 19; /* 吊著時泡泡被往下拉多少（px） */
     function hangLen(f) { return (HANG_H - f.pt.y) * S; }
@@ -2134,14 +2425,13 @@ export function mountRoomPets() {
     function ensureHangCv(cat) {
       if (cat.hangCv) return;
       const cv = document.createElement("canvas");
-      cv.className = "cat-hang"; cv.width = HANG_W; cv.height = HANG_H;
+      cv.className = "cat-hang"; cv.width = Math.round(HANG_W * RES); cv.height = Math.round(HANG_H * RES);
       cat.el.appendChild(cv);
       const fc = document.createElement("canvas");
-      fc.width = HANG_W; fc.height = HANG_H;
+      fc.width = cv.width; fc.height = cv.height;
       frontWrap.appendChild(fc);
       cat.hangCv = cv; cat.hangCtx = cv.getContext("2d");
       cat.hangFront = fc; cat.hangFrontCtx = fc.getContext("2d");
-      cat.hangCtx.imageSmoothingEnabled = false; cat.hangFrontCtx.imageSmoothingEnabled = false;
     }
     /* 吊得到的泡泡：畫面上從下面數來前三則、下緣離地板的高度剛好、嘴巴咬在下緣中間那段 */
     function hangTargets(cat) {
@@ -2157,24 +2447,32 @@ export function mountRoomPets() {
         if (jellies.some((j) => j.el === s.el) || s.el === lastBub) return;
         const hgt = floorY - (s.y + s.h);
         if (hgt < hangMinH() || hgt > hangMaxH() || s.w < 46) return;
-        const m = Math.max(22, s.w * 0.33);
+        const m = Math.max(20, s.w * 0.18);
         const lo = s.x + m, hi = s.x + s.w - m;
         if (hi < lo) return;
+        /* 下面那幾則泡泡：吊著的身體（約 24 格長、左右各 7 格）不要剛好被它們蓋住，
+           找一個下面空著的位置咬；真的找不到就挑擋得最少的 */
+        const bot = s.y + s.h, L = 24 * S, hw = 7 * S;
+        const blk = shapes.filter((q) => q.el !== s.el && q.y > bot - 2 && q.y < bot + L && q.y + q.h > bot).map((q) => [q.x - hw, q.x + q.w + hw, q.y - bot]);
+        const clearAt = (x) => { let c = L; for (const b of blk) if (x > b[0] && x < b[1]) c = Math.min(c, b[2]); return c; };
         const opts = [];
         for (const dir of [1, -1]) {
           const off = (dir > 0 ? J1M.x : W - J1M.x) * S;
           const a = Math.max(lo, minX() + off), b = Math.min(hi, maxX() + off);
           if (b < a) continue;
-          const mx = clamp(s.cx, a, b);
-          opts.push({ dir, mx, standX: mx - off });
+          const cand = [clamp(s.cx, a, b), a, b];
+          for (const q of blk) for (const e of [q[0], q[1]]) if (e >= a && e <= b) cand.push(e);
+          let best = null;
+          for (const x of cand) { const c = clearAt(x), sc = c * 4 - Math.abs(x - s.cx) * 0.5; if (!best || sc > best.sc) best = { x, c, sc }; }
+          opts.push({ dir, mx: best.x, standX: best.x - off, clear: best.c });
         }
         if (!opts.length) return;
-        /* 優先：順著走過去的方向（不用轉身） */
-        opts.sort((p, q) => ((q.standX - cat.x) * q.dir > 0) - ((p.standX - cat.x) * p.dir > 0));
+        /* 優先：下面比較空的；再來順著走過去的方向（不用轉身） */
+        opts.sort((p, q) => (q.clear - p.clear) || (((q.standX - cat.x) * q.dir > 0) - ((p.standX - cat.x) * p.dir > 0)));
         const o = opts[0];
-        out.push({ el: s.el, rank, dir: o.dir, mx: o.mx, standX: o.standX, relX: o.mx - s.x, kind: "hang" });
+        out.push({ el: s.el, rank, dir: o.dir, mx: o.mx, standX: o.standX, relX: o.mx - s.x, kind: "hang", clear: o.clear });
       });
-      out.sort((p, q) => Math.abs(p.standX - cat.x) - Math.abs(q.standX - cat.x));
+      out.sort((p, q) => ((q.clear >= 18 * S) - (p.clear >= 18 * S)) || (Math.abs(p.standX - cat.x) - Math.abs(q.standX - cat.x)));
       return out;
     }
     function goHang(cat, t, now, instant, dur) {
@@ -2322,12 +2620,16 @@ export function mountRoomPets() {
       const f = SPRITES[cat.name].hang[a.fi];
       const bk = bonkStage(cat, performance.now()); /* ⚠️ 這裡沒有 now 參數：以前寫 now 會丟 ReferenceError，整個貓迴圈停掉 */
       const key = a.fi + ":" + cat.dir + ":" + bk;
-      if (cat.hangKey !== key) {
-        cat.hangKey = key;
-        paintCat(cat.hangCtx, f, bk, HANG_W, HANG_H);
-        const frn = Math.ceil(f.pt.y + 1.5);
-        cat.hangFrontCtx.clearRect(0, 0, HANG_W, HANG_H);
-        cat.hangFrontCtx.drawImage(cat.hangCv, 0, 0, HANG_W, frn, 0, 0, HANG_W, frn);
+      const nowH = performance.now();
+      if (cat.hangKey !== key || nowH - (cat.hangPaintT || 0) > LIVE_MS) {
+        cat.hangKey = key; cat.hangPaintT = nowH;
+        paintCat(cat.hangCtx, f, bk, HANG_W, HANG_H, cat, nowH);
+        /* 舊的側面吊姿才把嘴巴那幾列另外貼到前面；仰頭吊姿由 paintCat 畫到前面那張畫布 */
+        if (!f.hangF) {
+          const hc = cat.hangCv, Rh = hc.width / HANG_W, frn = Math.ceil((f.pt.y + 1.5) * Rh);
+          cat.hangFrontCtx.clearRect(0, 0, hc.width, hc.height);
+          cat.hangFrontCtx.drawImage(hc, 0, 0, hc.width, frn, 0, 0, hc.width, frn);
+        }
       }
       const ptx = cat.dir < 0 ? HANG_W - f.pt.x : f.pt.x;
       const left = Math.round(a.mouth.x - ptx * S), top = Math.round(a.mouth.y - f.pt.y * S);
@@ -2395,20 +2697,17 @@ export function mountRoomPets() {
     tailCv.width = LOVE_TAIL_W; tailCv.height = LOVE_TAIL_H;
     tailCv.style.display = "none";
     layer.insertBefore(tailCv, layer.firstChild);
-    {
+    function paintTailHeart() {
+      const w = Math.round(LOVE_TAIL_W * RES), h = Math.round(LOVE_TAIL_H * RES);
+      if (tailCv.width === w && tailCv.height === h && tailCv._done) return;
+      tailCv.width = w; tailCv.height = h; tailCv._done = true;
       const tc = tailCv.getContext("2d");
-      const img = tc.createImageData(LOVE_TAIL_W, LOVE_TAIL_H);
-      const TP = { k: hexRGB("#010101"), g: hexRGB(DATA.pal.gray.b), G: hexRGB(DATA.pal.gray.d), o: hexRGB(DATA.pal.brown.b), O: hexRGB(DATA.pal.brown.d) };
-      LOVE_FRAMES.tailHeart.split("/").forEach((row, y) => {
-        for (let x = 0; x < row.length && x < LOVE_TAIL_W; x++) {
-          const c = TP[row[x]];
-          if (!c) continue;
-          const i = (y * LOVE_TAIL_W + x) * 4;
-          img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = 255;
-        }
-      });
-      tc.putImageData(img, 0, 0);
+      tc.setTransform(w / LOVE_TAIL_W, 0, 0, h / LOVE_TAIL_H, 0, 0);
+      tc.clearRect(0, 0, LOVE_TAIL_W, LOVE_TAIL_H);
+      REAL.drawTailHeart(tc);
     }
+    paintTailHeart();
+    resHooks.push(paintTailHeart);
     const loveHearts = [];
     function loveHeart(x, y, size) {
       const el = document.createElement("div");
@@ -2553,7 +2852,7 @@ export function mountRoomPets() {
       c.act = { type: "sit", t0: now, dur: rand(1500, 2600) };
     }
     /* 跳／吊的最長時間：超過就當作卡住，直接安全落地坐下 */
-    const JUMP_MAX_MS = 2500, HANG_MAX_MS = 16000, BITE_MAX_MS = 12000;
+    const JUMP_MAX_MS = 2500, HANG_MAX_MS = 16000, BITE_MAX_MS = 12000, CLAW_MAX_MS = 6500;
     const HANG_PHASE_MAX = { crouch: 1200, rise: 1500, fall: 2500, land: 2000, sit: 4000 };
     function petWatchdog(c, now) {
       const a = c.act;
@@ -2561,6 +2860,7 @@ export function mountRoomPets() {
       if (!a) { petSafeReset(c, now); return; }
       if (a.type === "jump" && now - a.t0 > JUMP_MAX_MS) { petSafeReset(c, now, new Error("jump watchdog")); return; }
       if (a.type === "bite" && now - a.t0 > BITE_MAX_MS) { petSafeReset(c, now, new Error("bite watchdog")); return; }
+      if (a.type === "claw" && now - a.t0 > CLAW_MAX_MS) { petSafeReset(c, now, new Error("claw watchdog")); return; }
       if (a.type === "hang") {
         const age = now - (a.t0 || now), pe = now - (a.pt0 || a.t0 || now);
         const lim = a.phase === "hang" ? (a.dur || 6000) + 1500 : (HANG_PHASE_MAX[a.phase] || 1500);
@@ -2632,6 +2932,7 @@ export function mountRoomPets() {
         catch (err) { petSafeReset(c, now, err); }
       }
       jellyStep(now, dt);
+      try { clawMarksStep(now); } catch (_) { clearClawMarks(); }
       renderFront();
       biteSchedule(now);
       renderBall(now);
@@ -2651,6 +2952,29 @@ export function mountRoomPets() {
       measure();
       rafId = requestAnimationFrame(loop);
     }
+    /* 閒置時先把常用姿勢畫好存起來，動作開始時就不用臨時畫 */
+    function warmRealCache() {
+      const jobs = [];
+      for (const c of cats) for (const anim of Object.keys(SPRITES[c.name])) SPRITES[c.name][anim].forEach((f) => {
+        jobs.push([c.name, f, 0]);
+        if (anim === "sit" || anim === "love" || anim === "walk" || anim === "hang") jobs.push([c.name, f, 1], [c.name, f, 2]);
+      });
+      const res0 = RES;
+      const idle = window.requestIdleCallback || ((fn) => setTimeout(() => fn({ timeRemaining: () => 8 }), 60));
+      const step = (dl) => {
+        if (RES !== res0 || petsOn === false) return;
+        let n = 0;
+        while (jobs.length && (n === 0 || dl.timeRemaining() > 4) && n < 4) {
+          const [name, f, bk] = jobs.shift();
+          try { if (f.rot || f.hangF) { realBody(name, f, bk, HANG_W, HANG_H); if (f.headF) realBody(name, f.headF, bk, HANG_W, HANG_H); } else realBody(name, f, bk, W, H); } catch (_) {}
+          n++;
+        }
+        if (jobs.length) idle(step);
+      };
+      idle(step);
+    }
+    setTimeout(warmRealCache, 800);
+    resHooks.push(() => setTimeout(warmRealCache, 800));
     window.addEventListener("resize", wake);
     if (window.ResizeObserver) {
       const ro = new ResizeObserver(wake);
@@ -2676,6 +3000,7 @@ export function mountRoomPets() {
       if (ball.state === "carried" || ball.state === "drag") { ball.state = "loose"; ball.carrier = null; ball.dragId = null; }
       ball.vx = 0; ball.vy = 0;
       petsOn = false;
+      clearClawMarks(); /* 貓關掉：爪痕一起清掉，也不再留新的 */
       for (const el of msgList.querySelectorAll("canvas.bub-shade, canvas.bub-warp")) el.remove();
       for (const el of msgList.querySelectorAll(".bub.jelly")) el.classList.remove("jelly");
       layer.style.display = "none";
@@ -2695,6 +3020,7 @@ export function mountRoomPets() {
       last = n;
       nextSocialAt = Math.max(nextSocialAt, n + rand(6000, 12000));
       nextBiteAt = Math.max(nextBiteAt, n + rand(6000, 12000));
+      for (const c of cats) c.nextClawAt = Math.max(c.nextClawAt || 0, n + rand(10000, 25000));
       wake();
     }
     window.addEventListener("sc-pets", (e) => { if (e.detail && e.detail.on) petsEnable(); else petsDisable(); });
@@ -2717,6 +3043,11 @@ export function mountRoomPets() {
       hangTargets: (i) => hangTargets(cats[i || 0]).map((t) => ({ text: t.el.textContent, rank: t.rank, standX: t.standX, dir: t.dir, mx: t.mx })),
       hangInfo: (i) => { const c = cats[i || 0], a = c.act; if (!a || a.type !== "hang") return null; return { phase: a.phase, D: a.D, mouth: a.mouth, text: a.el.textContent, y: c.y, fi: a.fi, hl: a.hl, ht: a.ht, on: !!c._hangOn }; },
       biteBusy: () => cats.map(biteBusy),
+      /* 磨爪：claw(i, { x, dur }) 讓第 i 隻立刻在 x 磨爪；clawInfo(i)；marks 目前畫面上的爪痕組數 */
+      claw: (i, o) => { o = o || {}; const n = performance.now(), c = cats[i || 0]; if (soc) endSoc(n); stopBite(c, n); c.ballUntil = 0; if (ball.carrier === c) dropBall(c, n); if (o.x != null) c.x = clamp(o.x, minX(), maxX()); c.y = 0; c.queue = []; setAct(c, { type: "claw", dur: o.dur || rand(2600, 3600) }, n); return true; },
+      clawInfo: (i) => { const c = cats[i || 0], a = c.act; return { act: a && a.type, paws: a && a.paws, next: c.nextClawAt - performance.now() }; },
+      get marks() { return clawMarks.map((g) => ({ left: g.el.style.left, bottom: g.el.style.bottom, h: g.h, lines: g.lines.length, reach: g.reach, passes: g.passes, op: g.el.style.opacity, age: performance.now() - g.t0 })); },
+      setNextClaw: (i, ms) => { cats[i || 0].nextClawAt = performance.now() + ms; },
       get stillMs() { return cats.map((c) => c.stillMs); },
       get jelly() { return jellies.map((j) => ({ text: j.el.textContent, held: j.held, ox: j.ox, oy: j.oy, stretch: j.ox * j.side / j.w })); },
       get nextBiteAt() { return nextBiteAt; }, set nextBiteAt(v) { nextBiteAt = v; },
