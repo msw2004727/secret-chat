@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { decodeQuokkaGif, quokkaFrame, QUOKKA_CSS_AT_REF } from '../quokka-gif.js';
+import { decodeQuokkaGif, quokkaFrame, quokkaMirror, QUOKKA_CSS_AT_REF } from '../quokka-gif.js';
 import { Bobo } from '../bobo.js';
 
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
@@ -123,8 +123,10 @@ assert.match(pets, /if \(quokkaApi\) quokkaApi\.hide\(\)/);
 const quokkaRoom = fs.readFileSync(new URL('../quokka-room.js', import.meta.url), 'utf8');
 const quokkaGif = fs.readFileSync(new URL('../quokka.gif', import.meta.url));
 assert.ok(quokkaGif.length < 60 * 1024, "quokka.gif " + quokkaGif.length);
-assert.match(quokkaRoom, /dir > 0/);
+assert.match(quokkaRoom, /quokkaMirror\(dir\)/);
 assert.match(quokkaRoom, /scale\(-1, 1\)/);
+assert.equal(quokkaMirror(1), false);
+assert.equal(quokkaMirror(-1), true);
 assert.match(quokkaRoom, /enabled\(\)/);
 assert.doesNotMatch(quokkaRoom, /firebase|database|websocket/i);
 assert.match(css, /\.quokka \{[\s\S]*overflow: visible;/);
@@ -144,6 +146,23 @@ assert.ok(clear > 100, "transparent pixels");
 assert.ok(brown > 100, "quokka body pixels");
 assert.equal(quokkaFrame(false, 5000, 0, 7), 0);
 assert.equal(quokkaFrame(true, 250, 0, 7), 2);
+let noseX = 0, noseN = 0, bodyMin = gif.width, bodyMax = 0;
+for (let y = 18; y <= 34; y++) for (let x = 0; x < gif.width; x++) {
+  const i = (y * gif.width + x) * 4;
+  const a = px[i + 3], r = px[i], g = px[i + 1], b = px[i + 2];
+  if (a > 40 && r < 90 && g < 80 && b < 80) { noseX += x; noseN++; }
+}
+for (let i = 0; i < px.length; i += 4) {
+  if (px[i + 3] <= 40) continue;
+  const x = (i / 4) % gif.width;
+  if (x < bodyMin) bodyMin = x;
+  if (x > bodyMax) bodyMax = x;
+}
+const noseMean = noseX / noseN;
+const bodyCenter = (bodyMin + bodyMax) / 2;
+assert.ok(noseMean > bodyCenter, "native snout is on the viewer's right");
+assert.equal(quokkaMirror(1), noseMean < bodyCenter, "moving right keeps the native facing");
+assert.equal(quokkaMirror(-1), noseMean > bodyCenter, "moving left mirrors so the snout leads");
 assert.equal(QUOKKA_CSS_AT_REF, 26);
 const quokkaPx = QUOKKA_CSS_AT_REF;
 assert.ok(quokkaPx > boboPx && quokkaPx < roosterPx);

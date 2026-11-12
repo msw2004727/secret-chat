@@ -2,7 +2,7 @@
    原圖朝左。往右走時整張水平翻面。停下來停在第一格，走路才播動畫。
    只在這台瀏覽器裡跑，跟著「聊天室貓咪與趣味特效」。 */
 import quokkaUrl from "./quokka.gif";
-import { cssHeight, decodeQuokkaGif, quokkaFrame } from "./quokka-gif.js";
+import { cssHeight, decodeQuokkaGif, quokkaFrame, quokkaMirror } from "./quokka-gif.js";
 
 export function attachQuokka(api) {
   const url = quokkaUrl;
@@ -58,8 +58,8 @@ export function attachQuokka(api) {
     c.clearRect(0, 0, pw, ph);
     c.imageSmoothingEnabled = true;
     c.save();
-    /* 原圖朝左。往右（dir > 0）才翻面，棍子跟著身子，不會走出畫布。 */
-    if (dir > 0) { c.translate(pw, 0); c.scale(-1, 1); }
+    /* 鼻子在原圖右側。往左（dir < 0）才翻面，臉才對著速度方向。 */
+    if (quokkaMirror(dir)) { c.translate(pw, 0); c.scale(-1, 1); }
     c.drawImage(bitmaps[fi] || bitmaps[0], 0, 0, pw, ph);
     c.restore();
     wrap.style.transform = "translate3d(" + x.toFixed(1) + "px,0,0)";
