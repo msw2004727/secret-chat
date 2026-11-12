@@ -69,6 +69,8 @@ assert.match(pets, /ball\.state === "carried" && ball\.carrier \? ball\.carrier\
 assert.match(pets, /tx -= carrier\.x/);
 assert.match(pets, /ty \+= H \* S/);
 assert.match(css, /\.cat-front \{[\s\S]*z-index: 3;/);
+assert.match(css, /\.c-bar \{[^}]*z-index: 8;/);
+assert.match(css, /\.c-input \{[^}]*z-index: 8;/);
 assert.match(css, /\.bub\.jelly \{[^}]*background: transparent/);
 assert.match(css, /\.pet-warp \{[\s\S]*pointer-events: none;/);
 assert.match(css, /\.bub-warp \{[^}]*position: absolute;/);

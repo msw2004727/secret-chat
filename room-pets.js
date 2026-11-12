@@ -364,8 +364,8 @@ export function mountRoomPets() {
       const floor = Math.ceil(chat.getBoundingClientRect().bottom - inputBar.getBoundingClientRect().top) + 1;
       floorPx = floor;
       chat.style.setProperty("--cat-floor", floor + "px");
-      /* 底部只留一點空間：訊息一多，最下面的泡泡會蓋在貓前面（貓從泡泡後面走過） */
-      chat.style.setProperty("--cat-walk", Math.round(4 * S) + "px");
+      /* 底部多留一截，讓頭上的對白比較不會壓住最後一則訊息；貓還是會從泡泡後面走過。 */
+      chat.style.setProperty("--cat-walk", Math.round(4 * S + 44) + "px");
       geom();
       sizeShade();
       {
@@ -454,6 +454,7 @@ export function mountRoomPets() {
       const bottomCss = Math.round(chatR.bottom - floorScreen) + "px";
       layer.style.bottom = bottomCss;
       if (frontWrap) frontWrap.style.bottom = bottomCss;
+      sayLayer.style.bottom = bottomCss;
     }
     function sizeShade() {}
     function radiiFor(el) {
@@ -977,6 +978,12 @@ export function mountRoomPets() {
       }
     }
 
+    /* 對白層：跟 .cat-front 一樣疊在訊息前面、輸入列後面，避免長句子被泡泡擋住。 */
+    const sayLayer = document.createElement("div");
+    sayLayer.className = "cat-say-layer";
+    sayLayer.setAttribute("aria-hidden", "true");
+    chat.insertBefore(sayLayer, inputBar);
+
     /* ----- 建立兩隻貓 ----- */
     const cats = [];
     function makeCat(name, x, dir) {
@@ -990,20 +997,25 @@ export function mountRoomPets() {
       cv.width = Math.round(W * RES); cv.height = Math.round(H * RES);
       const bubble = document.createElement("div");
       bubble.className = "cat-bubble";
+      const sayEl = document.createElement("div");
+      sayEl.className = "cat-say";
       body.appendChild(cv);
       body.appendChild(bubble);
+      sayLayer.appendChild(sayEl);
       el.appendChild(shadow);
       el.appendChild(body);
       layer.appendChild(el);
       const ctx = cv.getContext("2d");
       return {
-        name, el, shadow, body, cv, ctx, bubble, paintT: 0, blinkNext: performance.now() + rand(1500, 4000), blinkT0: -1e9, tailPh: rand(0, 6),
+        name, el, shadow, body, cv, ctx, bubble, say: sayEl, paintT: 0, blinkNext: performance.now() + rand(1500, 4000), blinkT0: -1e9, tailPh: rand(0, 6),
         x, y: 0, dir, cur: null, curDir: 0, hidden: false,
         act: null, queue: [],
         mood: pick(Object.keys(MOOD_ICONS)),
         turnUntil: 0, ballUntil: 0, stealCd: 0, stealTries: 0, catchCd: 0, jumpCd: 0, carryUntil: 0,
         bubbleUntil: 0,
-        nextBubble: performance.now() + rand(3000, 9000)
+        nextBubble: performance.now() + rand(3000, 9000),
+        talking: false, sayUntil: 0,
+        nextTalk: performance.now() + rand(45000, 90000)
       };
     }
 
@@ -1681,6 +1693,7 @@ export function mountRoomPets() {
     }
 
     function showBubble(cat, now, icon) {
+      if (cat.talking) return;
       const a = cat.act;
       icon = icon || (a && a.type === "sleep" ? "zzz" : pick(MOOD_ICONS[cat.mood]));
       cat.bubble.innerHTML = iconSVG(icon);
@@ -1691,12 +1704,58 @@ export function mountRoomPets() {
       cat.bubble.classList.remove("show");
       cat.bubbleUntil = 0;
       cat.nextBubble = now + rand(3000, 8000);
+      if (cat.talking) hideTalk(cat, now);
     }
     /* 互動時的泡泡：在地上才冒，半空中不冒 */
     function say(cat, icon, now, p) {
       if (p != null && Math.random() > p) return;
       if (cat.y > 0.5 || cat.hidden) return;
       showBubble(cat, now, icon);
+    }
+
+    /* 灰貓、橘貓偶爾各說一句固定的話。樣式沿用心情泡泡的白底黑邊小尾巴。 */
+    const CAT_TALK = { gray: "小麥我愛妳~喵", brown: "辛巴我愛妳~喵" };
+    const TALK_MS = 3000;
+    function talkingBusy() { return cats.some((c) => c.talking); }
+    function canTalk(cat, now) {
+      if (petsOn === false || !cat || cat.hidden || cat.y > 0.5) return false;
+      if (cat.talking || talkingBusy()) return false;
+      if (window.PetMenu && window.PetMenu.isOpen) return false;
+      if (ball.state === "drag") return false;
+      const t = cat.act && cat.act.type;
+      if (cat.act && cat.act.menu) return false;
+      if (t === "pet" || t === "bite" || t === "hang" || t === "fight" || t === "funny" || t === "poop") return false;
+      return true;
+    }
+    function hideTalk(cat, now) {
+      cat.say.classList.remove("show");
+      cat.say.textContent = "";
+      cat.talking = false;
+      cat.sayUntil = 0;
+      cat.nextTalk = now + rand(45000, 90000);
+    }
+    function showTalk(cat, now, force) {
+      const text = CAT_TALK[cat.name];
+      if (!text) return false;
+      if (!force && !canTalk(cat, now)) return false;
+      for (const o of cats) if (o !== cat && o.talking) hideTalk(o, now);
+      if (cat.bubbleUntil) { cat.bubble.classList.remove("show"); cat.bubbleUntil = 0; }
+      cat.say.textContent = text;
+      cat.say.classList.remove("show");
+      void cat.say.offsetWidth;
+      cat.say.classList.add("show");
+      cat.talking = true;
+      cat.sayUntil = now + TALK_MS;
+      return true;
+    }
+    function talkStep(cat, now) {
+      if (cat.talking) {
+        if (now > cat.sayUntil) hideTalk(cat, now);
+        return;
+      }
+      if (now <= (cat.nextTalk || 0)) return;
+      if (canTalk(cat, now)) showTalk(cat, now);
+      else cat.nextTalk = now + rand(800, 2000);
     }
 
     /* =====================================================================
@@ -2156,7 +2215,9 @@ export function mountRoomPets() {
       } else if (e >= a.dur) { finish(cat, now); return; }
     }
     function bubbleStep(cat, now) {
+      talkStep(cat, now);
       /* 心情泡泡：偶爾、隨機出現；半空中和煙霧團裡不冒 */
+      if (cat.talking) return;
       if (cat.bubbleUntil && now > cat.bubbleUntil) {
         hideBubble(cat, now);
         if (soc && inSoc(cat)) cat.nextBubble = now + rand(1800, 4000);
@@ -2405,6 +2466,23 @@ export function mountRoomPets() {
       const x = Math.round(cat.x);
       const bx = clamp(cat._ax, 20 - x, areaW - 20 - x);
       cat.bubble.style.left = bx + "px";
+      {
+        const headX = x + (cat._ax || W * S / 2);
+        const headBottom = cat.y + ((H - f.top) * S + 8);
+        const half = Math.max(18, (cat.say.offsetWidth || 0) / 2);
+        const margin = 6;
+        let shift = 0;
+        if (headX - half < margin) shift = margin + half - headX;
+        else if (headX + half > areaW - margin) shift = (areaW - margin) - (headX + half);
+        const maxShift = Math.max(0, half - 10);
+        shift = clamp(shift, -maxShift, maxShift);
+        cat.say.style.left = headX + "px";
+        cat.say.style.bottom = headBottom + "px";
+        cat.say.style.setProperty("--talk-x", "calc(-50% + " + shift + "px)");
+        cat.say.style.setProperty("--talk-origin", "calc(50% - " + shift + "px)");
+        cat.say.style.setProperty("--talk-tail", "calc(50% - " + shift + "px)");
+        cat.say.style.visibility = cat.hidden ? "hidden" : "";
+      }
       cat.el.style.transform = "translate3d(" + x + "px,0,0)";
       if (renderHang(cat)) return;
       cat.body.style.transform = "translate3d(" + (cat.act.type === "funny" ? (cat.jx || 0).toFixed(1) : "0") + "px," + (-Math.round(cat.y)) + "px,0)";
@@ -3482,6 +3560,8 @@ export function mountRoomPets() {
       for (const el of msgList.querySelectorAll(".bub.jelly")) el.classList.remove("jelly");
       layer.style.display = "none";
       frontWrap.style.display = "none";
+      sayLayer.style.display = "none";
+      for (const c of cats) { try { if (c.talking) hideTalk(c, n); } catch (_) {} }
       if (roosterApi) roosterApi.hide();
       if (warpLayer) warpLayer.style.display = "none";
       chat.style.removeProperty("--cat-walk");
@@ -3492,6 +3572,7 @@ export function mountRoomPets() {
       petsOn = true;
       layer.style.display = "";
       frontWrap.style.display = "";
+      sayLayer.style.display = "";
       if (warpLayer) warpLayer.style.display = "";
       chat.classList.remove("pets-off");
       const n = performance.now();
@@ -3507,6 +3588,7 @@ export function mountRoomPets() {
     if (petsOn === false) petsDisable(); else wake();
     /* 測試用：window.__cats 可以直接觸發互動 */
     window.__cats = { cats, ball, get enabled() { return petsOn !== false; }, setEnabled: (on) => { if (on) petsEnable(); else petsDisable(); }, bonk: (i) => { const c = cats[i || 0]; c.bonkCd = 0; return bonk(c, performance.now()); }, get S() { return S; }, get floorY() { return floorY; },
+      talk: (name, force) => { const c = typeof name === "number" ? cats[name] : cats.find((x) => x.name === name); return showTalk(c, performance.now(), force !== false); },
       throwBall: (x, y, vx, vy) => { ball.state = "loose"; ball.carrier = null; ball.x = x; ball.y = y; ball.vx = vx; ball.vy = vy; onThrow(performance.now()); },
       give: (i) => { endSoc(performance.now()); catchBall(cats[i], performance.now()); },
       ballFight: () => { const n = performance.now(); endSoc(n); if (ball.state !== "carried") catchBall(cats[0], n); const c = ball.carrier; startBallFight(other(c), c, n); },
