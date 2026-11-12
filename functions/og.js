@@ -1,6 +1,8 @@
 /* 網址縮圖代理用的純函式。
    只負責「這條網址能不能抓、抓回來的 HTML 裡標題和圖在哪」。
-   不寫資料庫、不記網址到任何持久儲存。 */
+   不寫資料庫、不記網址到任何持久儲存。
+   部署範圍：改這個檔案就要部署 functions（scripts/deploy-scope.mjs 把 functions 底下的 .js 算進去）。
+   只改 test-*.mjs 不會部署函式。 */
 
 const net = require("node:net");
 
