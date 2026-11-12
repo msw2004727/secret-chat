@@ -560,9 +560,16 @@ export const REAL = (() => {
     const pal = PAL[name];
     const W1 = 1.5, W2 = 1.02;
     /* 遠側的腳 */
+    function restPaw(L, far) {
+      if (!L.restPaw) return;
+      const paw = L.pts[L.pts.length - 1], el = L.pts[L.pts.length - 2];
+      pawUp(ctx, pal, paw.x, paw.y, Math.atan2(paw.y - el.y, paw.x - el.x) + Math.PI / 2, !!L.pawOpen, L.pawS || 0.92);
+      void far;
+    }
     for (const L of p.legs.filter((l) => l.far)) {
-      leg(ctx, pal, L.pts, L.ws || (L.hind ? [1.9, 1.2, 0.95, 1.0] : [W1 * 1.1, W1, W2, W2]), true, L.hind);
+      leg(ctx, pal, L.pts, L.ws || (L.hind ? [1.9, 1.2, 0.95, 1.0] : [W1 * 1.1, W1, W2, W2]), true, L.hind, !!L.restPaw);
       if (L.hind) thigh(ctx, pal, L.pts[0].x + 0.3, L.pts[0].y + 0.4, p.rh * 0.72, p.rh * 0.82, -0.3, true);
+      restPaw(L, true);
     }
     sideBody(ctx, pal, p);
     /* 近側的腳 */
@@ -572,7 +579,10 @@ export const REAL = (() => {
         leg(ctx, pal, L.pts.slice(1), L.ws ? L.ws.slice(1) : [1.4, 1.05, 1.08], false, true);
         const k = L.pts[1], h = L.pts[0];
         thigh(ctx, pal, lerp(h.x, k.x, 0.42), lerp(h.y, k.y, 0.42) - 0.2, p.thighRx || p.rh * 0.82, p.thighRy || p.rh * 0.98, Math.atan2(k.y - h.y, k.x - h.x) - Math.PI / 2, false);
-      } else leg(ctx, pal, L.pts, L.ws || [W1 * 1.15, W1 * 1.02, W2, W2 * 1.05], false, false);
+      } else {
+        leg(ctx, pal, L.pts, L.ws || [W1 * 1.15, W1 * 1.02, W2, W2 * 1.05], false, false, !!L.restPaw);
+        restPaw(L, false);
+      }
     }
     /* 脖子：胸口連到頭 */
     const hd = p.head, ch = p.chest;
@@ -1215,7 +1225,78 @@ export const REAL = (() => {
     }
     return frontPose({});
   }
+  /* 趴著：側面肚皮貼地、身體拉長。
+     backX/backY＝灰貓背中央（橘貓胸口要靠在這裡）；chestX＝橘貓搭住時的胸口。
+     兩隻的畫布對齊方式：orange.x = gray.x + (backX - chestX) * S（臉朝右時）。 */
+  const CLIMB = { backX: 13.6, backY: 14.0, chestX: 16.6, pawX: 24.0, pawY: 13.65, plantShift: 5.8, hipAmp: 1.15, hipHz: 5 };
+  function liePose(i) {
+    const glance = i === 1 || i === 3;
+    const flick = i === 2 || i === 3;
+    const head = glance
+      ? { x: 23.7, y: 12.55, tilt: -0.22, eyes: "open", pupil: 0.42, earBack: 0.06 }
+      : { x: 24.5, y: 14.15, tilt: 0.08, eyes: "closed" };
+    const tail = flick
+      ? { x: 6.0, y: 17.2, a: Math.PI + 0.55, curve: 0.16, len: 8.8, w: 1.35, floor: 19.45, tipCurl: 0.7 }
+      : { x: 6.0, y: 17.55, a: Math.PI + 0.12, curve: 0.03, len: 8.4, w: 1.35, floor: 19.45, tipCurl: 0.28 };
+    return std({
+      hip: P(8.7, 16.85), chest: P(18.7, 16.55), rh: 2.72, rc: 2.62, sag: 0.32,
+      mid: { rx: 5.15, ry: 2.32, dx: 0.05, dy: 0.12 },
+      legs: [
+        { far: true, hind: true, pts: hindLeg(P(8.2, 17.3), P(6.4, fy - 0.45), P(10.2, 17.9), P(7.6, 18.7)) },
+        { far: true, pts: frontLeg(P(18.4, 17.5), P(19.6, fy - 0.45), 0.25) },
+        { hind: true, pts: hindLeg(P(9.2, 17.35), P(8.0, fy - 0.45), P(11.0, 17.8), P(8.6, 18.65)) },
+        { pts: frontLeg(P(19.2, 17.45), P(21.0, fy - 0.45), 0.2) }
+      ],
+      head, tail
+    });
+  }
+  /* 從後面靠上去抱抱：後腳踩在灰貓屁股旁的地板上，肚子／胸口貼在背上，
+     前腳搭在肩膀，下巴可以靠上去。身體在搭住時不再前後動（只有爪子輕輕踩、頭歪一下）。
+     0 蹲在後面、1 往前靠、2 貼住、3/4 踩奶、5 下巴靠上去並歪頭 */
+  function rearPose(i) {
+    const hold = i >= 2;
+    const u = i <= 0 ? 0 : i === 1 ? 0.55 : 1;
+    const chin = i === 5;
+    const hip = P(lerp(10.2, 11.3, u), lerp(14.6, 13.55, u));
+    const chest = P(lerp(16.4, CLIMB.chestX, u), lerp(13.5, 12.35, u));
+    const hx = lerp(21.0, chin ? 21.45 : 21.15, u);
+    const hy = lerp(9.8, chin ? 12.05 : 11.35, u);
+    const nearPress = i === 3 ? 0.85 : 0;
+    const farPress = i === 4 ? 0.85 : 0;
+    const tilt = chin ? 0.58 : (hold ? 0.38 : lerp(0.08, 0.38, u));
+    const eyes = chin ? "happy" : (hold ? "half" : "open");
+    const fpFar = P(lerp(17.4, 22.6, u), lerp(19.15, CLIMB.pawY + 0.22, u) + farPress);
+    const fpNear = P(lerp(18.6, CLIMB.pawX, u), lerp(19.05, CLIMB.pawY, u) + nearPress);
+    const rest = u > 0.7;
+    return std({
+      hip, chest, rh: lerp(3.15, 3.05, u), rc: lerp(3.05, 3.15, u), sag: lerp(0.18, 0.42, u),
+      mid: { rx: lerp(4.0, 4.6, u), ry: lerp(2.7, 3.15, u), dx: 0.15, dy: lerp(0.05, 0.25, u) },
+      legs: [
+        { far: true, hind: true, pts: hindLeg(P(hip.x - 0.45, hip.y + 0.65), P(8.15, fy - 0.45), P(10.6, lerp(16.8, 15.6, u)), P(8.5, lerp(17.9, 17.2, u))) },
+        { far: true, restPaw: rest, pawOpen: i === 4, pts: frontLeg(P(chest.x + 0.7, chest.y + 1.15), fpFar, 0.55) },
+        { hind: true, pts: hindLeg(P(hip.x + 0.5, hip.y + 0.7), P(9.55, fy - 0.45), P(11.5, lerp(16.6, 15.4, u)), P(9.35, lerp(17.8, 17.1, u))) },
+        { restPaw: rest, pawOpen: i === 3, pts: frontLeg(P(chest.x + 1.05, chest.y + 1.05), fpNear, 0.65) }
+      ],
+      head: { x: hx, y: hy, tilt, eyes, pupil: hold ? 0.28 : 0.4, earBack: hold ? 0.08 : 0 },
+      tail: { x: hip.x - 2.3, y: hip.y - 0.2, a: lerp(-2.05, -2.25, u) - (chin ? 0.12 : 0), curve: 0.14, len: 8.2, w: 1.4, tipCurl: 0.45 }
+    });
+  }
+  /* 搭住時腰部快速小幅前後擺（前腳掌、後腳掌位置不變） */
+  function hipSwayPose(pose, amt) {
+    if (!pose || !amt) return pose;
+    return Object.assign({}, pose, {
+      hip: P(pose.hip.x + amt, pose.hip.y),
+      tail: pose.tail ? Object.assign({}, pose.tail, { x: pose.tail.x + amt }) : pose.tail,
+      legs: (pose.legs || []).map((leg) => {
+        if (!leg.hind || !leg.pts) return leg;
+        const n = leg.pts.length;
+        return Object.assign({}, leg, { pts: leg.pts.map((pt, i) => i === n - 1 ? pt : P(pt.x + amt * (i === 0 ? 1 : 0.55), pt.y)) });
+      })
+    });
+  }
   function poseFor(anim, i, extra) {
+
+
     extra = extra || {};
     switch (anim) {
       case "sit": return frontPose({});
@@ -1244,6 +1325,8 @@ export const REAL = (() => {
       case "poop": return poopPose(i);
       case "pet": return petPose(PET_KEYS[i]);
       case "claw": return frontPose({ cx: 16, stretch: 3.4, head: { x: 16, y: 5.7, tilt: 0, pupil: 0.36 }, raise: "claw", tail: { x: 18.6, y: fy - 0.9, a: -0.25, curve: -0.12, len: 8.0, w: 1.35, tipCurl: -0.5, floor: 19.6, front: false } });
+      case "lie": return liePose(i);
+      case "rear": return rearPose(i);
     }
     return frontPose({});
   }
@@ -1463,5 +1546,5 @@ export const REAL = (() => {
     else { ctx.fillStyle = pal.belly; ctx.beginPath(); ctx.arc(e.x, e.y, ws[ws.length - 1] * 0.5, 0, TAU); ctx.fill();
       if (kind === "paw") { ctx.fillStyle = pal.pad; for (const a of [-0.6, 0, 0.6]) { ctx.beginPath(); ctx.arc(e.x + Math.cos(a) * 0.35, e.y + Math.sin(a) * 0.35, 0.14, 0, TAU); ctx.fill(); } } }
   }
-  return { PAL, PET_KEYS, RUB_N, RUB_C, rubPress, poseFor, drawBody, drawTail, blinkLids, drawTailHeart, furLimb, shade, HF, hangLimbs, hangTail, hangMouthCut, hangState, hangBodyXf, clawArms };
+  return { PAL, PET_KEYS, RUB_N, RUB_C, rubPress, poseFor, drawBody, drawTail, blinkLids, drawTailHeart, furLimb, shade, HF, hangLimbs, hangTail, hangMouthCut, hangState, hangBodyXf, clawArms, CLIMB, liePose, rearPose, hipSwayPose };
 })();
