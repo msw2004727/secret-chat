@@ -544,6 +544,8 @@ async function handleLineAuth(req, res) {
     let profile;
     try { profile = (await getDb().ref(`lineProfiles/${uid}`).get()).val(); }
     catch (_) { return deny("讀取 LINE 資料失敗"); }
+    try { await getAdminAuth().setCustomUserClaims(uid, { lp: true }); }
+    catch (err) { logger.warn("setCustomUserClaims", err && err.message); }
     if (!profile || typeof profile.n !== "string" || !profile.n.trim() ||
         typeof profile.verifiedAt !== "number" || Date.now() - profile.verifiedAt > 24 * 60 * 60 * 1000) {
       res.status(200).json({ refreshProfile: true }); return;
@@ -618,9 +620,12 @@ async function handleLineAuth(req, res) {
     } catch (err) { logger.warn("登記申請失敗", err && err.message); return deny("登記申請失敗"); }
   }
 
-  /* ⑥ 發票（knock 不需要，前端本來就有身分） */
+  /* ⑥ 發票（knock 不需要，前端本來就有身分）。
+     lp 同時寫進帳號，之後 ID token 自己更新也還在，不會只活在這一張 custom token。 */
   let token = null;
   if (body.knock !== true) {
+    try { await getAdminAuth().setCustomUserClaims(uid, { lp: true }); }
+    catch (err) { logger.error("setCustomUserClaims 失敗", err && err.message); return deny("發票失敗"); }
     try { token = await getAdminAuth().createCustomToken(uid, { lp: true }); }
     catch (err) { logger.error("createCustomToken 失敗（IAM 少了 Service Account Token Creator？）", err && err.message); return deny("發票失敗"); }
   }
