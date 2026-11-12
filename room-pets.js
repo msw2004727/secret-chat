@@ -6,7 +6,7 @@ import { attachBobo } from "./bobo-room.js";
 import { attachQuokka } from "./quokka-room.js";
 export function mountRoomPets() {
     "use strict";
-    const DATA = {"W":32,"H":20,"pal":{"gray":{"k":"#010101","b":"#a79e99","d":"#6f645e","p":"#efaea1","w":"#fefdfb","t":"#e27880","f":"#807873"},"brown":{"k":"#010101","b":"#cd804e","d":"#c86b2b","p":"#ebcebf","w":"#fcfefc","t":"#e27880","f":"#ac6230"}},"frames":{"gray":{"sit":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbwbbbwbbdk/....kkkbbbkbkbkbbbkkk/......kdbbbbbbbbbdk/....kkkbbbbbbbbbbbkkk/.......kkbbbbbbbkk....kkk/.........kbbbbbk.....kdddk/.........kppbbddk...kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk"],"walk":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbppppppbbbbbk/...kbbkkffkkkkkbbkffk/...kbbkkffk...kbbkffk/...kbbkkffk...kbbkffk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbpppppppbbbbk/....kbbffkkkkkkkbbfk/....kbbffk.....kbbfk/....kbbkk.......kffk/.....kk..........kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbbpppppppbbbk/...kffkkbbkkkkkffkbbk/...kffkkbbk...kffkbbk/...kffkkbbk...kffkbbk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbppppppppbbbk/....kffbbkkkkkkkfbbk/....kffbbk.....kfbbk/....kffkk.......kbbk/.....kk..........kk"],"run":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkbbkffkkffkbbkk/......kbbkffkkffkbbk/......kbbkffkkffkbbk/.......kbbkffffkbbk/........kk.kkkk.kk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbdbbdbbdbbbbbbbbbbbbkk.kk/..kkbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbbbkkk/...kbbbbbppppppppppbbbk/..kffbbkkkkkkkkkkkkbbffk/..kfbbk............kbbfk/.kfbbk..............kbbfk/.kbbk................kbbk/..kk..................kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kfbbkkkkkkkbbfkk/.....kfbbk.....kbbfk/.....kfbbk.....kbbfk/....kfbbk.......kbbfk/.....kkk.........kkk","////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkkkbbfffbbkkkkk/........kbbfffbbk/.......kbbffffkbbk/........kkkkkk.kk"],"jump":["//////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbffbpppppppffbbk/...kbbffkkkkkkkkffbbk/....kkkk........kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/.............kbbbbbbbbbkbbbtkk/....kkkkkkkkkkbbbbbbbbbbbbbk/...kbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/.kddbbbbbbbbbbbbbbbbkbbkk/kbbkbbbbbbbbbbbbbbbbbbk/ddkkbbbbbppppppppbbbkk/kkkffbbkkkkkkkkkkkkk/.kffbbk/kffbbk/.kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/...kk........kbbbdbdbbbbbbk/..kbbk.......kbbbbbbbbbwbbkk..k/.kbbk........kbbbbbbbbbkbbbtkk/.kddkkkkkkkkkkbbbbbbbbbbbbbk/..kbbbbdbbdbbdbbbbbbbbbbbkk.kk/...kbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbkkkkk/....kbbbbbbbbbbbbbbbk/....kbbbfbpppppfbbbbk/.....kbbfkkkkkkfbbkk/......kbbk....kbbk/.......kk......kk"],"sleep":["///////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/...kkbbbbbbbbbkdbbbbbbbbbdk/..kdbbbbbbbbkkkbbkkbkbkkbbkkk/..kbdbbbdbbbdbkdbbbbbbbbbdk/...kkkkkkkkkkkkbbbbbbbbbbbkkk","//////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/....kbbbbbbbbbkdbbbbbbbbbdk/...kkbbbbbbbkkkbbkkbkbkkbbkkk/..kdbbbbbbbbbbkdbbbbbbbbbdk/..kbdbbbdbbbkkkbbbbbbbbbbbkkk/...kkkkkkkkk...kkkkkkkkkkk"],"scratch":["/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk/..........kdbbwbbbwbbdk...kk/........kkkbbbkbkbkbbbkkkkbbk/..........kdbbbbbbbbbdkkbbbbk/........kkkbbbbbbbbbbbbbbbkk/...........kbbbbbbbbbbbbkk/...........kbbppppbbbbkkkkkk/...........kbbppppbbffffffffk/...........kbbppppbbffffffffk/.......kk..kbbppppbbkkkkkkkk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk","/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk...kk/..........kdbbwbbbwbbdk.kkffk/........kkkbbbkbkbkbbbkkffffk/..........kdbbbbbbbbbdffffkk/........kkkbbbbbbbbbffffkkkk/...........kbbbbbbbbffkkbbbbk/...........kbbppppbbbbbbbbbbk/...........kbbppppbbbbbbkkkk/...........kbbppppbbkkkk/.......kk..kbbppppbbk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk"],"lick1":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdkkkkbbbbbdk/....kkkbkppkkbkkbbkkk/......kdkbbktbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk","///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbkkkkkbkkbbkkk/......kdkppkbbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk"],"lick2":["/////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk/......kdbbbbtbbbbdk...kkk/....kkkbbbbbbbbbbbkkkkdddk/.......kkkppbbddkk..kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk","//////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk.kkk/......kdbbbbtbbbbdk..kdddk/....kkkbbbbbbbbbbbkkkdbdbk/.......kkkpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk"],"lick3":["//......kkk/.....kpppk/.....kpppk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbkkdbbbbtbbbbdk/.....kbbkkkbbbbbbbbbbbkkk/.....kbbbbbbbbbbbbbbbbbk...kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk","//......kkk/.....kpppk/.....kpppk/.....kbbbk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbbkdbbbbbbbbbdk/.....kbbkkkbbbbbbbbbbbkkk..kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk"]},"brown":{"sit":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbwbbbwbbdk/....kkkbbbkbkbkbbbkkk/......kdbbbbbbbbbdk/....kkkbbbbbbbbbbbkkk/.......kkbbbbbbbkk....kkk/.........kbbbbbk.....kdddk/.........kppbbddk...kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk"],"walk":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbppppppbbbbbk/...kbbkkffkkkkkbbkffk/...kbbkkffk...kbbkffk/...kbbkkffk...kbbkffk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbpppppppbbbbk/....kbbffkkkkkkkbbfk/....kbbffk.....kbbfk/....kbbkk.......kffk/.....kk..........kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbbpppppppbbbk/...kffkkbbkkkkkffkbbk/...kffkkbbk...kffkbbk/...kffkkbbk...kffkbbk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbppppppppbbbk/....kffbbkkkkkkkfbbk/....kffbbk.....kfbbk/....kffkk.......kbbk/.....kk..........kk"],"run":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkbbkffkkffkbbkk/......kbbkffkkffkbbk/......kbbkffkkffkbbk/.......kbbkffffkbbk/........kk.kkkk.kk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbdbbdbbdbbbbbbbbbbbbkk.kk/..kkbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbbbkkk/...kbbbbbppppppppppbbbk/..kffbbkkkkkkkkkkkkbbffk/..kfbbk............kbbfk/.kfbbk..............kbbfk/.kbbk................kbbk/..kk..................kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kfbbkkkkkkkbbfkk/.....kfbbk.....kbbfk/.....kfbbk.....kbbfk/....kfbbk.......kbbfk/.....kkk.........kkk","////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkkkbbfffbbkkkkk/........kbbfffbbk/.......kbbffffkbbk/........kkkkkk.kk"],"jump":["//////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbffbpppppppffbbk/...kbbffkkkkkkkkffbbk/....kkkk........kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/.............kbbbbbbbbbkbbbtkk/....kkkkkkkkkkbbbbbbbbbbbbbk/...kbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/.kddbbbbbbbbbbbbbbbbkbbkk/kbbkbbbbbbbbbbbbbbbbbbk/ddkkbbbbbppppppppbbbkk/kkkffbbkkkkkkkkkkkkk/.kffbbk/kffbbk/.kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/...kk........kbbbdbdbbbbbbk/..kbbk.......kbbbbbbbbbwbbkk..k/.kbbk........kbbbbbbbbbkbbbtkk/.kddkkkkkkkkkkbbbbbbbbbbbbbk/..kbbbbdbbdbbdbbbbbbbbbbbkk.kk/...kbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbkkkkk/....kbbbbbbbbbbbbbbbk/....kbbbfbpppppfbbbbk/.....kbbfkkkkkkfbbkk/......kbbk....kbbk/.......kk......kk"],"sleep":["///////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/...kkbbbbbbbbbkdbbbbbbbbbdk/..kdbbbbbbbbkkkbbkkbkbkkbbkkk/..kbdbbbdbbbdbkdbbbbbbbbbdk/...kkkkkkkkkkkkbbbbbbbbbbbkkk","//////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/....kbbbbbbbbbkdbbbbbbbbbdk/...kkbbbbbbbkkkbbkkbkbkkbbkkk/..kdbbbbbbbbbbkdbbbbbbbbbdk/..kbdbbbdbbbkkkbbbbbbbbbbbkkk/...kkkkkkkkk...kkkkkkkkkkk"],"scratch":["/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk/..........kdbbwbbbwbbdk...kk/........kkkbbbkbkbkbbbkkkkbbk/..........kdbbbbbbbbbdkkbbbbk/........kkkbbbbbbbbbbbbbbbkk/...........kbbbbbbbbbbbbkk/...........kbbppppbbbbkkkkkk/...........kbbppppbbffffffffk/...........kbbppppbbffffffffk/.......kk..kbbppppbbkkkkkkkk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk","/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk...kk/..........kdbbwbbbwbbdk.kkffk/........kkkbbbkbkbkbbbkkffffk/..........kdbbbbbbbbbdffffkk/........kkkbbbbbbbbbffffkkkk/...........kbbbbbbbbffkkbbbbk/...........kbbppppbbbbbbbbbbk/...........kbbppppbbbbbbkkkk/...........kbbppppbbkkkk/.......kk..kbbppppbbk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk"],"lick1":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdkkkkbbbbbdk/....kkkbkppkkbkkbbkkk/......kdkbbktbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk","///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbkkkkkbkkbbkkk/......kdkppkbbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk"],"lick2":["/////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk/......kdbbbbtbbbbdk...kkk/....kkkbbbbbbbbbbbkkkkdddk/.......kkkppbbddkk..kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk","//////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk.kkk/......kdbbbbtbbbbdk..kdddk/....kkkbbbbbbbbbbbkkkdbdbk/.......kkkpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk"],"lick3":["//......kkk/.....kpppk/.....kpppk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbkkdbbbbtbbbbdk/.....kbbkkkbbbbbbbbbbbkkk/.....kbbbbbbbbbbbbbbbbbk...kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk","//......kkk/.....kpppk/.....kpppk/.....kbbbk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbbkdbbbbbbbbbdk/.....kbbkkkbbbbbbbbbbbkkk..kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk"]}}};
+    const DATA = {"W":32,"H":20,"pal":{"gray":{"k":"#010101","b":"#a79e99","d":"#6f645e","p":"#efaea1","w":"#fefdfb","t":"#e27880","f":"#807873"},"brown":{"k":"#9aadc4","b":"#3a4458","d":"#242c3c","p":"#7d8ca3","w":"#f7f4e4","t":"#e2c14a","f":"#2a3344"}},"frames":{"gray":{"sit":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbwbbbwbbdk/....kkkbbbkbkbkbbbkkk/......kdbbbbbbbbbdk/....kkkbbbbbbbbbbbkkk/.......kkbbbbbbbkk....kkk/.........kbbbbbk.....kdddk/.........kppbbddk...kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk"],"walk":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbppppppbbbbbk/...kbbkkffkkkkkbbkffk/...kbbkkffk...kbbkffk/...kbbkkffk...kbbkffk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbpppppppbbbbk/....kbbffkkkkkkkbbfk/....kbbffk.....kbbfk/....kbbkk.......kffk/.....kk..........kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbbpppppppbbbk/...kffkkbbkkkkkffkbbk/...kffkkbbk...kffkbbk/...kffkkbbk...kffkbbk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbppppppppbbbk/....kffbbkkkkkkkfbbk/....kffbbk.....kfbbk/....kffkk.......kbbk/.....kk..........kk"],"run":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkbbkffkkffkbbkk/......kbbkffkkffkbbk/......kbbkffkkffkbbk/.......kbbkffffkbbk/........kk.kkkk.kk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbdbbdbbdbbbbbbbbbbbbkk.kk/..kkbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbbbkkk/...kbbbbbppppppppppbbbk/..kffbbkkkkkkkkkkkkbbffk/..kfbbk............kbbfk/.kfbbk..............kbbfk/.kbbk................kbbk/..kk..................kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kfbbkkkkkkkbbfkk/.....kfbbk.....kbbfk/.....kfbbk.....kbbfk/....kfbbk.......kbbfk/.....kkk.........kkk","////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkkkbbfffbbkkkkk/........kbbfffbbk/.......kbbffffkbbk/........kkkkkk.kk"],"jump":["//////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbffbpppppppffbbk/...kbbffkkkkkkkkffbbk/....kkkk........kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/.............kbbbbbbbbbkbbbtkk/....kkkkkkkkkkbbbbbbbbbbbbbk/...kbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/.kddbbbbbbbbbbbbbbbbkbbkk/kbbkbbbbbbbbbbbbbbbbbbk/ddkkbbbbbppppppppbbbkk/kkkffbbkkkkkkkkkkkkk/.kffbbk/kffbbk/.kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/...kk........kbbbdbdbbbbbbk/..kbbk.......kbbbbbbbbbwbbkk..k/.kbbk........kbbbbbbbbbkbbbtkk/.kddkkkkkkkkkkbbbbbbbbbbbbbk/..kbbbbdbbdbbdbbbbbbbbbbbkk.kk/...kbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbkkkkk/....kbbbbbbbbbbbbbbbk/....kbbbfbpppppfbbbbk/.....kbbfkkkkkkfbbkk/......kbbk....kbbk/.......kk......kk"],"sleep":["///////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/...kkbbbbbbbbbkdbbbbbbbbbdk/..kdbbbbbbbbkkkbbkkbkbkkbbkkk/..kbdbbbdbbbdbkdbbbbbbbbbdk/...kkkkkkkkkkkkbbbbbbbbbbbkkk","//////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/....kbbbbbbbbbkdbbbbbbbbbdk/...kkbbbbbbbkkkbbkkbkbkkbbkkk/..kdbbbbbbbbbbkdbbbbbbbbbdk/..kbdbbbdbbbkkkbbbbbbbbbbbkkk/...kkkkkkkkk...kkkkkkkkkkk"],"scratch":["/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk/..........kdbbwbbbwbbdk...kk/........kkkbbbkbkbkbbbkkkkbbk/..........kdbbbbbbbbbdkkbbbbk/........kkkbbbbbbbbbbbbbbbkk/...........kbbbbbbbbbbbbkk/...........kbbppppbbbbkkkkkk/...........kbbppppbbffffffffk/...........kbbppppbbffffffffk/.......kk..kbbppppbbkkkkkkkk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk","/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk...kk/..........kdbbwbbbwbbdk.kkffk/........kkkbbbkbkbkbbbkkffffk/..........kdbbbbbbbbbdffffkk/........kkkbbbbbbbbbffffkkkk/...........kbbbbbbbbffkkbbbbk/...........kbbppppbbbbbbbbbbk/...........kbbppppbbbbbbkkkk/...........kbbppppbbkkkk/.......kk..kbbppppbbk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk"],"lick1":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdkkkkbbbbbdk/....kkkbkppkkbkkbbkkk/......kdkbbktbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk","///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbkkkkkbkkbbkkk/......kdkppkbbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk"],"lick2":["/////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk/......kdbbbbtbbbbdk...kkk/....kkkbbbbbbbbbbbkkkkdddk/.......kkkppbbddkk..kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk","//////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk.kkk/......kdbbbbtbbbbdk..kdddk/....kkkbbbbbbbbbbbkkkdbdbk/.......kkkpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kddkbbkbbkk/..........kkkkkkkk"],"lick3":["//......kkk/.....kpppk/.....kpppk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbkkdbbbbtbbbbdk/.....kbbkkkbbbbbbbbbbbkkk/.....kbbbbbbbbbbbbbbbbbk...kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk","//......kkk/.....kpppk/.....kpppk/.....kbbbk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbbkdbbbbbbbbbdk/.....kbbkkkbbbbbbbbbbbkkk..kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk"]},"brown":{"sit":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbwbbbwbbdk/....kkkbbbkbkbkbbbkkk/......kdbbbbbbbbbdk/....kkkbbbbbbbbbbbkkk/.......kkbbbbbbbkk....kkk/.........kbbbbbk.....kdddk/.........kppbbddk...kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk"],"walk":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbppppppbbbbbk/...kbbkkffkkkkkbbkffk/...kbbkkffk...kbbkffk/...kbbkkffk...kbbkffk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbpppppppbbbbk/....kbbffkkkkkkkbbfk/....kbbffk.....kbbfk/....kbbkk.......kffk/.....kk..........kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kddk.........kbbbbbbbbbwbbkk..k/kbbk.........kbbbbbbbbbkbbbtkk/kddkkkkkkkkkkkbbbbbbbbbbbbbk/.kbbbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbbbbbbbbbbbbk/...kbbbbbbpppppppbbbk/...kffkkbbkkkkkffkbbk/...kffkkbbk...kffkbbk/...kffkkbbk...kffkbbk/....kk..kk.....kk.kk","////................k.....k/...............kbk...kbk/...kk.........kbpbkkkbpbk/..kbbk........kbppbbbppbbk/.kddk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbbbbppppppppbbbk/....kffbbkkkkkkkfbbk/....kffbbk.....kfbbk/....kffkk.......kbbk/.....kk..........kk"],"run":["///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkbbkffkkffkbbkk/......kbbkffkkffkbbk/......kbbkffkkffkbbk/.......kbbkffffkbbk/........kk.kkkk.kk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbdbbdbbdbbbbbbbbbbbbkk.kk/..kkbbdbbdbbdbbdbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbbbkkk/...kbbbbbppppppppppbbbk/..kffbbkkkkkkkkkkkkbbffk/..kfbbk............kbbfk/.kfbbk..............kbbfk/.kbbk................kbbk/..kk..................kk","///................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kfbbkkkkkkkbbfkk/.....kfbbk.....kbbfk/.....kfbbk.....kbbfk/....kfbbk.......kbbfk/.....kkk.........kkk","////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/kkk..........kbbbbbbbbbkbbbtkk/bbdkkkkkkkkkkkbbbbbbbbbbbbbk/kkbbdbbdbbdbbdbbbbbbbbbbbkk.kk/..kkbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbbkkkk/....kbbbbbppppppppbbbk/.....kkkkbbfffbbkkkkk/........kbbfffbbk/.......kbbffffkbbk/........kkkkkk.kk"],"jump":["//////................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..kk..........kbppbbbppbbk/.kbbk........kbbbdbdbbbbbbk/kbbk.........kbbbbbbbbbwbbkk..k/kddkkkkkkkkkkkbbbbbbbbbkbbbtkk/.kbbbbdbbdbbdbbbbbbbbbbbbbbk/..kbbbdbbdbbdbbbbbbbbbbbbkk.kk/...kbbbbbbbbbbbbbbbbbbbbbk....k/...kbbbbbbbbbbbbbbbbkkkkk/...kbbffbpppppppffbbk/...kbbffkkkkkkkkffbbk/....kkkk........kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/.............kbbbdbdbbbbbbk/.............kbbbbbbbbbwbbkk..k/.............kbbbbbbbbbkbbbtkk/....kkkkkkkkkkbbbbbbbbbbbbbk/...kbbdbbdbbdbbbbbbbbbbbbkk.kk/..kbbbdbbdbbdbbdbbbbbbbbbk....k/.kddbbbbbbbbbbbbbbbbkbbkk/kbbkbbbbbbbbbbbbbbbbbbk/ddkkbbbbbppppppppbbbkk/kkkffbbkkkkkkkkkkkkk/.kffbbk/kffbbk/.kkkk","//................k.....k/...............kbk...kbk/..............kbpbkkkbpbk/..............kbppbbbppbbk/...kk........kbbbdbdbbbbbbk/..kbbk.......kbbbbbbbbbwbbkk..k/.kbbk........kbbbbbbbbbkbbbtkk/.kddkkkkkkkkkkbbbbbbbbbbbbbk/..kbbbbdbbdbbdbbbbbbbbbbbkk.kk/...kbbbdbbdbbdbbbbbbbbbbbk....k/....kbbbbbbbbbbbbbbbkkkkk/....kbbbbbbbbbbbbbbbk/....kbbbfbpppppfbbbbk/.....kbbfkkkkkkfbbkk/......kbbk....kbbk/.......kk......kk"],"sleep":["///////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/...kkbbbbbbbbbkdbbbbbbbbbdk/..kdbbbbbbbbkkkbbkkbkbkkbbkkk/..kbdbbbdbbbdbkdbbbbbbbbbdk/...kkkkkkkkkkkkbbbbbbbbbbbkkk","//////////...............kkk.....kkk/......kkkkkkkkkpbbkkkkkbbpk/.....kbbdbbdbbkppbdbdbdbppk/....kbbbdbbdbbkbbbdbbbdbbbk/....kbbbbbbbbbkbbbbbbbbbbbk/....kbbbbbbbbbkdbbbbbbbbbdk/...kkbbbbbbbkkkbbkkbkbkkbbkkk/..kdbbbbbbbbbbkdbbbbbbbbbdk/..kbdbbbdbbbkkkbbbbbbbbbbbkkk/...kkkkkkkkk...kkkkkkkkkkk"],"scratch":["/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk/..........kdbbwbbbwbbdk...kk/........kkkbbbkbkbkbbbkkkkbbk/..........kdbbbbbbbbbdkkbbbbk/........kkkbbbbbbbbbbbbbbbkk/...........kbbbbbbbbbbbbkk/...........kbbppppbbbbkkkkkk/...........kbbppppbbffffffffk/...........kbbppppbbffffffffk/.......kk..kbbppppbbkkkkkkkk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk","/...........kkk.....kkk/..........kpbbkkkkkbbpk/..........kppbdbdbdbppk/..........kbbbdbbbdbbbk/..........kbbbbbbbbbbbk...kk/..........kdbbwbbbwbbdk.kkffk/........kkkbbbkbkbkbbbkkffffk/..........kdbbbbbbbbbdffffkk/........kkkbbbbbbbbbffffkkkk/...........kbbbbbbbbffkkbbbbk/...........kbbppppbbbbbbbbbbk/...........kbbppppbbbbbbkkkk/...........kbbppppbbkkkk/.......kk..kbbppppbbk/......kddk.kbbppppbbk/.......kbbkbbbbbbbbbk/........kddbkffkkbbk/.........kkkkffkkbbk/.............kk..kk"],"lick1":["///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdkkkkbbbbbdk/....kkkbkppkkbkkbbkkk/......kdkbbktbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk","///.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbkkkkkbkkbbkkk/......kdkppkbbbbbdk/....kkkbkbbkbbbbbbkkk/.......kkbbkbbbbkk....kkk/........kbbkbbbk.....kdddk/........kbbkbbddk...kdbdbk/........kdbkpbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk"],"lick2":["/////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk/......kdbbbbtbbbbdk...kkk/....kkkbbbbbbbbbbbkkkkdddk/.......kkkppbbddkk..kdbdbk/.........kpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk","//////.......kkk.....kkk/......kpbbkkkkkbbpk/......kppbdbdbdbppk/......kbbbdbbbdbbbk/......kbbbbbbbbbbbk/......kdbbbbbbbbbdk/....kkkbbkkbkbkkbbkkk.kkk/......kdbbbbtbbbbdk..kdddk/....kkkbbbbbbbbbbbkkkdbdbk/.......kkkpppbbddk.kbdkkk/.........kppppbbddkbbk/.........kppppbbbbdbk/.........kbbkbbkbbkk/..........kkkkkkkk"],"lick3":["//......kkk/.....kpppk/.....kpppk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbkkdbbbbtbbbbdk/.....kbbkkkbbbbbbbbbbbkkk/.....kbbbbbbbbbbbbbbbbbk...kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk","//......kkk/.....kpppk/.....kpppk/.....kbbbk/.....kbbbk.kkk.....kkk/.....kbbbkkpbbkkkkkbbpk/.....kbbbkkppbdbdbdbppk/.....kbbbkkbbbdbbbdbbbk/.....kbbbkkbbbbbbbbbbbk/.....kbbbkkdbbbbbbbbbdk/.....kbbkkkbbkkbkbkkbbkkk/.....kbbbbkdbbbbbbbbbdk/.....kbbkkkbbbbbbbbbbbkkk..kk/......kkbbbbbbbbbbbbbbbk.kkddk/.......kbbbbbbbbbbbbbbbkkdbbk/.......kbbbbbbbbbbbbbbbbbbkk/.......kbbpppppppppppbbkkk/........kkkkkkkkkkkkkkk"]}}};
     /* 垂下來過的訊息（用訊息 id 記）：貓永遠不咬、不吊、不跳上去。
        來源：droop.js 的同步紀錄（Droop.last，資料庫 dr/$msgId，有紀錄＝垂過，包含已經挺回來的）、
        row 上的 data-drooped、以及這次開著時收到的 bub-droop 事件。三個都看，換節點／重畫也認得。 */
@@ -342,12 +342,15 @@ export function mountRoomPets() {
     const resHooks = [];
     const realCache = new Map();
     function realBody(name, f, bk, gw, gh) {
-      const key = name + ":" + f.anim + ":" + f.fi + ":" + (bk ? 1 : 0) + (bk === 2 ? "s" : "");
+      const k = catK(name);
+      const key = name + ":" + f.anim + ":" + f.fi + ":" + (bk ? 1 : 0) + (bk === 2 ? "s" : "") + ":" + k;
       let cv = realCache.get(key);
       if (cv) return cv;
       cv = document.createElement("canvas");
-      cv.width = Math.round(gw * RES); cv.height = Math.round(gh * RES);
+      /* 黑貓直接畫在 1.1 倍的畫布上，不要先畫小圖再放大，邊緣才不會糊 */
+      cv.width = Math.round(gw * RES * k); cv.height = Math.round(gh * RES * k);
       const c = cv.getContext("2d");
+      c.imageSmoothingEnabled = true;
       c.setTransform(cv.width / gw, 0, 0, cv.height / gh, 0, 0);
       if (f.rot) { c.translate(0, 32); c.rotate(-Math.PI / 2); }
       const pose = bk ? Object.assign({}, f.pose, { head: Object.assign({}, f.pose.head) }) : f.pose;
@@ -357,7 +360,13 @@ export function mountRoomPets() {
       return cv;
     }
 
-    /* ----- 尺寸：手機上 3 倍、很窄時 2 倍，再縮小 15% ----- */
+    /* ----- 尺寸：手機上 3 倍、很窄時 2 倍，再縮小 15%。黑貓比灰貓大 10%。 ----- */
+    const BROWN_K = 1.1;
+    function catK(cat) {
+      const name = typeof cat === "string" ? cat : cat && cat.name;
+      return name === "brown" ? BROWN_K : 1;
+    }
+    function catS(cat) { return S * catK(cat); }
     let S = 2.55, areaW = 360, floorPx = 60, floorY = 500, topY = 54;
     let spawned = false;
     function chatLive() { return !chat.hidden && chat.clientWidth >= 20; }
@@ -382,15 +391,17 @@ export function mountRoomPets() {
       }
       if (typeof ball !== "undefined") { ball.x = clamp(ball.x, BR, areaW - BR); ball.y = clamp(ball.y, topY + BR, floorY - BR); }
       for (const c of cats) {
-        c.el.style.width = W * S + "px";
-        c.el.style.height = H * S + "px";
-        c.body.style.width = W * S + "px";
-        c.body.style.height = H * S + "px";
-        c.shadow.style.width = 18 * S + "px";
-        if (c.cv.width !== Math.round(W * RES)) { c.cv.width = Math.round(W * RES); c.cv.height = Math.round(H * RES); }
-        if (c.hangCv && c.hangCv.width !== Math.round(HANG_W * RES)) {
-          c.hangCv.width = c.hangFront.width = Math.round(HANG_W * RES);
-          c.hangCv.height = c.hangFront.height = Math.round(HANG_H * RES);
+        const ks = catS(c);
+        c.el.style.width = W * ks + "px";
+        c.el.style.height = H * ks + "px";
+        c.body.style.width = W * ks + "px";
+        c.body.style.height = H * ks + "px";
+        c.shadow.style.width = 18 * ks + "px";
+        const bw = Math.round(W * RES * catK(c)), bh = Math.round(H * RES * catK(c));
+        if (c.cv.width !== bw) { c.cv.width = bw; c.cv.height = bh; }
+        if (c.hangCv && c.hangCv.width !== Math.round(HANG_W * RES * catK(c))) {
+          c.hangCv.width = c.hangFront.width = Math.round(HANG_W * RES * catK(c));
+          c.hangCv.height = c.hangFront.height = Math.round(HANG_H * RES * catK(c));
           c.hangKey = null;
         }
         c.x = clamp(c.x, Math.min(minX(), wallX(-1)), Math.max(maxX(), wallX(1)));
@@ -410,8 +421,8 @@ export function mountRoomPets() {
       }
     }
     const minX = () => 0;
-    const maxX = () => Math.max(0, areaW - W * S);
-    const GAP = () => W * S * 0.78;
+    const maxX = () => Math.max(0, areaW - W * S * BROWN_K);
+    const GAP = () => W * S * BROWN_K * 0.78;
     function wallX(side) {
       /* 抓牆時讓前爪剛好碰到聊天室左右邊 */
       const f = SPRITES.gray.scratch[0];
@@ -587,7 +598,8 @@ export function mountRoomPets() {
       const f = cat.cur || SPRITES[cat.name].sit[0];
       const m = f.mouth;
       const mx = cat.dir < 0 ? W - m.x : m.x;
-      return { x: cat.x + mx * S + (f.side ? cat.dir * BR * 0.3 : 0), y: floorY - cat.y - (H - m.y) * S + BR * 0.5 };
+      const ks = catS(cat);
+      return { x: cat.x + mx * ks + (f.side ? cat.dir * BR * 0.3 : 0), y: floorY - cat.y - (H - m.y) * ks + BR * 0.5 };
     }
     function parkBall() {
       const host = ball.state === "carried" && ball.carrier ? ball.carrier.el : layer;
@@ -606,7 +618,7 @@ export function mountRoomPets() {
       parkBall();
       const sq = now - ball.squashAt < 90 ? "scale(1.18,0.82)" : "";
       let tx = ball.x - BR, ty = ball.y - floorY - BR;
-      if (carrier && ballEl.parentNode === carrier.el) { tx -= carrier.x; ty += H * S; }
+      if (carrier && ballEl.parentNode === carrier.el) { tx -= carrier.x; ty += H * catS(carrier); }
       ballEl.style.transform = "translate3d(" + tx.toFixed(1) + "px," + ty.toFixed(1) + "px,0) " + sq;
       ballSeam.style.transform = "rotate(" + (ball.spin * 57.3).toFixed(0) + "deg) scaleX(.45)";
       const hgt = Math.max(0, floorY - BR - ball.y);
@@ -1292,7 +1304,7 @@ export function mountRoomPets() {
     const PT = { squat: 2000, drop: 1250, turn: 300, sniff: 1100, bury: 1800 };
     const POOP_MAX = 3, POOP_LIFE = 10000, POOP_FADE = 1800, PW = 64, PH = 46;
     const poops = [];
-    const gxOff = (dir, gx) => (dir < 0 ? W - gx : gx) * S;
+    const gxOff = (dir, gx, k) => (dir < 0 ? W - gx : gx) * S * (k || 1);
     function poopSpot(cat) {
       let best = null;
       for (let k = 0; k < 10; k++) {
@@ -1308,7 +1320,7 @@ export function mountRoomPets() {
     function clearPoops() { for (const p of poops.slice()) killPoop(p); }
     function newPoop(cat, a, now) {
       while (poops.length >= POOP_MAX) killPoop(poops[0]);
-      const x = cat.x + gxOff(cat.dir, 2.6);
+      const x = cat.x + gxOff(cat.dir, 2.6, catK(cat));
       const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
       const cv = document.createElement("canvas");
       cv.className = "poop-pile";
@@ -1361,7 +1373,7 @@ export function mountRoomPets() {
       c.globalAlpha = 1;
     }
     function poopKick(p, cat, now) {
-      const paw = cat.x + gxOff(cat.dir, 1.4) - p.left, back = -cat.dir;
+      const paw = cat.x + gxOff(cat.dir, 1.4, catK(cat)) - p.left, back = -cat.dir;
       for (let j = 0; j < 7; j++) p.parts.push({ x: paw + rand(-1.5, 1.5), y: PH - 2 - rand(0, 2), vx: back * rand(12, 42), vy: -rand(50, 110), r: rand(0.6, 1.2), life: rand(0.45, 0.8), c: Math.random() < 0.6 ? "#d9bd8a" : "#f0dfb8" });
     }
     function poopStep(cat, a, now) {
@@ -1374,13 +1386,13 @@ export function mountRoomPets() {
         if (!a.pile && e >= PT.drop) { a.pile = newPoop(cat, a, now); }
       } else if (e < T2) {
         if (!a.pile) a.pile = newPoop(cat, a, now);
-        if (a.ph !== 1) { a.ph = 1; cat.dir = -a.dir0; a.xa = cat.x; a.xb = clamp(a.pile.x - gxOff(cat.dir, 27.6), minX(), maxX()); }
+        if (a.ph !== 1) { a.ph = 1; cat.dir = -a.dir0; a.xa = cat.x; a.xb = clamp(a.pile.x - gxOff(cat.dir, 27.6, catK(cat)), minX(), maxX()); }
         a.fi = -1; cat.x = lerpC(a.xa, a.xb, (e - T1) / PT.turn);
       } else if (e < T3) {
         if (a.ph !== 2) { a.ph = 2; cat.x = a.xb; }
         a.fi = Math.floor((e - T2) / 260) % 2 ? 2 : 1;
       } else if (e < T4) {
-        if (a.ph !== 3) { a.ph = 3; cat.dir = a.dir0; a.xa = cat.x; a.xb = clamp(a.pile.x - gxOff(cat.dir, -2.2), minX(), maxX()); }
+        if (a.ph !== 3) { a.ph = 3; cat.dir = a.dir0; a.xa = cat.x; a.xb = clamp(a.pile.x - gxOff(cat.dir, -2.2, catK(cat)), minX(), maxX()); }
         a.fi = -1; cat.x = lerpC(a.xa, a.xb, (e - T3) / PT.turn);
       } else if (e < T5) {
         if (a.ph !== 4) { a.ph = 4; cat.x = a.xb; }
@@ -1423,7 +1435,7 @@ export function mountRoomPets() {
       cat.y = 0; cat.queue = [];
       start(cat, { type: "sit", dur: 1e9, tapped: true, menu: true }, now); /* 坐下來看著你，不會走掉 */
       if (chatR == null) geom();
-      const hx = chatR.left + cat.x + gxOff(cat.dir, 12.4), hy = chatR.top + floorY - (H - 2.2) * S;
+      const hx = chatR.left + cat.x + gxOff(cat.dir, 12.4, catK(cat)), hy = chatR.top + floorY - (H - 2.2) * catS(cat);
       const sulky = now < (cat.sulkUntil || 0);
       if (sulky) { showBubble(cat, now, "anger"); cat.bubbleUntil = now + 1800; }
       window.PetMenu.open({ x: hx, y: hy, id: cat.name, sulky,
@@ -1463,8 +1475,8 @@ export function mountRoomPets() {
     function clearPetFx() { for (const f of petFx.slice()) killPetFx(f); }
     function petFxStep(now) { for (const f of petFx.slice()) if (f.cat.act !== f.act || petsOn === false) killPetFx(f); } /* 被打斷（球雨、關貓、看門狗）就收掉 */
     /* 格子座標 → 特效畫布座標 */
-    const fxX = (fx, cat, gx) => cat.x + gxOff(cat.dir, gx) - fx.left;
-    const fxY = (fx, cat, gy) => fx.FH - (H - gy) * S - cat.y;
+    const fxX = (fx, cat, gx) => cat.x + gxOff(cat.dir, gx, catK(cat)) - fx.left;
+    const fxY = (fx, cat, gy) => fx.FH - (H - gy) * catS(cat) - cat.y;
     function fxText(fx, txt, x, y, now, o) { fx.texts.push(Object.assign({ txt, x, y, t0: now, life: 1100, size: 12, col: "#fff" }, o || {})); }
     function fxHeart(fx, x, y, now) { fx.hearts.push({ x, y, t0: now, life: 1300, dx: rand(-6, 6), s: rand(0.8, 1.15) }); }
     function heartPath(c, x, y, s) { c.beginPath(); c.moveTo(x, y + 2.6 * s); c.bezierCurveTo(x - 4.6 * s, y - 0.6 * s, x - 2.4 * s, y - 4.4 * s, x, y - 1.6 * s); c.bezierCurveTo(x + 2.4 * s, y - 4.4 * s, x + 4.6 * s, y - 0.6 * s, x, y + 2.6 * s); c.closePath(); }
@@ -1723,7 +1735,7 @@ export function mountRoomPets() {
       showBubble(cat, now, icon);
     }
 
-    /* 灰貓、橘貓各有幾句，每次隨機說一句，不連說同一句。樣式沿用心情泡泡的白底黑邊小尾巴。 */
+    /* 灰貓、黑貓各有幾句，每次隨機說一句，不連說同一句。樣式沿用心情泡泡的白底黑邊小尾巴。 */
     const CAT_TALK = {
       gray: ["小麥我愛你~喵", "小麥摸摸我~喵", "肚子餓了~喵", "想睡覺了~喵"],
       brown: ["辛巴我愛妳~喵", "辛巴抱抱~喵", "陪我玩球~喵", "今天也很可愛~喵"],
@@ -2306,7 +2318,7 @@ export function mountRoomPets() {
     /* 畫一張影格：先畫會擺動的尾巴，再貼上畫好的身體；靜止時有呼吸起伏、偶爾眨眼；被打到時眼睛變 >< */
     const LIVE_MS = 1000 / 24; /* 尾巴／呼吸／眨眼每秒重畫 24 次就夠順，也省電 */
     const STILL_ANIM = { sit: 1, love: 1, sleep: 1, lie: 1, rear: 1, lick1: 1, lick2: 1, lick3: 1, scratch: 0 };
-    /* 搭住時橘貓腰部快速小幅擺動（約 5Hz）；前腳仍搭在肩上、後腳仍踩在地板上 */
+    /* 搭住時黑貓腰部快速小幅擺動（約 5Hz）；前腳仍搭在肩上、後腳仍踩在地板上 */
     function rearHipSway(cat, now) {
       const a = cat.act;
       if (!a || a.type !== "rear" || a.fi < 2) return 0;
@@ -2341,7 +2353,7 @@ export function mountRoomPets() {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, cv.width, cv.height);
       if (!f || !f.pose) {
-        if (f && f.cv) { ctx.imageSmoothingEnabled = false; ctx.drawImage(f.cv, 0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = true; }
+        if (f && f.cv) { ctx.imageSmoothingEnabled = false; ctx.drawImage(f.cv, 0, 0); ctx.imageSmoothingEnabled = true; }
         return;
       }
       now = now || performance.now();
@@ -2360,10 +2372,12 @@ export function mountRoomPets() {
         ctx.save(); REAL.hangBodyXf(ctx, st);
         REAL.drawTail(ctx, cat.name, Object.assign(REAL.hangTail(tt, st), { ph: lv.ph }), 1.6);
         REAL.hangLimbs(ctx, cat.name, tt, sd, st, "hind");
+        ctx.imageSmoothingEnabled = false;
         ctx.drawImage(body, 0, 0, w, h);
+        ctx.imageSmoothingEnabled = true;
         REAL.hangLimbs(ctx, cat.name, tt, sd, st, "front");
         ctx.restore();
-        if (head) ctx.drawImage(head, 0, 0, w, h);
+        if (head) { ctx.imageSmoothingEnabled = false; ctx.drawImage(head, 0, 0, w, h); ctx.imageSmoothingEnabled = true; }
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         const fc = cat.hangFrontCtx;
         if (head && fc && ctx === cat.hangCtx) {
@@ -2391,8 +2405,10 @@ export function mountRoomPets() {
         const out = REAL.drawBody(ctx, cat.name, REAL.hipSwayPose(f.pose, hipSway), bk);
         if (lv.blink > 0 && out.open && out.eyes && !bk) REAL.blinkLids(ctx, out.eyes, lv.blink);
       } else {
+        ctx.imageSmoothingEnabled = false;
         if (k !== 1) ctx.drawImage(body, 0, cv.height * (1 - k), cv.width, cv.height * k);
         else ctx.drawImage(body, 0, 0);
+        ctx.imageSmoothingEnabled = true;
         if (lv.blink > 0 && body.open && body.eyes && !bk) {
           grid();
           if (k !== 1) { ctx.translate(0, h * (1 - k)); ctx.scale(1, k); }
@@ -2411,15 +2427,16 @@ export function mountRoomPets() {
       return now - cat.bonkT0 < 260 ? 2 : 1;
     }
     function headOf(cat) {
+      const ks = catS(cat);
       if (cat._hangOn && cat.act && cat.act.type === "hang" && cat.act.hl != null) {
         const hx = cat.dir < 0 ? HANG_W - REAL.HF.hx : REAL.HF.hx;
-        return { x: cat.act.hl + hx * S, y: cat.act.ht + REAL.HF.hy * S, r: 5.5 * S, top: cat.act.ht };
+        return { x: cat.act.hl + hx * ks, y: cat.act.ht + REAL.HF.hy * ks, r: 5.5 * ks, top: cat.act.ht };
       }
       const f = cat.cur;
       if (!f) return null;
       const hx = cat.dir < 0 ? W - (f.cx + 0.5) : f.cx + 0.5;
-      const top = floorY - cat.y - (H - f.top) * S;
-      return { x: cat.x + hx * S, y: top + 4.5 * S, r: 6.5 * S, top };
+      const top = floorY - cat.y - (H - f.top) * ks;
+      return { x: cat.x + hx * ks, y: top + 4.5 * ks, r: 6.5 * ks, top };
     }
     function collideHeads(now) {
       if (ball.state !== "loose") return;
@@ -2500,23 +2517,25 @@ export function mountRoomPets() {
       const bk = bonkStage(cat, now);
       const changed = f !== cat.cur || cat.dir !== cat.curDir || bk !== cat._bk;
       const liveMs = (f.anim === "rear" && f.fi >= 2 && soc && soc.kind === "climb" && (soc.phase === "hold" || soc.demoPhase === "hold")) ? (1000 / 60) : LIVE_MS;
-      if (changed || now - cat.paintT > liveMs) { if (!cat._hangOn) paintCat(cat.ctx, f, bk, W, H, cat, now); }
+      if (changed || now - cat.paintT > liveMs) {         if (!cat._hangOn) paintCat(cat.ctx, f, bk, W, H, cat, now); }
       if (changed) {
         cat._bk = bk;
         cat.cv.style.transform = cat.dir < 0 ? "scaleX(-1)" : "";
         cat.cur = f;
         cat.curDir = cat.dir;
         /* 泡泡放在頭上，並保持在聊天室內 */
+        const ks = catS(cat);
         const ax = cat.dir < 0 ? (W - 1 - f.cx) : f.cx;
-        cat.bubble.style.bottom = ((H - f.top) * S + 8) + "px";
-        cat._ax = (ax + 0.5) * S;
+        cat.bubble.style.bottom = ((H - f.top) * ks + 8) + "px";
+        cat._ax = (ax + 0.5) * ks;
       }
       const x = Math.round(cat.x);
       const bx = clamp(cat._ax, 20 - x, areaW - 20 - x);
       cat.bubble.style.left = bx + "px";
       {
-        const headX = x + (cat._ax || W * S / 2);
-        const headBottom = cat.y + ((H - f.top) * S + 8);
+        const ks = catS(cat);
+        const headX = x + (cat._ax || W * ks / 2);
+        const headBottom = cat.y + ((H - f.top) * ks + 8);
         const half = Math.max(18, (cat.say.offsetWidth || 0) / 2);
         const margin = 6;
         let shift = 0;
@@ -2537,8 +2556,9 @@ export function mountRoomPets() {
       const lift = clamp(cat.y / 60, 0, 1);
       cat.shadow.style.transform = "scale(" + (1 - lift * 0.45) + ")";
       cat.shadow.style.opacity = String(1 - lift * 0.5);
-      if (cat.act.type === "sleep" || cat.act.type === "lie") cat.shadow.style.left = (cat.dir < 0 ? 6 : 8) * S + "px";
-      else cat.shadow.style.left = 7 * S + "px";
+      const ks = catS(cat);
+      if (cat.act.type === "sleep" || cat.act.type === "lie") cat.shadow.style.left = (cat.dir < 0 ? 6 : 8) * ks + "px";
+      else cat.shadow.style.left = 7 * ks + "px";
     }
 
     /* =====================================================================
@@ -2881,7 +2901,7 @@ export function mountRoomPets() {
       for (const c of cats) if (c.act && c.act.type === "hang" && c.act.el === el) hangDrop(c, c.act, n);
       for (const j of jellies.slice()) if (j.el === el) resetJelly(j);
     });
-    /* 房間裡任何人把泡泡軟掉：這台也讓橘貓跑去爬灰貓。
+    /* 房間裡任何人把泡泡軟掉：這台也讓黑貓跑去爬灰貓。
        已經在爬就不要重來。灰貓若還沒趴下，startClimb 會先讓牠趴好。趣味特效關掉就不播。 */
     window.addEventListener("sc-droop-climb", () => {
       if (petsOn === false) return;
@@ -2973,13 +2993,14 @@ export function mountRoomPets() {
        ===================================================================== */
     const J1M = SPRITES.gray.jump[1].mouth;
     const HANG_D0 = 13, HANG_DMAX = 19; /* 吊著時泡泡被往下拉多少（px） */
-    function hangLen(f) { return (HANG_H - f.pt.y) * S; }
-    function hangMinH() { return Math.max(...SPRITES.gray.hang.map(hangLen)) + HANG_DMAX + 3; }
+    function hangLen(f, k) { return (HANG_H - f.pt.y) * S * (k || 1); }
+    function hangMinH(cat) { return Math.max(...SPRITES.gray.hang.map((f) => hangLen(f, catK(cat)))) + HANG_DMAX + 3; }
     function hangMaxH() { return 155; }
     function ensureHangCv(cat) {
       if (cat.hangCv) return;
       const cv = document.createElement("canvas");
-      cv.className = "cat-hang"; cv.width = Math.round(HANG_W * RES); cv.height = Math.round(HANG_H * RES);
+      const hk = catK(cat);
+      cv.className = "cat-hang"; cv.width = Math.round(HANG_W * RES * hk); cv.height = Math.round(HANG_H * RES * hk);
       cat.el.appendChild(cv);
       const fc = document.createElement("canvas");
       fc.width = cv.width; fc.height = cv.height;
@@ -3000,7 +3021,7 @@ export function mountRoomPets() {
       vis.slice(0, 3).forEach((s, rank) => {
         if (jellies.some((j) => j.el === s.el) || s.el === lastBub) return;
         const hgt = floorY - (s.y + s.h);
-        if (hgt < hangMinH() || hgt > hangMaxH() || s.w < 46) return;
+        if (hgt < hangMinH(cat) || hgt > hangMaxH() || s.w < 46) return;
         const m = Math.max(20, s.w * 0.18);
         const lo = s.x + m, hi = s.x + s.w - m;
         if (hi < lo) return;
@@ -3057,7 +3078,7 @@ export function mountRoomPets() {
       if (a.phase === "hang" && a.mouth) {
         /* 換回側面的身體：腳的高度接著吊著時的腳 */
         const f = SPRITES[cat.name].hang[a.fi];
-        cat.y = Math.max(0, floorY - (a.mouth.y + hangLen(f)));
+        cat.y = Math.max(0, floorY - (a.mouth.y + hangLen(f, catK(cat))));
       }
       a.vy = 0;
       hangPhase(a, "fall", now);
@@ -3112,7 +3133,7 @@ export function mountRoomPets() {
         if (a.D < -2) { a.D = -2; a.vD = Math.max(0, a.vD); }
         a.mouth = { x: a.P.x, y: a.P.y + a.D };
         const f = SPRITES[cat.name].hang[a.fi];
-        if (floorY - (a.mouth.y + hangLen(f)) < 1) { hangDrop(cat, a, now); } /* 泡泡往下移到腳碰地：放開 */
+        if (floorY - (a.mouth.y + hangLen(f, catK(cat))) < 1) { hangDrop(cat, a, now); } /* 泡泡往下移到腳碰地：放開 */
         else if (now - a.pt0 > a.dur) hangDrop(cat, a, now);
       }
       if (a.phase === "fall") {
@@ -3186,19 +3207,20 @@ export function mountRoomPets() {
           cat.hangFrontCtx.drawImage(hc, 0, 0); /* 整隻都畫在泡泡前面 */
         }
       }
+      const ks = catS(cat);
       const ptx = cat.dir < 0 ? HANG_W - f.pt.x : f.pt.x;
-      const left = Math.round(a.mouth.x - ptx * S), top = Math.round(a.mouth.y - f.pt.y * S);
+      const left = Math.round(a.mouth.x - ptx * ks), top = Math.round(a.mouth.y - f.pt.y * ks);
       a.hl = left; a.ht = top;
       const x = Math.round(cat.x);
-      const w = HANG_W * S + "px", h = HANG_H * S + "px";
+      const w = HANG_W * ks + "px", h = HANG_H * ks + "px";
       for (const cv of [cat.hangCv, cat.hangFront]) {
         cv.style.width = w; cv.style.height = h;
         const dx = cv === cat.hangCv ? left - x : left;
-        cv.style.transform = "translate3d(" + dx + "px," + (top - (floorY - HANG_H * S)) + "px,0)" + (cat.dir < 0 ? " scaleX(-1)" : "");
+        cv.style.transform = "translate3d(" + dx + "px," + (top - (floorY - HANG_H * ks)) + "px,0)" + (cat.dir < 0 ? " scaleX(-1)" : "");
       }
       /* 地上的影子：在吊著的貓正下方，離地越高越淡越小 */
-      const lift = clamp((floorY - (top + HANG_H * S)) / 60, 0, 1);
-      cat.shadow.style.left = (left + HANG_W * S / 2 - 9 * S - x) + "px";
+      const lift = clamp((floorY - (top + HANG_H * ks)) / 60, 0, 1);
+      cat.shadow.style.left = (left + HANG_W * ks / 2 - 9 * ks - x) + "px";
       cat.shadow.style.transform = "scale(" + (1 - lift * 0.45) + ")";
       cat.shadow.style.opacity = String(1 - lift * 0.5);
       return true;
@@ -3282,17 +3304,20 @@ export function mountRoomPets() {
     function headTop(cat) {
       const f = cat.cur || SPRITES[cat.name].sit[0];
       const ax = cat.dir < 0 ? W - 1 - f.cx : f.cx;
-      return { x: cat.x + (ax + 0.5) * S, y: floorY - cat.y - (H - f.top) * S };
+      const ks = catS(cat);
+      return { x: cat.x + (ax + 0.5) * ks, y: floorY - cat.y - (H - f.top) * ks };
     }
-    /* 橘貓走到趴著的灰貓旁邊，後腳踩在屁股旁的地板上，把肚子靠在背上抱抱（後腳不離地） */
+    /* 黑貓走到趴著的灰貓旁邊，後腳踩在屁股旁的地板上，把肚子靠在背上抱抱（後腳不離地） */
     function climbHoldX(g, face) {
       const C = REAL.CLIMB;
-      /* 胸口對準灰貓的背，兩隻會靠在一起、中間沒有空隙 */
-      return g.x + (face > 0 ? C.backX - C.chestX : C.chestX - C.backX) * S;
+      const sg = S, sb = S * BROWN_K;
+      /* 黑貓比較大：胸口仍對準灰貓的背。臉朝右時原點在左邊，翻面時原點算法要跟著鏡像。 */
+      if (face > 0) return g.x + C.backX * sg - C.chestX * sb;
+      return g.x + (W - C.backX) * sg - (W - C.chestX) * sb;
     }
     function climbPlantX(g, face) {
-      const sh = REAL.CLIMB.plantShift;
-      return climbHoldX(g, face) + (face > 0 ? -sh : sh) * S;
+      const sh = REAL.CLIMB.plantShift * S * BROWN_K;
+      return climbHoldX(g, face) + (face > 0 ? -sh : sh);
     }
     function climbOrangeX(g, face, u) { return lerpC(climbPlantX(g, face), climbHoldX(g, face), u); }
     function pickClimbSpot() {
@@ -3810,7 +3835,7 @@ export function mountRoomPets() {
       get nextBiteAt() { return nextBiteAt; }, set nextBiteAt(v) { nextBiteAt = v; },
       /* 談戀愛：love() 立刻開始；soc.phase 看目前階段（notice/approach/nuzzle/lick/scoot/tail） */
       love: () => { const n = performance.now(); endSoc(n); for (const c of cats) { c.ballUntil = 0; if (c.hidden) return false; } if (ball.state === "carried") { ball.state = "loose"; ball.carrier = null; } startLove(n); return true; },
-      /* 橘貓把前腳搭上灰貓的背：climb() 完整演一次；climb({ now: true }) 直接停在搭住的姿勢；climb({ now: true, glance: true, fi: 3 }) 可指定灰貓回頭、橘貓踩奶影格 */
+      /* 黑貓把前腳搭上灰貓的背：climb() 完整演一次；climb({ now: true }) 直接停在搭住的姿勢；climb({ now: true, glance: true, fi: 3 }) 可指定灰貓回頭、黑貓踩奶影格 */
       climb: (o) => {
         o = o || {};
         const n = performance.now();

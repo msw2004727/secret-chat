@@ -1,5 +1,5 @@
 /* 兩段手勢，都寫進 rooms/<房>/dr/<訊息鍵> {on,t,by}。
-   還沒軟的泡泡：連點兩下（每下相隔 600ms 內）軟成 60 度，並讓橘貓去爬灰貓。
+   還沒軟的泡泡：連點兩下（每下相隔 600ms 內）軟成 60 度，並讓黑貓去爬灰貓。
    同一串裡多出來的點不算第二次，也不會直接掉下去。
    已經軟的泡泡：另起一串。正好兩下，停 600ms 就挺回並同步關掉。
    第三下立刻掉出畫面（by 以 fall: 開頭），五秒後以普通形狀淡回，空位留著。
@@ -33,7 +33,7 @@ export const DROOP = {
 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
-/* 軟掉寫進房間後，全房正在看的人各播一次橘貓爬背。
+/* 軟掉寫進房間後，全房正在看的人各播一次黑貓爬背。
    太舊的紀錄是進房時就在的，不重播。同一筆 t 只算一次。 */
 export const DROOP_CLIMB_FRESH_MS = 12000;
 export function droopClimbIds(val, now, seen, freshMs = DROOP_CLIMB_FRESH_MS) {
