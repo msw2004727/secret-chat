@@ -106,6 +106,22 @@
         ]
       }
     ],
+    "rewrites": [
+      {
+        "source": "/api/og",
+        "function": {
+          "functionId": "ogPreview",
+          "region": "asia-southeast1"
+        }
+      },
+      {
+        "source": "/api/ogimg",
+        "function": {
+          "functionId": "ogImage",
+          "region": "asia-southeast1"
+        }
+      }
+    ],
     "site": "daily-notes-7bb64"
   }
 }

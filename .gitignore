@@ -32,6 +32,7 @@
 !/functions/
 /functions/*
 !/functions/index.js
+!/functions/og.js
 !/functions/package.json
 !/functions/package-lock.json
 !/functions/test-*.mjs

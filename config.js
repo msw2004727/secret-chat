@@ -100,6 +100,12 @@ window.CONFIG = {
   //     私人房用雲端的已讀位置算，多人房用這台裝置本機記的「上次讀到哪」算
   unreadBell: true,
 
+  /* 網址縮圖。訊息裡的第一條 http(s) 下面加一張卡片。
+     YouTube 封面直接向 i.ytimg.com 要；一般網站走同源 /api/og，圖片再走 /api/ogimg。
+     預覽結果只留在這台裝置，不寫進即時資料庫。
+     改成 false 時設定列也不出現，這台裝置不會向代理或 YouTube 要圖。 */
+  linkPreview: true,
+
   /* 緊急退出（連點／劇烈搖晃／翻面／Esc）時，要不要順便把鈴鐺清單整份清掉。
      預設 false —— 使用者選的。
 

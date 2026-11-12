@@ -9,7 +9,7 @@
  *     攔了會讓即時訂閱出問題，而且沒有任何好處。
  * ============================================================ */
 
-const VERSION = "sc-v61.33";
+const VERSION = "sc-v61.34";
 // The build fills this with content-addressed assets only. HTML/config aliases,
 // callbacks and application requests keep the network-first path below.
 const IMMUTABLE = new Set([]);
@@ -51,6 +51,8 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // 縮圖代理的網址會留在 Cache Storage，而且結果不該被舊快取釘住。一律不攔截。
+  if (url.pathname === "/api/og" || url.pathname === "/api/ogimg" || url.pathname.startsWith("/api/")) return;
   // OAuth 回傳含一次性 code/state，不可寫入離線快取。
   if (url.searchParams.has("code") || url.searchParams.has("state") || url.searchParams.has("error")) return;
 
