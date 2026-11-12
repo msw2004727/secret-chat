@@ -3,8 +3,9 @@
 export const REAL = (() => {
   const TAU = Math.PI * 2;
   const PAL = {
-    brown: { base: "#c58a52", top: "#9c6332", light: "#e3bb8a", belly: "#f4e3cc", dark: "#6e4019", stripe: "rgba(96,52,18,.62)", stripeSoft: "rgba(110,62,24,.30)",
-      ear: "#e3a497", earDeep: "#c7786f", nose: "#d98b84", noseDark: "#a8564f", iris: "#d9a62c", irisIn: "#f2cf5a", irisOut: "#9a6d10", pad: "#c77f78", whisker: "rgba(255,250,240,.9)", edge: "rgba(70,38,14,.38)", tabby: true },
+    /* 黑貓：帶一點藍的炭灰，不是純黑。深色模式靠淺一圈的邊光和黃眼睛才不會融進背景。 */
+    brown: { base: "#3a4458", top: "#2a3344", light: "#7d8ca6", belly: "#4c5870", dark: "#171d2b", stripe: "rgba(12,16,26,.88)", stripeSoft: "rgba(14,18,30,.62)",
+      ear: "#5c677c", earDeep: "#343d50", nose: "#8a7382", noseDark: "#4a3c48", iris: "#e2c14a", irisIn: "#fff3b0", irisOut: "#a07e10", pad: "#6a5966", whisker: "rgba(226,234,246,.94)", edge: "rgba(186,202,226,.72)", tabby: true },
     gray: { base: "#8d9095", top: "#6d7076", light: "#b6b9bd", belly: "#dadbdd", dark: "#4b4e53", stripe: "rgba(70,72,78,.26)", stripeSoft: "rgba(70,72,78,.12)",
       ear: "#d3a39f", earDeep: "#a9706c", nose: "#9e7a7c", noseDark: "#6f4e50", iris: "#9fc33c", irisIn: "#d6e86a", irisOut: "#5f8a1c", pad: "#8f6c6e", whisker: "rgba(250,250,252,.9)", edge: "rgba(35,37,42,.38)", tabby: false }
   };
@@ -1226,7 +1227,7 @@ export const REAL = (() => {
     return frontPose({});
   }
   /* 趴著：側面肚皮貼地、身體拉長。
-     backX/backY＝灰貓背中央（橘貓胸口要靠在這裡）；chestX＝橘貓搭住時的胸口。
+     backX/backY＝灰貓背中央（黑貓胸口要靠在這裡）；chestX＝黑貓搭住時的胸口。
      兩隻的畫布對齊方式：orange.x = gray.x + (backX - chestX) * S（臉朝右時）。 */
   const CLIMB = { backX: 13.6, backY: 14.0, chestX: 16.6, pawX: 24.0, pawY: 13.65, plantShift: 5.8, hipAmp: 1.15, hipHz: 5 };
   function liePose(i) {
