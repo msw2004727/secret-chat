@@ -20,7 +20,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.32";
+const APP_VERSION = "v61.33";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -4060,7 +4060,12 @@ const LocSeen = {
         任何人打開偽裝首頁按一下鈴鐺就會連上 Firebase，
         而「沒開提示的裝置點鈴鐺不會連線」是 test-bell 守著的隱私前提。 */
   has() { return !!this.get(); },
-  set(k) { try { if (k) localStorage.setItem(LOC_SEEN, k); } catch (_) {} },
+  set(k) {
+    try { if (k) localStorage.setItem(LOC_SEEN, k); } catch (_) {}
+    /* 儀表板看過或清掉位置回報：綠點收掉。紅點是聊天室未讀，這裡不動。 */
+    const locDot = $("gBellLoc");
+    if (locDot) locDot.hidden = true;
+  },
 
   /* 進儀表板時把「看過了」推到最新那一筆。 */
   mark(rows) {
@@ -7993,17 +7998,21 @@ function tryMarkRead() {
   /* ⚠️ 多人房沒有已讀回條，但「我讀到哪」這件事本身還是要記 ——
         不然就沒有分隔線、也沒有「你不在的時候…」的定位點。
         差別只在：私人房寫雲端（對方看得到），多人房只寫本機（誰都看不到）。 */
-  const local = !readReceiptSend();          // v56：隱身也走本機那條
-  if (!local && !S.markRead) return;
+  const send = readReceiptSend();            // v56：隱身走本機；v61.33 起本機兩邊都寫
+  if (send && !S.markRead) return;
   if ($("chat").hidden || !$("veil").hidden) return;   // 遮罩蓋著不算看到
   const sc = $("scroller");
-  if (sc.scrollHeight - sc.scrollTop - sc.clientHeight > 120) return;
+  if (!sc || sc.scrollHeight - sc.scrollTop - sc.clientHeight > 120) return;
 
   const last = S.msgs[S.msgs.length - 1];
   if (!last || last.k === S.lastReadSent) return;
   S.lastReadSent = last.k;
-  if (local) ReadMark.save(S.roomId, last.k);
-  else S.markRead(last.k);
+  /* ⚠️ v61.33：就算已讀回條有寫到雲端，本機 sc-r-<房號> 也要同時記。
+        鈴鐺 checkUnread 本來就會兩邊取較新的；以前私人房只寫雲端，
+        只要那一筆還沒寫上、或這台裝置的代號對不上，回到偽裝首頁
+        點鈴鐺就會一直亮一顆假紅點。本機這一筆對方看不到。 */
+  if (S.roomId) ReadMark.save(S.roomId, last.k);
+  if (send) S.markRead(last.k);
 }
 
 /* 「已送達」的門檻低很多：訊息真的到了這台裝置、而且解得開就算。
@@ -9588,6 +9597,12 @@ async function renderStickerGrid(want) {
 }
 
 function leaveChat() {
+  /* ⚠️ v61.33：離開前先趁畫面還沒拆掉，再試一次把「讀到哪」記下來。
+        手機切 App／鎖螢幕會立刻走 panicExit → 這裡，若進房那一次
+        的 settle 還沒跑完、或當下還沒捲到底的判定還沒寫入，
+        少了這一行，回到首頁點鈴鐺就會一直亮。遮罩蓋著時 tryMarkRead
+        自己會放棄，不會把沒看過的訊息算成已讀。 */
+  try { tryMarkRead(); } catch (_) {}
   FilePicker.pending = null;
   HomeSwitch.lock();
   // 1. 解除這一輪房間的所有訂閱，避免舊房的狀態滲進下一輪
@@ -10367,16 +10382,17 @@ async function checkUnread() {
     }));
 
     /* 顯示「幾間房有新訊息」，不顯示是哪一間 ——
-       真的 Google 通知徽章本來就會顯示數字，所以偽裝不吃虧。 */
-    /* 位置回報也算一則（v42）。
-       ⚠️ 跟房間的未讀合起來算 —— 使用者要的是「有沒有東西要看」，
-          不是「哪一種東西」。真的 Google 的徽章本來也只給一個數字。 */
+       真的 Google 通知徽章本來就會顯示數字，所以偽裝不吃虧。
+       ⚠️ v61.33：位置回報不再算進這個數字，也不再點亮紅點。
+          有新的位置回報時，另外亮一顆小綠點（gBellLoc）。 */
     let n = flags.filter(Boolean).length;
-    if (await LocSeen.unread(f)) n++;
+    const locNew = await LocSeen.unread(f);
 
     dot.textContent = n > 1 ? String(n) : "";
     dot.classList.toggle("num", n > 1);
     dot.hidden = n === 0;
+    const locDot = $("gBellLoc");
+    if (locDot) locDot.hidden = !locNew;
   } catch (_) {
     // 連不上就維持原狀，不要在偽裝頁上留下任何痕跡
   } finally {
