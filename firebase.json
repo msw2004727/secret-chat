@@ -110,14 +110,14 @@
       {
         "source": "/api/og",
         "function": {
-          "functionId": "ogPreview",
+          "functionId": "lineAuth",
           "region": "asia-southeast1"
         }
       },
       {
         "source": "/api/ogimg",
         "function": {
-          "functionId": "ogImage",
+          "functionId": "lineAuth",
           "region": "asia-southeast1"
         }
       }

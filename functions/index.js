@@ -665,11 +665,10 @@ async function handleHomeSettings(body, caller, res, deny) {
   } catch (_) { return deny("首頁設定儲存失敗"); }
 }
 
-const { onRequest } = require("firebase-functions/v2/https");
-exports.lineAuth = onRequest({ cors: LINE_ORIGINS, region: REGION, maxInstances: 3, memory: "256MiB", timeoutSeconds: 30 }, handleLineAuth);
-
 /* 網址縮圖。只在這台已經解密的手機上顯示，這裡看得到的只有那一條連結。
-   ⚠️ 不要把網址寫進即時資料庫，也不要寫進記錄。快取只放這支函式的記憶體。 */
+   ⚠️ 不要把網址寫進即時資料庫，也不要寫進記錄。快取只放這支函式的記憶體。
+   ⚠️ 不另外匯出 HTTPS 函式。新的公開函式要 cloudfunctions.functions.setIamPolicy，
+      部署帳號沒有這項權限。縮圖跟 LINE 換票共用已經存在的 lineAuth。 */
 const og = require("./og");
 const ogCache = new Map();
 
@@ -754,5 +753,47 @@ async function handleOgImage(req, res) {
   }
 }
 
-exports.ogPreview = onRequest({ region: REGION, maxInstances: 3, memory: "256MiB", timeoutSeconds: 15, invoker: "public" }, handleOgPreview);
-exports.ogImage = onRequest({ region: REGION, maxInstances: 3, memory: "256MiB", timeoutSeconds: 15, invoker: "public" }, handleOgImage);
+function requestPaths(req) {
+  const raw = [];
+  if (req) {
+    if (typeof req.path === "string") raw.push(req.path);
+    if (typeof req.originalUrl === "string") raw.push(req.originalUrl);
+    if (typeof req.url === "string") raw.push(req.url);
+    if (typeof req.get === "function") {
+      for (const name of ["x-forwarded-uri", "x-original-url", "x-forwarded-url"]) {
+        const value = req.get(name);
+        if (typeof value === "string") raw.push(value);
+      }
+    }
+  }
+  return raw.map((value) => {
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      try { return new URL(value).pathname; } catch (_) { return ""; }
+    }
+    return value.split("?")[0];
+  }).filter(Boolean);
+}
+
+/* Hosting rewrite 會把原本的 /api/og 路徑帶進來。/api/ogimg 開頭也像 /api/og，要先判圖片。 */
+function previewKind(req) {
+  const paths = requestPaths(req);
+  if (paths.some((path) => path === "/api/ogimg" || path.startsWith("/api/ogimg/"))) return "image";
+  if (paths.some((path) => path === "/api/og" || path.startsWith("/api/og/"))) return "page";
+  return "";
+}
+
+function dispatchLineRequest(req, res) {
+  const kind = previewKind(req);
+  if (kind === "image") return handleOgImage(req, res);
+  if (kind === "page") return handleOgPreview(req, res);
+  return handleLineAuth(req, res);
+}
+
+/* cors: LINE_ORIGINS 預設就是 https://sb.02251121.com。firebase-functions 用的 cors
+   對不在名單裡的 Origin 只是不寫 CORS 標頭，仍會把請求交給處理函式，不會拒絕。
+   同源的 /api/og 就算帶了這個 Origin，也進得了上面的分流。選項維持跟原本的 lineAuth 一樣，
+   避免部署時被要求改 invoker 的 IAM。 */
+const { onRequest } = require("firebase-functions/v2/https");
+exports.lineAuth = onRequest({ cors: LINE_ORIGINS, region: REGION, maxInstances: 3, memory: "256MiB", timeoutSeconds: 30 }, dispatchLineRequest);
+exports.__dispatchLineRequest = dispatchLineRequest;
+exports.__previewKind = previewKind;
