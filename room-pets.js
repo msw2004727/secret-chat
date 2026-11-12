@@ -1726,7 +1726,7 @@ export function mountRoomPets() {
       cat.lastTalk = text;
       return text;
     }
-    const TALK_MS = 5000;
+    const TALK_MS = 3000;
     function talkingBusy() { return cats.some((c) => c.talking); }
     function canTalk(cat, now) {
       if (petsOn === false || !cat || cat.hidden || cat.y > 0.5) return false;
