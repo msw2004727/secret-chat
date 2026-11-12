@@ -112,3 +112,9 @@ export function quokkaFrame(moving, now, t0, count) {
   if (!moving || n < 1) return 0;
   return Math.floor(Math.max(0, now - t0) / FRAME_MS) % n;
 }
+
+/* 原圖鼻子在身體中線右側（朝畫面右），棍子在左邊。
+   dir > 0 是往右，沿用原圖；往左才水平翻面，鼻子才會朝移動方向。 */
+export function quokkaMirror(dir) {
+  return dir < 0;
+}
