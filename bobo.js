@@ -453,9 +453,100 @@ const Bobo = (() => {
     ctx.restore();
   }
 
+  /* 預設剪影朝左。dir > 0 是往右走，整隻（含帽子、袋子）以畫布中線翻過來。 */
+  function faceRight(p) { return (p.dir || 0) > 0; }
+
+  /* 跟 draw() 的變換同一套：先以腳底附近為軸擠壓旋轉，再依方向翻面，最後上移 lift。 */
+  function xform(p, x, y) {
+    const pivotY = FY - (p.sit || 0);
+    const sx = p.squashX || 1, sy = p.squashY || 1;
+    const tilt = p.tilt || 0;
+    const dx = (x - W / 2) * sx, dy = (y - pivotY) * sy;
+    const c = Math.cos(tilt), sn = Math.sin(tilt);
+    let X = dx * c - dy * sn + W / 2;
+    const Y = dx * sn + dy * c + pivotY - (p.lift || 0);
+    if (faceRight(p)) X = W - X;
+    return { x: X, y: Y };
+  }
+
+  function addEllipse(add, cx, cy, rx, ry, rot) {
+    const c = Math.cos(rot || 0), sn = Math.sin(rot || 0);
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * TAU;
+      const x = Math.cos(a) * rx, y = Math.sin(a) * ry;
+      add(cx + x * c - y * sn, cy + x * sn + y * c);
+    }
+  }
+
+  function addBag(add, p) {
+    const m = deformed(p);
+    const bagX = m.rHip.x - 0.4, bagY = m.rHip.y + 0.4;
+    const rot = 0.16, c = Math.cos(rot), sn = Math.sin(rot);
+    const loc = (x, y) => add(bagX + x * c - y * sn, bagY + x * sn + y * c);
+    for (const [x, y] of [[-1.35, -1.6], [1.35, -1.6], [1.35, 1.6], [-1.35, 1.6]]) loc(x, y);
+    add(m.lArmpitDn.x + 0.3, m.lArmpitDn.y + 0.2);
+    add(13, m.lArmpitDn.y + 2.2);
+    add(bagX - 0.4, bagY - 1);
+  }
+
+  function addBucket(add, p) {
+    const m = deformed(p);
+    const hx = (m.valley.x + m.rEarInner.x) * 0.5;
+    const hy = m.valley.y + 0.35;
+    addEllipse(add, hx, hy - 0.2, 4.6, 2.15, 0);
+    addEllipse(add, hx, hy - 1.65, 3.15, 1.15, 0);
+    addEllipse(add, hx, hy + 0.45, 5.7, 1.35, 0);
+    addBag(add, p);
+  }
+
+  function addSanta(add, p) {
+    const m = deformed(p);
+    const hx = m.valley.x + 1.4, hy = m.valley.y + 0.2;
+    const rot = -0.42, c = Math.cos(rot), sn = Math.sin(rot);
+    const loc = (x, y) => add(hx + x * c - y * sn, hy + x * sn + y * c);
+    for (const [x, y] of [[-3.2, 0.5], [-2.4, -3.9], [1, -5.5], [3.4, -2.7], [4.1, -0.3], [1, 1], [-3.2, 0.5]]) loc(x, y);
+    addEllipse(loc, 0.1, 0.75, 3.7, 1.25, 0.02);
+    addEllipse(loc, 1.2, -5.65, 1, 1, 0);
+  }
+
+  /* 變換後的墨水範圍（還沒加描邊留白）。跳起來的 lift 會讓頭頂的 y 變成負的。 */
+  function inkBox(p) {
+    const pts = outlinePts(p);
+    const n = pts.length;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const add = (x, y) => {
+      const t = xform(p, x, y);
+      if (t.x < x0) x0 = t.x;
+      if (t.y < y0) y0 = t.y;
+      if (t.x > x1) x1 = t.x;
+      if (t.y > y1) y1 = t.y;
+    };
+    for (let i = 0; i < n; i++) {
+      const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+      add(p1.x, p1.y);
+      add(p1.x + (p2.x - p0.x) / 6, p1.y + (p2.y - p0.y) / 6);
+      add(p2.x - (p3.x - p1.x) / 6, p2.y - (p3.y - p1.y) / 6);
+    }
+    if (p.acc === "bucket") addBucket(add, p);
+    else if (p.acc === "santa") addSanta(add, p);
+    return { x0, y0, x1, y1 };
+  }
+
+  /* 畫布要包住這塊，再留一點描邊。站立的 26×24 不夠：跳躍、擠壓和帽子都會超出上緣。 */
+  function viewBox(p) {
+    const b = inkBox(p);
+    const pad = 0.9;
+    /* 下緣至少留在腳底那一條線。跳起來時腳離開地板，中間是空的，不能把畫布底跟著腳抬上去。 */
+    return { x0: b.x0 - pad, y0: b.y0 - pad, x1: b.x1 + pad, y1: Math.max(b.y1 + pad, FY) };
+  }
+
   function draw(ctx, p) {
     ctx.save();
     ctx.translate(0, -(p.lift || 0));
+    if (faceRight(p)) {
+      ctx.translate(W, 0);
+      ctx.scale(-1, 1);
+    }
     const pivotY = FY - (p.sit ? 1.0 : 0);
     ctx.translate(W / 2, pivotY);
     ctx.rotate(p.tilt || 0);
@@ -501,7 +592,7 @@ const Bobo = (() => {
     sizeRatio: 2 / 3
   };
 
-  return { W, H, FY, C, STATS, makePose, draw, hitLocal, bodyGeom, outlinePts, marks };
+  return { W, H, FY, C, STATS, makePose, draw, hitLocal, bodyGeom, outlinePts, marks, inkBox, viewBox };
 })();
 
 export { Bobo };

@@ -119,17 +119,24 @@ export function attachBobo(api) {
 
   function paint(pose) {
     const s = scale();
-    const cssW = BW * s, cssH = BH * s;
+    /* 站立畫布只有 24 格高，跳躍的 lift 和帽子會畫到上緣外面被切掉。
+       這裡改用這一格實際的範圍，腳底仍對齊地板。 */
+    const box = Bobo.viewBox(pose);
+    const gw = Math.max(0.01, box.x1 - box.x0), gh = Math.max(0.01, box.y1 - box.y0);
+    const cssW = gw * s, cssH = gh * s;
     wrap.style.width = cssW + "px";
     wrap.style.height = cssH + "px";
     const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
     const pw = Math.max(1, Math.round(cssW * dpr)), ph = Math.max(1, Math.round(cssH * dpr));
     if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
     const c = cv.getContext("2d");
-    c.setTransform(pw / BW, 0, 0, ph / BH, 0, 0);
-    c.clearRect(0, 0, BW, BH);
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, pw, ph);
+    c.setTransform(pw / gw, 0, 0, ph / gh, -box.x0 * pw / gw, -box.y0 * ph / gh);
     Bobo.draw(c, pose);
-    wrap.style.transform = "translate3d(" + bobo.x.toFixed(1) + "px,0,0)";
+    const yShift = (box.y1 - Bobo.FY) * s;
+    wrap.style.transform = "translate3d(" + (bobo.x + box.x0 * s).toFixed(2) + "px," + yShift.toFixed(2) + "px,0)";
+    shadow.style.bottom = yShift.toFixed(2) + "px";
     shadow.style.opacity = String(pose.lift > 0.4 ? 0.28 : 0.4);
   }
 
@@ -138,9 +145,11 @@ export function attachBobo(api) {
     if (!chatR || wrap.hidden) return false;
     const box = Bobo.hitLocal(lastPose);
     const s = scale();
+    let x0 = box.x0, x1 = box.x1;
+    if ((lastPose.dir || 0) > 0) { x0 = BW - box.x1; x1 = BW - box.x0; }
     const x = clientX - chatR.left, y = clientY - chatR.top;
     const t = api.floorY() - BH * s;
-    return x >= bobo.x + box.x0 * s && x <= bobo.x + box.x1 * s && y >= t + box.y0 * s && y <= t + box.y1 * s;
+    return x >= bobo.x + x0 * s && x <= bobo.x + x1 * s && y >= t + box.y0 * s && y <= t + box.y1 * s;
   }
 
   api.scrollEl.addEventListener("pointerdown", (e) => {
