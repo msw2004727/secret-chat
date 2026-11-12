@@ -188,15 +188,51 @@ assert.match(css, /\.lp-card/);
 assert.match(css, /aspect-ratio:\s*16\s*\/\s*9/);
 assert.match(sw, /url\.pathname\.startsWith\("\/api\/"\)/);
 assert.equal(firebase.hosting.site, "daily-notes-7bb64");
-assert.equal(firebase.hosting.rewrites[0].function.functionId, "ogPreview");
+assert.equal(firebase.hosting.rewrites[0].source, "/api/og");
+assert.equal(firebase.hosting.rewrites[0].function.functionId, "lineAuth");
 assert.equal(firebase.hosting.rewrites[0].function.region, "asia-southeast1");
 assert.equal(firebase.hosting.rewrites[1].source, "/api/ogimg");
-assert.equal(firebase.hosting.rewrites[1].function.functionId, "ogImage");
-assert.doesNotMatch(redirect, /ogPreview|ogImage|\/api\/og/);
-const ogFn = fnSrc.slice(fnSrc.indexOf("async function handleOgPreview"), fnSrc.indexOf("exports.ogImage"));
-assert.match(fnSrc, /exports\.ogPreview = onRequest/);
+assert.equal(firebase.hosting.rewrites[1].function.functionId, "lineAuth");
+assert.equal(firebase.hosting.rewrites[1].function.region, "asia-southeast1");
+assert.doesNotMatch(redirect, /ogPreview|ogImage|lineAuth|\/api\/og/);
+assert.doesNotMatch(fnSrc, /exports\.ogPreview|exports\.ogImage|invoker:\s*"public"/);
+assert.match(fnSrc, /exports\.lineAuth = onRequest\(\{ cors: LINE_ORIGINS, region: REGION, maxInstances: 3, memory: "256MiB", timeoutSeconds: 30 \}, dispatchLineRequest\)/);
+const ogFn = fnSrc.slice(fnSrc.indexOf("async function handleOgPreview"), fnSrc.indexOf("function requestPaths"));
 assert.match(ogFn, /public, max-age=86400/);
 assert.doesNotMatch(ogFn, /getDb|ref\(/);
-assert.match(fnSrc, /region: REGION, maxInstances: 3/);
+assert.match(fnSrc, /if \(kind === "image"\) return handleOgImage/);
+assert.match(fnSrc, /if \(kind === "page"\) return handleOgPreview/);
+assert.match(fnSrc, /return handleLineAuth\(req, res\)/);
+
+const fn = require("./index.js");
+assert.equal(typeof fn.ogPreview, "undefined");
+assert.equal(typeof fn.ogImage, "undefined");
+assert.equal(fn.__previewKind({ path: "/api/og", originalUrl: "/api/og?url=https%3A%2F%2Fa.example" }), "page");
+assert.equal(fn.__previewKind({ path: "/", originalUrl: "/api/og?url=https%3A%2F%2Fa.example" }), "page");
+assert.equal(fn.__previewKind({ path: "/api/ogimg", originalUrl: "/api/ogimg?url=https%3A%2F%2Fimg" }), "image");
+assert.equal(fn.__previewKind({ path: "/", url: "/api/ogimg?url=1" }), "image");
+assert.equal(fn.__previewKind({ path: "/", originalUrl: "/", get: () => "" }), "");
+assert.equal(fn.__previewKind({ path: "/lineAuth", originalUrl: "/lineAuth" }), "");
+const statuses = [];
+const fakeRes = () => {
+  const res = {
+    statusCode: 0,
+    headers: {},
+    set(name, value) { res.headers[name] = value; return res; },
+    status(code) { res.statusCode = code; return res; },
+    json(body) { res.body = body; return res; },
+    end() { return res; },
+    send() { return res; },
+  };
+  statuses.push(res);
+  return res;
+};
+await fn.__dispatchLineRequest({ method: "GET", path: "/api/og", originalUrl: "/api/og?url=https://example.com", query: { url: "https://example.com" }, get: () => "" }, fakeRes());
+assert.equal(statuses[0].statusCode, 403);
+await fn.__dispatchLineRequest({ method: "GET", path: "/api/ogimg", originalUrl: "/api/ogimg?url=https://cdn.example/a.jpg", query: { url: "https://cdn.example/a.jpg" }, get: () => "" }, fakeRes());
+assert.equal(statuses[1].statusCode, 403);
+await fn.__dispatchLineRequest({ method: "GET", path: "/", originalUrl: "/", get: () => "" }, fakeRes());
+assert.equal(statuses[2].statusCode, 405);
+assert.deepEqual(statuses[2].body, { error: "method" });
 
 console.log("PASS: link preview URL detection, SSRF blocklist, OG parser, and same-origin proxy wiring.");
