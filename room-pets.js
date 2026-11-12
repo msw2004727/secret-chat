@@ -166,7 +166,10 @@ export function mountRoomPets() {
         SPRITES[name].funny = [0, 1].map(() => ({ cv, mask: new Uint8Array(W * H), top: 0, minx: 2, maxx: 29, cx: 15.5, side: false, mouth: { x: 22, y: 14 } }));
         /* 便便：0＝蹲下、1/2＝低頭聞、3/4＝扒砂 */
         SPRITES[name].poop = [0, 1, 2, 3, 4].map(() => ({ cv, mask: new Uint8Array(W * H), top: 0, minx: 2, maxx: 29, cx: 15.5, side: false, mouth: { x: 26, y: 10 } }));
-        SPRITES[name].pet = REAL.PET_KEYS.map(() => ({ cv, mask: new Uint8Array(W * H), top: 0, minx: 2, maxx: 29, cx: 15.5, side: false, mouth: { x: 16, y: 10 } })); }
+        SPRITES[name].pet = REAL.PET_KEYS.map(() => ({ cv, mask: new Uint8Array(W * H), top: 0, minx: 2, maxx: 29, cx: 15.5, side: false, mouth: { x: 16, y: 10 } }));
+        /* 趴著／後腳站起來把前腳搭在背上（擬真姿勢即時畫） */
+        SPRITES[name].lie = [0, 1, 2, 3].map(() => ({ cv, mask: new Uint8Array(W * H), top: 8, minx: 2, maxx: 30, cx: 20, side: true, mouth: { x: 24, y: 16 } }));
+        SPRITES[name].rear = [0, 1, 2, 3, 4, 5].map(() => ({ cv, mask: new Uint8Array(W * H), top: 2, minx: 4, maxx: 28, cx: 19, side: true, mouth: { x: 20, y: 7 } })); }
     }
     /* 每張影格配一個擬真姿勢；頭和嘴的位置跟著擬真的頭（泡泡、球、被打頭的位置才對得上） */
     const LOVE_NAMES = Object.values(LOVE_KEYS);
@@ -219,6 +222,7 @@ export function mountRoomPets() {
         SPRITES[name].funny[0].cx = 22.2; SPRITES[name].funny[0].top = 8;
         for (const pf of SPRITES[name].poop) { const pm = realMask(W, H, [(c) => { if (pf.pose.tail) REAL.drawTail(c, name, pf.pose.tail, 0); REAL.drawBody(c, name, pf.pose, 0); }]); pf.mask = pm.mask; pf.minx = pm.minx; pf.maxx = pm.maxx; }
         for (const pf of SPRITES[name].pet) { const pm = realMask(W, H, [(c) => { if (pf.pose && pf.pose.tail) REAL.drawTail(c, name, pf.pose.tail, 0); REAL.drawBody(c, name, pf.pose, 0); }]); pf.mask = pm.mask; pf.minx = pm.minx; pf.maxx = pm.maxx; if (pf.pose && pf.pose.kind === "supine") { pf.cx = 14.9; pf.top = 6; } }
+        for (const an of ["lie", "rear"]) for (const pf of SPRITES[name][an]) { const pm = realMask(W, H, [(c) => { if (pf.pose && pf.pose.tail) REAL.drawTail(c, name, pf.pose.tail, 0); REAL.drawBody(c, name, pf.pose, 0); }]); pf.mask = pm.mask; pf.minx = pm.minx; pf.maxx = pm.maxx; }
       } catch (_) {}
     }
 
@@ -1668,7 +1672,7 @@ export function mountRoomPets() {
         a.h = a.h || rand(30, 56);
         a.air = a.air || rand(520, 640);
         a.dur = 150 + a.air + 130;
-      } else if (a.type === "sleep") {
+      } else if (a.type === "sleep" || a.type === "lie") {
         if (!a.keepDir && Math.random() < 0.5) cat.dir = -cat.dir;
       }
       if (a.face) cat.dir = a.face;
@@ -1954,13 +1958,16 @@ export function mountRoomPets() {
 
     function startSocial(now) {
       /* 打架很少：大部分是追逐、跟著走、靠在一起；打完架 25 秒內不會再打 */
-      const k = weighted({ chase: 24, fight: fightOK(now) ? 3 : 0, follow: 18, cuddle: 26, faceoff: 10, love: 12 });
+      const gray = cats.find((c) => c.name === "gray");
+      const grayDown = !!(gray && gray.act && (gray.act.type === "sleep" || gray.act.type === "lie" || gray.act.type === "loaf"));
+      const k = weighted({ chase: 24, fight: fightOK(now) ? 3 : 0, follow: 18, cuddle: 26, faceoff: 10, love: 12, climb: grayDown ? 22 : 6 });
       for (const c of cats) hideBubble(c, now);
       if (k === "chase") { const c = pick(cats); startChase(c, other(c), now); }
       else if (k === "fight") startFight(now);
       else if (k === "follow") startFollow(now);
       else if (k === "cuddle") startCuddle(now);
       else if (k === "love") startLove(now);
+      else if (k === "climb") startClimb(now);
       else startFaceoff(now);
     }
     function endSoc(now) {
@@ -2009,6 +2016,8 @@ export function mountRoomPets() {
         if (s.ready.has(s.leader)) rest(now);
       } else if (s.kind === "love") {
         loveStep(now);
+      } else if (s.kind === "climb") {
+        climbStep(now);
       } else if (s.kind === "faceoff" && s.phase === "stare" && now > s.until) {
         /* 對看一下，然後一隻撲過去，另一隻逃跑 → 變成追逐 */
         const p = pick([s.a, s.b]), q = other(p);
@@ -2145,6 +2154,8 @@ export function mountRoomPets() {
         case "love": { const i = Object.keys(LOVE_KEYS).indexOf(a.fk); return fr.love[i >= 0 ? i : 0]; }
         case "bite": return a.fi === -1 ? (a.si > 0 ? fr.love[SIDE_I] : fr.walk[0]) : a.fi === 4 ? fr.sit[0] : fr.bite[a.fi];
         case "loaf": return (e % 5200) > 4300 ? fr.love[SIDE_HAPPY_I] : fr.love[SIDE_I];
+        case "lie": return fr.lie[a.fi] || fr.lie[0];
+        case "rear": return fr.rear[a.fi] || fr.rear[0];
         case "hang": {
           const j = fr.jump;
           if (a.phase === "rise") return j[1];
@@ -2291,7 +2302,17 @@ export function mountRoomPets() {
     }
     /* 畫一張影格：先畫會擺動的尾巴，再貼上畫好的身體；靜止時有呼吸起伏、偶爾眨眼；被打到時眼睛變 >< */
     const LIVE_MS = 1000 / 24; /* 尾巴／呼吸／眨眼每秒重畫 24 次就夠順，也省電 */
-    const STILL_ANIM = { sit: 1, love: 1, sleep: 1, lick1: 1, lick2: 1, lick3: 1, scratch: 0 };
+    const STILL_ANIM = { sit: 1, love: 1, sleep: 1, lie: 1, rear: 1, lick1: 1, lick2: 1, lick3: 1, scratch: 0 };
+    /* 搭住時橘貓腰部快速小幅擺動（約 5Hz）；前腳仍搭在肩上、後腳仍踩在地板上 */
+    function rearHipSway(cat, now) {
+      const a = cat.act;
+      if (!a || a.type !== "rear" || a.fi < 2) return 0;
+      if (a.hipSway != null) return a.hipSway;
+      const s = soc;
+      if (!s || s.kind !== "climb" || (s.phase !== "hold" && s.demoPhase !== "hold")) return 0;
+      const t0 = s.tHold || s.t0 || now;
+      return REAL.CLIMB.hipAmp * Math.sin(2 * Math.PI * REAL.CLIMB.hipHz * ((now - t0) / 1000));
+    }
     function liveOf(cat, f, now) {
       const an = f.anim;
       let sway = 1, sp = 1.5, breath = 0;
@@ -2299,7 +2320,8 @@ export function mountRoomPets() {
       else if (an === "run") { sway = 0.35; sp = 9; }
       else if (an === "jump" || an === "hang") { sway = 0.6; sp = 7; }
       else if (an === "bite") { sway = 0.9; sp = 4.5; }
-      else if (an === "sleep") { sway = 0.25; sp = 0.7; breath = 0.028 * (0.5 + 0.5 * Math.sin(now / 1000 * Math.PI * 2 / 3.4)); }
+      else if (an === "sleep" || an === "lie") { sway = an === "lie" ? 0.35 : 0.25; sp = an === "lie" ? 0.9 : 0.7; breath = 0.028 * (0.5 + 0.5 * Math.sin(now / 1000 * Math.PI * 2 / 3.4)); }
+      else if (an === "rear") { sway = 0.55; sp = 2.2; breath = 0.01 * (0.5 + 0.5 * Math.sin(now / 1000 * Math.PI * 2 / 2.4)); }
       else if (STILL_ANIM[an]) { breath = 0.012 * (0.5 + 0.5 * Math.sin(now / 1000 * Math.PI * 2 / 2.6 + (cat.name === "gray" ? 1.3 : 0))); }
       const dt = Math.min(0.1, Math.max(0, (now - (cat.liveT || now)) / 1000));
       cat.liveT = now;
@@ -2323,6 +2345,7 @@ export function mountRoomPets() {
       cat.paintT = now;
       const body = realBody(cat.name, f, bk, w, h);
       const lv = liveOf(cat, f, now);
+      const hipSway = rearHipSway(cat, now);
       if (f.pose.kind === "hangFront") {
         /* 仰頭咬住吊著：整隻以咬住點為支點小幅擺盪，四肢和尾巴每格重畫（亂揮亂踢）；
            頭另外畫到前面那張畫布，蓋在被咬的泡泡上面 */
@@ -2356,15 +2379,22 @@ export function mountRoomPets() {
         if (f.rot) { ctx.translate(0, 32); ctx.rotate(-Math.PI / 2); }
       };
       const t = f.pose.tail;
-      const tail = () => { grid(); REAL.drawTail(ctx, cat.name, Object.assign({}, t, { ph: lv.ph }), lv.sway); };
+      const tail = () => { grid(); REAL.drawTail(ctx, cat.name, Object.assign({}, t, { ph: lv.ph, x: t.x + (hipSway || 0) }), lv.sway); };
       if (t && !t.front) tail();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      if (k !== 1) ctx.drawImage(body, 0, cv.height * (1 - k), cv.width, cv.height * k);
-      else ctx.drawImage(body, 0, 0);
-      if (lv.blink > 0 && body.open && body.eyes && !bk) {
+      if (hipSway) {
         grid();
         if (k !== 1) { ctx.translate(0, h * (1 - k)); ctx.scale(1, k); }
-        REAL.blinkLids(ctx, body.eyes, lv.blink);
+        const out = REAL.drawBody(ctx, cat.name, REAL.hipSwayPose(f.pose, hipSway), bk);
+        if (lv.blink > 0 && out.open && out.eyes && !bk) REAL.blinkLids(ctx, out.eyes, lv.blink);
+      } else {
+        if (k !== 1) ctx.drawImage(body, 0, cv.height * (1 - k), cv.width, cv.height * k);
+        else ctx.drawImage(body, 0, 0);
+        if (lv.blink > 0 && body.open && body.eyes && !bk) {
+          grid();
+          if (k !== 1) { ctx.translate(0, h * (1 - k)); ctx.scale(1, k); }
+          REAL.blinkLids(ctx, body.eyes, lv.blink);
+        }
       }
       if (f.anim === "claw") {
         const ca = cat.act && cat.act.type === "claw" && cat.act.paws;
@@ -2418,7 +2448,7 @@ export function mountRoomPets() {
       hideBubble(cat, now);
       cat.nextBubble = Math.max(cat.nextBubble || 0, cat.bonkUntil + 300);
       const a = cat.act;
-      const faceOnly = !a || a.type === "hang" || a.type === "bite" || a.type === "love" || a.type === "jump" || a.type === "carry" || a.type === "funny" || a.type === "poop" || (soc && soc.kind === "love") || a.tapped || cat.pendingTap || cat.y >= 0.5;
+      const faceOnly = !a || a.type === "hang" || a.type === "bite" || a.type === "love" || a.type === "lie" || a.type === "rear" || a.type === "jump" || a.type === "carry" || a.type === "funny" || a.type === "poop" || (soc && (soc.kind === "love" || soc.kind === "climb")) || a.tapped || cat.pendingTap || cat.y >= 0.5;
       if (!faceOnly && BONK_OK[a.type]) {
         if (inSoc(cat)) endSoc(now);
         if (ball.carrier === cat) dropBall(cat, now);
@@ -2466,7 +2496,8 @@ export function mountRoomPets() {
       const f = frameFor(cat, now) || SPRITES[cat.name].sit[0];
       const bk = bonkStage(cat, now);
       const changed = f !== cat.cur || cat.dir !== cat.curDir || bk !== cat._bk;
-      if (changed || now - cat.paintT > LIVE_MS) { if (!cat._hangOn) paintCat(cat.ctx, f, bk, W, H, cat, now); }
+      const liveMs = (f.anim === "rear" && f.fi >= 2 && soc && soc.kind === "climb" && (soc.phase === "hold" || soc.demoPhase === "hold")) ? (1000 / 60) : LIVE_MS;
+      if (changed || now - cat.paintT > liveMs) { if (!cat._hangOn) paintCat(cat.ctx, f, bk, W, H, cat, now); }
       if (changed) {
         cat._bk = bk;
         cat.cv.style.transform = cat.dir < 0 ? "scaleX(-1)" : "";
@@ -2503,7 +2534,7 @@ export function mountRoomPets() {
       const lift = clamp(cat.y / 60, 0, 1);
       cat.shadow.style.transform = "scale(" + (1 - lift * 0.45) + ")";
       cat.shadow.style.opacity = String(1 - lift * 0.5);
-      if (cat.act.type === "sleep") cat.shadow.style.left = (cat.dir < 0 ? 6 : 8) * S + "px";
+      if (cat.act.type === "sleep" || cat.act.type === "lie") cat.shadow.style.left = (cat.dir < 0 ? 6 : 8) * S + "px";
       else cat.shadow.style.left = 7 * S + "px";
     }
 
@@ -3237,6 +3268,126 @@ export function mountRoomPets() {
       const ax = cat.dir < 0 ? W - 1 - f.cx : f.cx;
       return { x: cat.x + (ax + 0.5) * S, y: floorY - cat.y - (H - f.top) * S };
     }
+    /* 橘貓走到趴著的灰貓旁邊，後腳踩在屁股旁的地板上，把肚子靠在背上抱抱（後腳不離地） */
+    function climbHoldX(g, face) {
+      const C = REAL.CLIMB;
+      /* 胸口對準灰貓的背，兩隻會靠在一起、中間沒有空隙 */
+      return g.x + (face > 0 ? C.backX - C.chestX : C.chestX - C.backX) * S;
+    }
+    function climbPlantX(g, face) {
+      const sh = REAL.CLIMB.plantShift;
+      return climbHoldX(g, face) + (face > 0 ? -sh : sh) * S;
+    }
+    function climbOrangeX(g, face, u) { return lerpC(climbPlantX(g, face), climbHoldX(g, face), u); }
+    function pickClimbSpot() {
+      const g = cats.find((c) => c.name === "gray");
+      const tryFace = (gx, face) => {
+        const fake = { x: gx };
+        const hx = climbHoldX(fake, face), px = climbPlantX(fake, face);
+        if (gx < minX() - 0.5 || gx > maxX() + 0.5) return null;
+        if (Math.min(hx, px) < minX() - 0.5 || Math.max(hx, px) > maxX() + 0.5) return null;
+        return { gx, face, hx, px };
+      };
+      const order = (g.x - minX() >= maxX() - g.x) ? [1, -1] : [-1, 1];
+      for (const face of order) { const s = tryFace(g.x, face); if (s) return s; }
+      const need = (REAL.CLIMB.plantShift + Math.abs(REAL.CLIMB.chestX - REAL.CLIMB.backX)) * S;
+      for (const face of order) {
+        const gx = face > 0 ? clamp(g.x, minX() + need, maxX()) : clamp(g.x, minX(), maxX() - need);
+        const s = tryFace(gx, face); if (s) return s;
+      }
+      return { gx: clamp((minX() + maxX()) / 2 + 6 * S, minX(), maxX()), face: 1 };
+    }
+    function startClimb(now) {
+      const g = cats.find((c) => c.name === "gray"), b = other(g);
+      if (!g || !b) return false;
+      if (window.PetMenu && window.PetMenu.isOpen) return false;
+      if (g.hidden || b.hidden || g.y > 0.5 || b.y > 0.5) return false;
+      if (ball.state === "carried") { ball.state = "loose"; ball.carrier = null; }
+      for (const c of [g, b]) { c.ballUntil = 0; c.y = 0; }
+      const spot = pickClimbSpot();
+      soc = { kind: "climb", a: g, b, g, br: b, t0: now, phase: "approach", ready: new Set(), face: spot.face, gx: spot.gx };
+      const bx = climbPlantX({ x: spot.gx }, spot.face);
+      g.el.style.zIndex = "1"; b.el.style.zIndex = "3";
+      for (const [c, tx] of [[g, spot.gx], [b, bx]]) {
+        if (Math.abs(c.x - tx) < 2.5) {
+          c.x = tx; c.dir = spot.face;
+          setAct(c, c === g ? { type: "lie", fi: 0, dur: 1e9, face: spot.face, keepDir: true } : { type: "sit", dur: 1e9, face: spot.face }, now);
+          soc.ready.add(c); /* setAct 會先把 ready 清掉，要加回來 */
+        } else setAct(c, moveAct("walk", tx, rand(46, 58)), now);
+      }
+      return true;
+    }
+    function climbHoldNow(s, now, o) {
+      o = o || {};
+      const g = s.g, b = s.br, face = s.face;
+      g.x = s.gx; b.x = climbHoldX(g, face);
+      g.dir = b.dir = face;
+      g.el.style.zIndex = "1"; b.el.style.zIndex = "3";
+      setAct(g, { type: "lie", fi: o.glance ? 1 : 0, dur: 1e9, face, keepDir: true }, now);
+      setAct(b, { type: "rear", fi: o.fi != null ? o.fi : 2, dur: 1e9, face, keepDir: true }, now);
+      s.phase = "hold"; s.tHold = now; s.until = now + (o.hold || rand(3400, 4800));
+      s.glanceAt = o.glance ? now : now + rand(700, 1200);
+    }
+    function climbStep(now) {
+      const s = soc, g = s.g, b = s.br, face = s.face;
+      if (s.phase === "demo") return;
+      if (s.phase === "approach") {
+        if (g.act && g.act.type !== "lie" && (s.ready.has(g) || Math.abs(g.x - s.gx) < 2.5)) {
+          setAct(g, { type: "lie", fi: 0, dur: 1e9, face, keepDir: true }, now);
+          soc.ready.add(g);
+        }
+        if (s.ready.has(b) && b.act && b.act.type === "sit") { b.dir = face; }
+        if (bothReady()) {
+          g.x = s.gx; b.x = climbPlantX(g, face);
+          g.dir = b.dir = face;
+          g.el.style.zIndex = "1"; b.el.style.zIndex = "3";
+          setAct(g, { type: "lie", fi: 0, dur: 1e9, face, keepDir: true }, now);
+          setAct(b, { type: "rear", fi: 0, dur: 1e9, face, keepDir: true }, now);
+          s.phase = "rise"; s.tRise = now;
+          say(g, "zzz", now, 0.55);
+        }
+        return;
+      }
+      if (s.phase === "rise") {
+        const u = clamp((now - s.tRise) / 520, 0, 1);
+        b.x = climbOrangeX(g, face, u);
+        b.dir = face; g.dir = face;
+        b.act.fi = u < 0.42 ? 0 : u < 0.82 ? 1 : 2;
+        if (u >= 1) {
+          b.x = climbHoldX(g, face);
+          b.act.fi = 2;
+          s.phase = "hold"; s.tHold = now; s.until = now + rand(3400, 4800);
+          s.glanceAt = now + rand(700, 1200);
+          say(b, pick(["heart", "sparkle"]), now, 0.75);
+        }
+        return;
+      }
+      if (s.phase === "hold") {
+        b.x = climbHoldX(g, face);
+        b.dir = face; g.dir = face;
+        const kn = Math.floor((now - s.tHold) / 420) % 6;
+        b.act.fi = [2, 3, 2, 4, 2, 5][kn];
+        b.act.hipSway = REAL.CLIMB.hipAmp * Math.sin(2 * Math.PI * REAL.CLIMB.hipHz * ((now - s.tHold) / 1000));
+        if (now >= (s.glanceAt || 1e15)) {
+          const fl = Math.floor((now - s.glanceAt) / 520) % 4;
+          g.act.fi = fl === 0 || fl === 1 ? 1 : fl === 2 ? 3 : 2;
+        } else g.act.fi = 0;
+        if (now > s.until) { s.phase = "drop"; s.tDrop = now; g.act.fi = 0; b.act.fi = 1; }
+        return;
+      }
+      if (s.phase === "drop") {
+        const e = now - s.tDrop;
+        const u = 1 - clamp(e / 400, 0, 1);
+        b.x = climbOrangeX(g, face, u);
+        b.act.fi = u > 0.5 ? 1 : 0;
+        if (e >= 400) {
+          b.x = climbPlantX(g, face);
+          setAct(b, { type: "sit", dur: rand(800, 1400), face }, now);
+          setAct(g, { type: "lie", fi: 0, dur: rand(1800, 3200), face, keepDir: true }, now);
+          endSoc(now);
+        }
+      }
+    }
     function loveAct(fk, dir) { return { type: "love", fk, dur: 1e9, face: dir }; }
     function startLove(now) {
       const g = cats.find((c) => c.name === "gray"), b = other(g);
@@ -3491,7 +3642,7 @@ export function mountRoomPets() {
       socStep(now);
       /* 兩隻重疊時，隨機決定誰在前面 */
       const ov = Math.abs(cats[0].x - cats[1].x) < W * S * 0.7;
-      if (ov && !overlapped) { const f = Math.random() < 0.5 ? 0 : 1; cats[f].el.style.zIndex = "3"; cats[1 - f].el.style.zIndex = "1"; }
+      if (ov && !overlapped && !(soc && soc.kind === "climb")) { const f = Math.random() < 0.5 ? 0 : 1; cats[f].el.style.zIndex = "3"; cats[1 - f].el.style.zIndex = "1"; }
       overlapped = ov;
       for (const c of cats) {
         try { render(c, now); renderBonkFx(c, now); }
@@ -3634,5 +3785,57 @@ export function mountRoomPets() {
       get jelly() { return jellies.map((j) => ({ text: j.el.textContent, held: j.held, ox: j.ox, oy: j.oy, stretch: j.ox * j.side / j.w })); },
       get nextBiteAt() { return nextBiteAt; }, set nextBiteAt(v) { nextBiteAt = v; },
       /* 談戀愛：love() 立刻開始；soc.phase 看目前階段（notice/approach/nuzzle/lick/scoot/tail） */
-      love: () => { const n = performance.now(); endSoc(n); for (const c of cats) { c.ballUntil = 0; if (c.hidden) return false; } if (ball.state === "carried") { ball.state = "loose"; ball.carrier = null; } startLove(n); return true; } };
+      love: () => { const n = performance.now(); endSoc(n); for (const c of cats) { c.ballUntil = 0; if (c.hidden) return false; } if (ball.state === "carried") { ball.state = "loose"; ball.carrier = null; } startLove(n); return true; },
+      /* 橘貓把前腳搭上灰貓的背：climb() 完整演一次；climb({ now: true }) 直接停在搭住的姿勢；climb({ now: true, glance: true, fi: 3 }) 可指定灰貓回頭、橘貓踩奶影格 */
+      climb: (o) => {
+        o = o || {};
+        const n = performance.now();
+        endSoc(n);
+        for (const c of cats) { c.ballUntil = 0; c.y = 0; if (c.hidden) return false; }
+        if (ball.state === "drag") return false;
+        if (ball.state === "carried") { ball.state = "loose"; ball.carrier = null; }
+        try { if (window.PetMenu && window.PetMenu.isOpen) window.PetMenu.close("force"); } catch (_) {}
+        if (!startClimb(n)) return false;
+        if (o.now) climbHoldNow(soc, n, o);
+        return true;
+      },
+      climbInfo: () => { const s = soc; if (!s || s.kind !== "climb") return null; return { phase: s.phase, face: s.face, gx: s.gx, fi: s.br && s.br.act && s.br.act.fi, gfi: s.g && s.g.act && s.g.act.fi }; },
+      /* 預覽／錄影用：依秒數 t 對齊完整動作（不靠真實時間，避免截圖時 requestAnimationFrame 不穩） */
+      climbAt: (t) => {
+        const n = performance.now();
+        if (ball.state === "carried" || ball.state === "drag") { ball.state = "loose"; ball.carrier = null; }
+        try { if (window.PetMenu && window.PetMenu.isOpen) window.PetMenu.close("force"); } catch (_) {}
+        const g = cats.find((c) => c.name === "gray"), b = other(g);
+        if (!g || !b || g.hidden || b.hidden) return false;
+        for (const c of [g, b]) { c.ballUntil = 0; c.y = 0; c.queue = []; }
+        if (!soc || soc.kind !== "climb" || !soc.demo) {
+          if (soc) endSoc(n);
+          const spot = pickClimbSpot();
+          soc = { kind: "climb", a: g, b, g, br: b, t0: n, phase: "demo", ready: new Set(), face: spot.face, gx: spot.gx, demo: true };
+        }
+        const s = soc, face = s.face;
+        const xHold = climbHoldX({ x: s.gx }, face);
+        const xPlant = climbPlantX({ x: s.gx }, face);
+        const xStart = clamp(xPlant - face * Math.min(90, Math.abs(xPlant - (face > 0 ? minX() : maxX())) * 0.9), minX(), maxX());
+        const T = { walk0: 0.30, walk1: 1.65, rise1: 2.20, hold1: 6.15, drop1: 6.60, end: 8.0 };
+        let phase, u, bx, fi = 0, gfi = 0, btype = "walk";
+        if (t < T.walk0) { phase = "start"; bx = xStart; btype = "sit"; }
+        else if (t < T.walk1) { phase = "walk"; u = (t - T.walk0) / (T.walk1 - T.walk0); bx = lerpC(xStart, xPlant, u); btype = "walk"; }
+        else if (t < T.rise1) { phase = "rise"; u = (t - T.walk1) / (T.rise1 - T.walk1); bx = climbOrangeX({ x: s.gx }, face, u); fi = u < 0.42 ? 0 : u < 0.82 ? 1 : 2; btype = "rear"; }
+        else if (t < T.hold1) {
+          phase = "hold"; bx = xHold; btype = "rear";
+          const kn = Math.floor((t - T.rise1) / 0.42) % 6;
+          fi = [2, 3, 2, 4, 2, 5][kn];
+          if (t >= T.rise1 + 0.7) { const fl = Math.floor((t - T.rise1 - 0.7) / 0.52) % 4; gfi = fl === 0 || fl === 1 ? 1 : fl === 2 ? 3 : 2; }
+        } else if (t < T.drop1) { phase = "drop"; u = 1 - (t - T.hold1) / (T.drop1 - T.hold1); bx = climbOrangeX({ x: s.gx }, face, u); fi = u > 0.5 ? 1 : 0; btype = "rear"; }
+        else { phase = "done"; bx = xPlant; btype = "sit"; }
+        const hipSway = phase === "hold" ? REAL.CLIMB.hipAmp * Math.sin(2 * Math.PI * REAL.CLIMB.hipHz * (t - T.rise1)) : 0;
+        g.x = s.gx; g.dir = face; b.x = bx; b.dir = t < T.walk0 ? face : (btype === "walk" && Math.abs(xPlant - b.x) > 1 ? (xPlant > b.x ? 1 : -1) : face);
+        g.el.style.zIndex = "1"; b.el.style.zIndex = "3";
+        g.act = { type: "lie", t0: n, dur: 1e9, fi: gfi, face, keepDir: true };
+        b.act = { type: btype, t0: n - (btype === "walk" ? t * 1000 : 0), dur: 1e9, fi, tx: xPlant, speed: 50, face, keepDir: true, hipSway };
+        s.phase = "demo"; s.demoPhase = phase;
+        for (const c of [g, b]) { c.paintT = 0; render(c, n); }
+        return { phase, t, hipSway };
+      } };
 }
