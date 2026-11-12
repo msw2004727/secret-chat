@@ -1,16 +1,23 @@
-/* 雙擊訊息：泡泡像軟麵條一樣垂下去。畫在捲動區外面的一層，不改變捲動高度。
-   狀態由呼叫端寫進 rooms/<房>/dr/<訊息鍵>，這裡只負責畫。 */
+/* 連點同一則泡泡五下：從釘住的那一側軟軟垂到垂直，再鬆開掉出畫面。
+   掉出去滿 5 秒，原位用約 1 秒淡回來；空位留著，其他訊息不跳。
+   以前是雙擊（320ms 內、兩下距離 26px 以內）在「垂下 60 度」和「挺回」之間切換。
+   狀態仍由呼叫端寫進 rooms/<房>/dr/<訊息鍵> {on,t,by}。on 為 true 的 t 是這次開始的時間，
+   太舊的不重播。這裡只負責畫。 */
 export const DROOP = {
-  ANGLE_DEG: 60,
-  SOFTNESS: 1,
-  CURVE_POW: 1.3,
-  MAX_BEND_PX: 230,
-  DURATION_MS: 1150,
-  WOBBLE: 0.14,
-  RECOVER_MS: 2500,
-  RECOVER_OVERSHOOT: 0.05,
-  DOUBLE_TAP_MS: 320,
-  DOUBLE_TAP_PX: 26,
+  ANGLE_DEG: 90,
+  HINGE_POW: 0.07, /* 小於 1：彎折集中在釘住的那一側，泡泡本體垂成一直線 */
+  SAG_MS: 1100,
+  WOBBLE: 0.12,
+  JELLY_PX: 6,
+  TAP_COUNT: 5,
+  TAP_GAP_MS: 600,
+  GONE_MS: 5000,
+  FADE_MS: 1000,
+  REDUCE_OUT_MS: 400,
+  GRAVITY: 1700, /* px/s^2，掉下去是加速度不是等速 */
+  FALL_MAX_MS: 2500,
+  FALL_MARGIN: 16,
+  FALL_SPIN_DEG: 8,
   COLS: 40,
   ROWS: 5,
 };
@@ -38,8 +45,42 @@ function petsOff() {
   try { return localStorage.getItem("sc-pets") === "off"; } catch (_) { return false; }
 }
 
-function sagCurve(ms) {
-  const D = DROOP.DURATION_MS;
+function reducedMotion() {
+  try { return !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches; } catch (_) { return false; }
+}
+/* 連點計數。換了一則、或離上一點超過 TAP_GAP_MS，就從 1 重算。 */
+export function droopTapCount(prev, sameRow, gapMs) {
+  const n = Number(prev) || 0;
+  if (!sameRow || !Number.isFinite(gapMs) || gapMs < 0 || gapMs > DROOP.TAP_GAP_MS) return 1;
+  return n + 1;
+}
+export function droopTapFires(count) {
+  return count >= DROOP.TAP_COUNT;
+}
+/* 從這次 t 起算的階段。reduced 時沒有下墜，淡出後直接進入「人不在畫面」的等待。 */
+export function droopPhase(elapsedMs, fallMs, reduced) {
+  const elapsed = Number(elapsedMs);
+  if (!Number.isFinite(elapsed) || elapsed < 0) return "done";
+  const out = reduced ? DROOP.REDUCE_OUT_MS : DROOP.SAG_MS;
+  const fall = reduced ? 0 : Math.max(0, Number(fallMs) || 0);
+  const goneAt = out + fall + DROOP.GONE_MS;
+  const fadeAt = goneAt + DROOP.FADE_MS;
+  if (elapsed < out) return reduced ? "fadeout" : "sag";
+  if (!reduced && elapsed < out + fall) return "fall";
+  if (elapsed < goneAt) return "gone";
+  if (elapsed < fadeAt) return "fade";
+  return "done";
+}
+export function droopFallY(ms, g = DROOP.GRAVITY) {
+  const t = Math.max(0, Number(ms) || 0) / 1000;
+  return 0.5 * g * t * t;
+}
+export function droopFallMs(distancePx, g = DROOP.GRAVITY, maxMs = DROOP.FALL_MAX_MS) {
+  if (!(distancePx > 0) || !(g > 0)) return 0;
+  return Math.min(maxMs, Math.sqrt((2 * distancePx) / g) * 1000);
+}
+export function droopSag(ms) {
+  const D = DROOP.SAG_MS;
   if (ms >= D) return 1;
   if (ms <= 0) return 0;
   const W = Math.max(0, Math.min(0.6, DROOP.WOBBLE));
@@ -50,36 +91,21 @@ function sagCurve(ms) {
   const w0 = 4.8 / (z * D / 1000), wd = w0 * Math.sqrt(1 - z * z);
   return 1 - Math.exp(-z * w0 * t) * (Math.cos(wd * t) + (z * w0 / wd) * Math.sin(wd * t));
 }
-function riseCurve(ms) {
-  const D = DROOP.RECOVER_MS;
-  if (ms >= D) return 0;
-  if (ms <= 0) return 1;
-  const p = ms / D;
-  const g = 0.5 - 0.5 * Math.cos(Math.PI * clamp01(p / 0.82));
-  const bump = p > 0.68 ? Math.sin(Math.PI * (p - 0.68) / 0.32) : 0;
-  return (1 - g) - DROOP.RECOVER_OVERSHOOT * bump;
-}
-function droopAngle(st, now) {
-  const e = now - st.t;
-  if (st.on) return st.a0 + (1 - st.a0) * sagCurve(e);
-  return st.a0 * riseCurve(e);
-}
 function centerline(L, theta) {
   const N = DROOP.COLS * 4;
-  const soft = Math.max(0.05, Math.min(1, DROOP.SOFTNESS));
-  const s0 = L - Math.min(L * soft, Math.max(40, DROOP.MAX_BEND_PX));
   const X = new Float32Array(N + 1), Y = new Float32Array(N + 1), A = new Float32Array(N + 1);
+  const pow = DROOP.HINGE_POW;
   for (let i = 1; i <= N; i++) {
-    const sm = L * (i - 0.5) / N;
-    const u = clamp01((sm - s0) / (L - s0 || 1));
-    const ph = theta * Math.pow(u, DROOP.CURVE_POW);
+    const u0 = (i - 1) / N;
+    const u1 = i / N;
+    const ph = theta * (Math.pow(u0, pow) + Math.pow(u1, pow)) / 2;
     X[i] = X[i - 1] + Math.cos(ph) * L / N;
     Y[i] = Y[i - 1] + Math.sin(ph) * L / N;
-    A[i] = theta * Math.pow(clamp01((L * i / N - s0) / (L - s0 || 1)), DROOP.CURVE_POW);
+    A[i] = theta * Math.pow(u1, pow);
   }
   return { X, Y, A, N, L };
 }
-function bendPt(cl, st, sx, sy) {
+function bendPt(cl, st, sx, sy, jelly) {
   const w = st.w, h = st.h;
   const s = st.right ? w - sx : sx;
   const f = Math.max(0, Math.min(cl.N, s / cl.L * cl.N));
@@ -88,8 +114,33 @@ function bendPt(cl, st, sx, sy) {
   const cy = cl.Y[i] + (cl.Y[i + 1] - cl.Y[i]) * k;
   const ph = cl.A[i] + (cl.A[i + 1] - cl.A[i]) * k;
   const n = sy - h / 2;
-  const x = cx - n * Math.sin(ph), y = h / 2 + cy + n * Math.cos(ph);
+  const j = jelly || 0;
+  const sn = Math.sin(ph), co = Math.cos(ph);
+  /* 厚度往泡泡內側偏一個半高，垂下來才不會翻出釘住的那一側、裁到畫面外。
+     角度是 0 時 sin 為 0，位置跟原本的泡泡重合。 */
+  const x = cx - (n + j) * sn + (h / 2) * sn;
+  const y = h / 2 + cy + (n + j) * co;
   return { x: st.right ? w - x : x, y };
+}
+/* 垂到 theta 時墨水的範圍。鉸鏈在起點、末端角度就是 theta，中段已經接近垂直。 */
+export function droopHang(length, theta) {
+  const cl = centerline(length, theta);
+  const mid = Math.max(1, Math.round(cl.N * 0.55));
+  return { hinge: cl.A[0], mid: cl.A[mid], end: cl.A[cl.N] };
+}
+export function droopInkSpan(length, height, theta) {
+  const cl = centerline(Math.max(1, length), theta);
+  const st = { w: length, h: height, right: false };
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  const C = DROOP.COLS, R = DROOP.ROWS;
+  for (let r = 0; r <= R; r++) for (let q = 0; q <= C; q++) {
+    const p = bendPt(cl, st, length * q / C, height * r / R, 0);
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  return { minX, maxX, minY, maxY };
 }
 function drawTri(c, img, sc, s0, s1, s2, d0, d1, d2) {
   const mx = (d0.x + d1.x + d2.x) / 3, my = (d0.y + d1.y + d2.y) / 3;
@@ -200,7 +251,7 @@ export const Droop = {
     this.layer = layer;
     this.map = new Map();
     this.raf = 0;
-    this.lastTap = null;
+    this.taps = null;
     this.tapDown = null;
     const MOVE = 12;
     scroller.addEventListener("pointerdown", (e) => {
@@ -213,28 +264,28 @@ export const Droop = {
     scroller.addEventListener("pointerup", (e) => {
       const d = this.tapDown;
       this.tapDown = null;
-      if (!d || d.moved || performance.now() - d.t > 300) { this.lastTap = null; return; }
-      if (menu && !menu.hidden) { this.lastTap = null; return; }
+      if (!d || d.moved || performance.now() - d.t > 300) { this.taps = null; return; }
+      if (menu && !menu.hidden) { this.taps = null; return; }
       const row = this.rowAt(e.clientX, e.clientY) || e.target.closest?.(".row");
-      if (!row || !row.dataset.k || row.classList.contains("shattering") || !row.querySelector(".bub")) { this.lastTap = null; return; }
+      if (!row || !row.dataset.k || row.classList.contains("shattering") || !row.querySelector(".bub")) { this.taps = null; return; }
       const now = performance.now();
-      if (this.lastTap && this.lastTap.row === row && now - this.lastTap.t < DROOP.DOUBLE_TAP_MS &&
-          Math.hypot(e.clientX - this.lastTap.x, e.clientY - this.lastTap.y) < DROOP.DOUBLE_TAP_PX) {
-        this.lastTap = null;
-        if (petsOff()) return; /* 趣味特效關掉：不軟、也不寫資料庫 */
-        const st = this.map.get(row);
-        const on = !(st && st.on);
-        if (this.write) this.write(row.dataset.k, on);
-        return;
-      }
-      this.lastTap = { row, t: now, x: e.clientX, y: e.clientY };
+      const prev = this.taps;
+      const same = !!(prev && prev.row === row);
+      const n = droopTapCount(same ? prev.n : 0, same, prev ? now - prev.t : Infinity);
+      this.taps = { row, n, t: now };
+      if (!droopTapFires(n)) return;
+      this.taps = null;
+      if (petsOff()) return; /* 趣味特效關掉：不軟、也不寫資料庫 */
+      if (this.map.has(row)) return; /* 這則還在垂、掉或淡回，不重來 */
+      if (this.write) this.write(row.dataset.k, true);
     }, true);
     list.addEventListener("dblclick", (e) => e.preventDefault());
-    /* 捲動時馬上跟上（不只靠 rAF；rAF 被節流或出錯時泡泡也不會卡在畫面上） */
+    /* 還垂著的時候跟著捲動。鬆開之後改在螢幕座標往下掉，不再跟著訊息走。 */
     scroller.addEventListener("scroll", () => {
       for (const [row, st] of [...this.map]) {
         if (!row.isConnected || !st.bub.isConnected) { this.clear(row); continue; }
-        try { this.place(st); } catch (_) {}
+        if (st.release || !st.cv) continue;
+        try { this.place(st, 0, 0); } catch (_) {}
       }
     }, { passive: true });
     window.addEventListener("resize", () => { for (const st of this.map.values()) st.drawnFinal = false; this.kick(); });
@@ -249,6 +300,7 @@ export const Droop = {
   },
   rowAt(x, y) {
     for (const [row, st] of [...this.map].reverse()) {
+      if (!st.cv) continue;
       const r = st.cv.getBoundingClientRect();
       if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
       const px = Math.floor((x - r.left) * st.dpr), py = Math.floor((y - r.top) * st.dpr);
@@ -260,8 +312,11 @@ export const Droop = {
     const st = this.map.get(row);
     if (!st) return;
     this.map.delete(row);
-    try { st.cv.remove(); } catch (_) {}
-    try { st.bub.classList.remove("droop"); } catch (_) {}
+    try { st.cv?.remove(); } catch (_) {}
+    try {
+      st.bub.classList.remove("droop");
+      st.bub.style.opacity = "";
+    } catch (_) {}
   },
   straighten(row) { if (row) this.clear(row); },
   clearAll() { for (const row of [...this.map.keys()]) this.clear(row); },
@@ -270,21 +325,30 @@ export const Droop = {
     if (!bub || row.classList.contains("shattering") || row.classList.contains("gone")) return;
     const now = this.now();
     t = typeof t === "number" ? t : now;
-    let st = this.map.get(row);
-    if (!st) {
-      if (!on) return;
-      row.dataset.drooped = "1";
-      try { bub.dispatchEvent(new CustomEvent("bub-droop", { bubbles: true })); } catch (_) {}
-      bub.classList.remove("holding");
-      const w = bub.offsetWidth, h = bub.offsetHeight;
+    if (!on) { this.clear(row); return; }
+    const prev = this.map.get(row);
+    if (prev && prev.t === t) return;
+    if (prev) this.clear(row);
+    const reduced = reducedMotion();
+    const elapsed = now - t;
+    const cap = (reduced ? DROOP.REDUCE_OUT_MS : DROOP.SAG_MS + DROOP.FALL_MAX_MS) + DROOP.GONE_MS + DROOP.FADE_MS;
+    row.dataset.drooped = "1"; /* 垂過（包含已經回來的）：貓永遠不碰 */
+    if (elapsed > cap) return; /* 進房時這次已經播完，不重播 */
+    bub.classList.remove("holding");
+    const w = bub.offsetWidth, h = bub.offsetHeight;
+    const right = row.classList.contains("me");
+    const st = { row, bub, cv: null, snap: null, dpr: 1, w, h, padX: 0, padT: 0, padB: 0, right, on: true, t, reduced, fallMs: 0, release: null, inkTop: 0 };
+    if (!reduced) {
       let snap;
       try { snap = snapshotBubble(bub); } catch (_) { return; }
       if (!snap) return;
       const dpr = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
-      const maxA = DROOP.ANGLE_DEG * Math.PI / 180 * (1 + Math.max(0, DROOP.WOBBLE) + 0.05);
-      const padX = 16, padT = 14 + Math.ceil(w * Math.sin(DROOP.ANGLE_DEG * Math.PI / 180 * 0.12));
-      const bendL = Math.min(w * Math.max(0.05, Math.min(1, DROOP.SOFTNESS)), Math.max(40, DROOP.MAX_BEND_PX));
-      const padB = 14 + Math.ceil(bendL * Math.sin(Math.min(Math.PI / 2, maxA)) + h * 0.5);
+      const theta = DROOP.ANGLE_DEG * Math.PI / 180 * (1 + Math.max(0, DROOP.WOBBLE) + 0.04);
+      const span = droopInkSpan(w, h, theta);
+      const padX = Math.ceil(Math.max(18, -span.minX, span.maxX - w) + DROOP.JELLY_PX + 10);
+      const padT = Math.ceil(Math.max(14, -span.minY) + DROOP.JELLY_PX + 8);
+      const padB = Math.ceil(Math.max(14, span.maxY - h) + DROOP.JELLY_PX + 12);
+      const hang = droopInkSpan(w, h, DROOP.ANGLE_DEG * Math.PI / 180);
       const cv = document.createElement("canvas");
       cv.className = "bub-droop";
       cv.style.zIndex = String(1000 - [...this.list.querySelectorAll(".row")].indexOf(row));
@@ -292,20 +356,26 @@ export const Droop = {
       cv.height = Math.round((h + padT + padB) * dpr);
       cv.style.width = (w + padX * 2) + "px";
       cv.style.height = (h + padT + padB) + "px";
+      cv.style.visibility = "hidden";
       this.layer.appendChild(cv);
-      st = { row, bub, cv, snap, dpr, w, h, padX, padT, right: row.classList.contains("me"), on: true, t, a0: 0, amt: 0 };
-      this.map.set(row, st);
-      bub.classList.add("droop");
-      this.draw(st, now);
-      this.place(st);
-      this.kick();
+      st.cv = cv;
+      st.snap = snap;
+      st.dpr = dpr;
+      st.padX = padX;
+      st.padT = padT;
+      st.padB = padB;
+      st.inkTop = padT + hang.minY;
+      this.draw(st, t + Math.min(elapsed, DROOP.SAG_MS));
+      this.place(st, 0, 0);
+      const visualTop = cv.getBoundingClientRect().top + st.inkTop;
+      st.fallMs = droopFallMs(window.innerHeight - visualTop + DROOP.FALL_MARGIN);
+    }
+    if (droopPhase(elapsed, st.fallMs, reduced) === "done") {
+      try { st.cv?.remove(); } catch (_) {}
       return;
     }
-    const cur = droopAngle(st, t);
-    st.a0 = Math.max(0, Math.min(1.2, cur));
-    st.on = !!on;
-    st.t = t;
-    st.drawnFinal = false;
+    try { bub.dispatchEvent(new CustomEvent("bub-droop", { bubbles: true })); } catch (_) {}
+    this.map.set(row, st);
     this.kick();
   },
   sync(val, serverNow) {
@@ -339,9 +409,13 @@ export const Droop = {
     void now;
   },
   draw(st, now) {
-    const amt = droopAngle(st, now);
+    if (!st.cv || !st.snap) return;
+    const amt = droopSag(now - st.t);
     st.amt = amt;
     const theta = amt * DROOP.ANGLE_DEG * Math.PI / 180;
+    const e = now - st.t;
+    const env = e > 0 && e < DROOP.SAG_MS ? Math.sin(Math.PI * e / DROOP.SAG_MS) : 0;
+    const jelly = Math.sin(e / 68) * DROOP.JELLY_PX * env;
     const cv = st.cv, c = cv.getContext("2d"), sc = st.snap.scale, dpr = st.dpr;
     if (!c) return;
     c.setTransform(1, 0, 0, 1, 0, 0);
@@ -359,8 +433,9 @@ export const Droop = {
       const pr = [], sr = [];
       for (let q = 0; q <= C; q++) {
         const sx = st.w * q / C, sy = st.h * r / R;
+        const u = (st.right ? C - q : q) / C;
         sr.push({ x: sx, y: sy });
-        pr.push(bendPt(cl, st, sx, sy));
+        pr.push(bendPt(cl, st, sx, sy, jelly * Math.sin(u * Math.PI)));
       }
       P.push(pr); S.push(sr);
     }
@@ -370,30 +445,78 @@ export const Droop = {
       drawTri(c, img, sc, S[r][q + 1], S[r + 1][q + 1], S[r + 1][q], P[r][q + 1], P[r + 1][q + 1], P[r + 1][q]);
     }
   },
-  place(st) {
+  place(st, dy, spin) {
+    if (!st.cv) return;
     const lr = this.layer.getBoundingClientRect();
     const br = st.bub.getBoundingClientRect();
     const x = br.left + br.width / 2 - st.w / 2 - lr.left - st.padX;
     const y = br.top + br.height / 2 - st.h / 2 - lr.top - st.padT;
-    st.cv.style.transform = "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px,0)";
+    const rot = spin ? " rotate(" + spin.toFixed(2) + "deg)" : "";
+    st.cv.style.transform = "translate3d(" + x.toFixed(1) + "px," + (y + (dy || 0)).toFixed(1) + "px,0)" + rot;
+    return { x, y };
   },
-  syncLayer() {
-    this.layer.style.top = this.scroller.offsetTop + "px";
-    this.layer.style.height = this.scroller.clientHeight + "px";
+  park(st, dy, spin) {
+    if (!st.cv || !st.release) return;
+    const rot = spin ? " rotate(" + spin.toFixed(2) + "deg)" : "";
+    st.cv.style.transform = "translate3d(" + st.release.x.toFixed(1) + "px," + (st.release.y + dy).toFixed(1) + "px,0)" + rot;
   },
+  /* 圖層釘在整個視窗（樣式 position:fixed），不再跟著捲動區的高度，掉下去才不會被列表裁掉。 */
+  syncLayer() {},
   tick() {
     this.raf = 0;
     if (!this.map.size) return;
     const now = this.now();
-    this.syncLayer();
     for (const [row, st] of [...this.map]) {
       if (!row.isConnected || !st.bub.isConnected) { this.clear(row); continue; }
       try {
-        const e = now - st.t;
-        const settled = st.on ? e > DROOP.DURATION_MS + 40 : e > DROOP.RECOVER_MS;
-        if (!st.on && settled) { this.clear(row); continue; }
-        if (!settled || !st.drawnFinal) { this.draw(st, now); st.drawnFinal = settled; }
-        this.place(st);
+        const elapsed = now - st.t;
+        const phase = droopPhase(elapsed, st.fallMs, st.reduced);
+        if (phase === "done") { this.clear(row); continue; }
+        if (st.reduced) {
+          let opacity = 0;
+          if (phase === "fadeout") opacity = 1 - clamp01(elapsed / DROOP.REDUCE_OUT_MS);
+          else if (phase === "fade") opacity = clamp01((elapsed - DROOP.REDUCE_OUT_MS - DROOP.GONE_MS) / DROOP.FADE_MS);
+          st.bub.classList.remove("droop");
+          st.bub.style.opacity = String(opacity);
+          continue;
+        }
+        if (phase === "sag") {
+          st.bub.classList.add("droop");
+          st.bub.style.opacity = "";
+          if (st.cv) st.cv.style.visibility = "";
+          this.draw(st, now);
+          this.place(st, 0, 0);
+          continue;
+        }
+        if (phase === "fall") {
+          st.bub.classList.add("droop");
+          st.bub.style.opacity = "";
+          if (!st.release) {
+            this.draw(st, st.t + DROOP.SAG_MS);
+            const pos = this.place(st, 0, 0);
+            st.release = pos || { x: 0, y: 0 };
+            if (st.cv) {
+              st.cv.style.visibility = "";
+              const visualTop = st.cv.getBoundingClientRect().top + st.inkTop;
+              st.fallMs = droopFallMs(window.innerHeight - visualTop + DROOP.FALL_MARGIN);
+            }
+          }
+          const ft = elapsed - DROOP.SAG_MS;
+          const spin = (st.right ? -1 : 1) * DROOP.FALL_SPIN_DEG * clamp01(ft / 900);
+          this.park(st, droopFallY(ft), spin);
+          continue;
+        }
+        if (phase === "gone") {
+          st.bub.classList.add("droop");
+          st.bub.style.opacity = "";
+          try { st.cv?.remove(); st.cv = null; } catch (_) {}
+          continue;
+        }
+        /* fade：原位從透明慢慢回來。空位一直都在（泡泡節點沒有拿掉）。 */
+        try { st.cv?.remove(); st.cv = null; } catch (_) {}
+        st.bub.classList.remove("droop");
+        const p = (elapsed - DROOP.SAG_MS - st.fallMs - DROOP.GONE_MS) / DROOP.FADE_MS;
+        st.bub.style.opacity = String(clamp01(p));
       } catch (err) {
         /* 畫壞了：收掉這一則的垂下畫布、泡泡恢復原狀，其他則照常（不讓整個 rAF 鏈斷掉） */
         try { console.warn("[droop] 已自動恢復：", err); } catch (_) {}

@@ -3541,9 +3541,11 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   #chat.pets-off .c-scroll { padding-bottom: 8px; }
 }
 #droopLayer {
-  position: absolute; left: 0; right: 0; top: 0; height: 0;
-  overflow: hidden; pointer-events: none;
-  z-index: 1;
+  position: fixed; inset: 0;
+  overflow: visible; pointer-events: none;
+  /* 高於標題和輸入列（8），垂到 90 度和往下掉才不會被訊息列表或輸入列裁掉。
+     選單、遮罩仍在 40 以上，蓋得過這一層。 */
+  z-index: 9;
 }
 #droopLayer canvas.bub-droop { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
 .bub.droop { background: transparent !important; color: transparent !important; }
