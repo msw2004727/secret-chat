@@ -20,7 +20,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.45";
+const APP_VERSION = "v61.46";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -1433,31 +1433,20 @@ async function connectOnce() {
   try {
     const app = appMod.initializeApp(CFG.firebase);
     const auth = authMod.getAuth(app);
-
-    /* ⚠️⚠️ v61：先等 Firebase 把持久化的登入狀態讀回來，**有使用者就沿用**。
-          真實 SDK 的 signInAnonymously 在「已經登入一個非匿名使用者」時，
-          會**新建一個匿名使用者把現在的取代掉** —— 也就是把 LINE 身分洗掉。
-          v60 以前無條件呼叫它沒事，因為當時只有匿名一種身分。 */
-    const existing = await new Promise((res) => {
-      let done = false;
-      const fin = (u) => { if (!done) { done = true; res(u); } };
-      try { const un = authMod.onAuthStateChanged(auth, (u) => { try { un(); } catch (_) {} fin(u); }); } catch (_) { fin(auth.currentUser); }
-      setTimeout(() => fin(auth.currentUser), 4000);
-    });
-    /* ⚠️ 匿名登入要包逾時 —— 它「卡住不回」比「明確失敗」更常見，
-       而卡住的話畫面會一直停在轉圈，看起來像整個 App 死掉。 */
-    try {
-      if (!existing) await withTimeout(authMod.signInAnonymously(auth), 12000);
-    } catch (first) {
-      /* Firebase 把匿名登入狀態存在它自己的 IndexedDB。那份東西壞掉或卡住時，
-         登入會一直失敗，而且「換一台裝置」也救不了 —— 因為壞的是這個瀏覽器。
-         實際遇過：手機 Chrome 一直連線失敗、同一台的 Safari 完全正常、
-         清掉網站資料就好了。這裡自動做那件事，再試一次。
-         ⚠️ 只砍 Firebase 自己那幾個資料庫，貼圖庫（sc-stickers）絕對不動。 */
-      console.warn("匿名登入失敗，清掉 Firebase 的本機狀態後重試：", first);
-      await wipeFirebaseLocalState();
-      await withTimeout(authMod.signInAnonymously(auth), 12000);
+    /* 關掉分頁再打開時，LINE 身分在 IndexedDB。沒先講明要持久化的話，
+       有些環境會落回 session，分頁一關就沒了。 */
+    const persistence = authMod.browserLocalPersistence || authMod.indexedDBLocalPersistence;
+    if (persistence && typeof authMod.setPersistence === "function") {
+      try { await authMod.setPersistence(auth, persistence); }
+      catch (err) { console.warn("無法設定登入持久化：", err); }
     }
+
+    /* ⚠️⚠️ 一定要等「第一次」登入狀態回呼真的發生，才能決定有沒有人。
+          以前用 4 秒逾時，逾時當下 currentUser 還是 null，就會去匿名登入，
+          把正在還原的 LINE 身分蓋掉；匿名登入再失敗還會刪掉 Firebase 的 IndexedDB。
+          還原慢只讓轉圈久一點，不可以當成「沒有使用者」。 */
+    const existing = await restorePersistedUser(auth, authMod);
+    await ensureSignedIn(auth, authMod, existing);
 
     const db = dbMod.getDatabase(app);
     /* Storage 的 ref / getBytes 跟 Database 的同名，**不可以**攤平進同一層 ——
@@ -1494,6 +1483,45 @@ async function connectOnce() {
     err.scStage = "auth";
     throw err;
   }
+}
+
+/* 等 Firebase 把上次的登入從 IndexedDB 讀回來。
+   有 authStateReady 就等它；否則等 onAuthStateChanged 的第一聲。
+   ⚠️ 這裡不設「逾時就當沒人」—— 慢不是登出。 */
+async function restorePersistedUser(auth, authMod) {
+  if (auth && typeof auth.authStateReady === "function") {
+    await auth.authStateReady();
+    return auth.currentUser || null;
+  }
+  return await new Promise((resolve) => {
+    let settled = false;
+    const finish = (user) => { if (!settled) { settled = true; resolve(user || null); } };
+    try {
+      const stop = authMod.onAuthStateChanged(auth, (user) => {
+        try { if (typeof stop === "function") stop(); } catch (_) {}
+        finish(user);
+      });
+    } catch (_) { finish(auth && auth.currentUser); }
+  });
+}
+
+/* 只有「已經確認沒有持久化使用者」才匿名登入。
+   ⚠️ 匿名登入逾時代表網路慢，不是本機資料壞了，不可以刪 IndexedDB。
+   ⚠️ signInAnonymously 在已有非匿名使用者時會換掉那個人，所以 existing 有值就直接返回。 */
+async function ensureSignedIn(auth, authMod, existing) {
+  if (existing) return existing;
+  try {
+    await withTimeout(authMod.signInAnonymously(auth), 12000);
+  } catch (first) {
+    if (first && first.code === "sc/timeout") throw first;
+    /* Firebase 把匿名登入狀態存在它自己的 IndexedDB。那份東西壞掉時，
+       登入會一直失敗。這裡只在「確定沒有舊身分、而且是明確失敗」才清掉再試。
+       ⚠️ 只砍 Firebase 自己那幾個資料庫，貼圖庫（sc-stickers）絕對不動。 */
+    console.warn("匿名登入失敗，清掉 Firebase 的本機狀態後重試：", first);
+    await wipeFirebaseLocalState();
+    await withTimeout(authMod.signInAnonymously(auth), 12000);
+  }
+  return auth.currentUser || null;
 }
 
 function withTimeout(p, ms) {
@@ -1636,8 +1664,10 @@ const Acl = {
     if (!u) return this.hop(raw);
     if (await this.isAdmin(f, u.uid)) return "ok";
     const registration = await this.knock(f, rid);
-    if (registration === "refresh") return this.hop(raw);
-    if (registration !== "ok") return "error";
+    /* 顯示名稱超過 24 小時：人還在（上面 lineUser 已確認有 lp），不要整頁跳去 LINE。
+       沒有身分的人在 lineUser 失敗時就已經 hop 了。 */
+    if (registration === "refresh") { /* 繼續用現在的登入查核准 */ }
+    else if (registration !== "ok") return "error";
     return (await this.isOk(f, rid, u.uid)) ? "ok" : "denied";
   },
   /* 儀表板：一律要 LINE 身分，而且要在 admin/ 裡（不看 acl/on）。 */

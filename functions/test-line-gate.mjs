@@ -10,7 +10,10 @@ vm.runInContext(block+'\nglobalThis.Acl=Acl;',ctx);const a=ctx.Acl,realDeny=a.de
 a.isOn=async()=>true;a.lineUser=async()=>user;a.isAdmin=async()=>admin;a.isOk=async()=>allowed;a.knock=async()=>{knocks++;return "ok";};a.hop=async()=> 'redirected';a.deny=()=>{denied++};
 assert.equal(await a.gate('rid','raw'),'redirected');
 user={uid:'test-user'};assert.equal(await a.gate('rid','raw'),'denied');assert.equal(knocks,1);
-a.knock=async()=> "refresh";assert.equal(await a.gate("rid","raw"),"redirected");a.knock=async()=> "error";assert.equal(await a.gate("rid","raw"),"error");a.knock=async()=> "ok";
+let hops=0;a.hop=async()=>{hops++;return "redirected";};
+a.knock=async()=> "refresh";assert.equal(await a.gate("rid","raw"),"denied");assert.equal(hops,0);
+user=null;assert.equal(await a.gate("rid","raw"),"redirected");assert.equal(hops,1);user={uid:"test-user"};
+a.knock=async()=> "error";assert.equal(await a.gate("rid","raw"),"error");a.knock=async()=> "ok";
 allowed=true;assert.equal(await a.gate('rid','raw'),'ok');allowed=false;
 admin=true;assert.equal(await a.gate('rid','raw'),'ok');admin=false;
 for(const ok of [false,true]){reply={token:'custom-token',ok,admin:false};entered=denied=failed=0;ctx.window.__sq='code=test&state=test';assert.equal(await a.resume(),true);assert.equal(entered,ok?1:0);assert.equal(denied,ok?0:1);assert.equal(failed,0);}
