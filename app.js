@@ -20,7 +20,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.32";
+const APP_VERSION = "v61.33";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -7993,17 +7993,21 @@ function tryMarkRead() {
   /* ⚠️ 多人房沒有已讀回條，但「我讀到哪」這件事本身還是要記 ——
         不然就沒有分隔線、也沒有「你不在的時候…」的定位點。
         差別只在：私人房寫雲端（對方看得到），多人房只寫本機（誰都看不到）。 */
-  const local = !readReceiptSend();          // v56：隱身也走本機那條
-  if (!local && !S.markRead) return;
+  const send = readReceiptSend();            // v56：隱身走本機；v61.33 起本機兩邊都寫
+  if (send && !S.markRead) return;
   if ($("chat").hidden || !$("veil").hidden) return;   // 遮罩蓋著不算看到
   const sc = $("scroller");
-  if (sc.scrollHeight - sc.scrollTop - sc.clientHeight > 120) return;
+  if (!sc || sc.scrollHeight - sc.scrollTop - sc.clientHeight > 120) return;
 
   const last = S.msgs[S.msgs.length - 1];
   if (!last || last.k === S.lastReadSent) return;
   S.lastReadSent = last.k;
-  if (local) ReadMark.save(S.roomId, last.k);
-  else S.markRead(last.k);
+  /* ⚠️ v61.33：就算已讀回條有寫到雲端，本機 sc-r-<房號> 也要同時記。
+        鈴鐺 checkUnread 本來就會兩邊取較新的；以前私人房只寫雲端，
+        只要那一筆還沒寫上、或這台裝置的代號對不上，回到偽裝首頁
+        點鈴鐺就會一直亮一顆假紅點。本機這一筆對方看不到。 */
+  if (S.roomId) ReadMark.save(S.roomId, last.k);
+  if (send) S.markRead(last.k);
 }
 
 /* 「已送達」的門檻低很多：訊息真的到了這台裝置、而且解得開就算。
@@ -9588,6 +9592,12 @@ async function renderStickerGrid(want) {
 }
 
 function leaveChat() {
+  /* ⚠️ v61.33：離開前先趁畫面還沒拆掉，再試一次把「讀到哪」記下來。
+        手機切 App／鎖螢幕會立刻走 panicExit → 這裡，若進房那一次
+        的 settle 還沒跑完、或當下還沒捲到底的判定還沒寫入，
+        少了這一行，回到首頁點鈴鐺就會一直亮。遮罩蓋著時 tryMarkRead
+        自己會放棄，不會把沒看過的訊息算成已讀。 */
+  try { tryMarkRead(); } catch (_) {}
   FilePicker.pending = null;
   HomeSwitch.lock();
   // 1. 解除這一輪房間的所有訂閱，避免舊房的狀態滲進下一輪
