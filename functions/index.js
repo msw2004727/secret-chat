@@ -667,3 +667,92 @@ async function handleHomeSettings(body, caller, res, deny) {
 
 const { onRequest } = require("firebase-functions/v2/https");
 exports.lineAuth = onRequest({ cors: LINE_ORIGINS, region: REGION, maxInstances: 3, memory: "256MiB", timeoutSeconds: 30 }, handleLineAuth);
+
+/* 網址縮圖。只在這台已經解密的手機上顯示，這裡看得到的只有那一條連結。
+   ⚠️ 不要把網址寫進即時資料庫，也不要寫進記錄。快取只放這支函式的記憶體。 */
+const og = require("./og");
+const ogCache = new Map();
+
+function ogRemember(url, value, ttl) {
+  ogCache.set(url, { value, exp: Date.now() + ttl });
+  while (ogCache.size > 200) ogCache.delete(ogCache.keys().next().value);
+}
+
+function ogRecall(url) {
+  const hit = ogCache.get(url);
+  if (!hit) return null;
+  if (Date.now() > hit.exp) { ogCache.delete(url); return null; }
+  ogCache.delete(url);
+  ogCache.set(url, hit);
+  return hit.value;
+}
+
+function ogCallerOk(req) {
+  return og.allowedCaller({
+    "sec-fetch-site": req.get("sec-fetch-site"),
+    origin: req.get("origin"),
+    referer: req.get("referer"),
+    host: req.get("host"),
+    "x-forwarded-host": req.get("x-forwarded-host"),
+  });
+}
+
+function ogQuery(req) {
+  const value = req.query && req.query.url;
+  const raw = Array.isArray(value) ? value[0] : value;
+  return typeof raw === "string" ? raw : "";
+}
+
+async function handleOgPreview(req, res) {
+  if (req.method !== "GET") {
+    res.set("Allow", "GET").set("Cache-Control", "no-store").status(405).json({ title: "", image: "", site: "" });
+    return;
+  }
+  if (!ogCallerOk(req)) {
+    res.set("Cache-Control", "no-store").status(403).json({ title: "", image: "", site: "" });
+    return;
+  }
+  const raw = ogQuery(req);
+  try {
+    const hit = ogRecall(raw);
+    const data = hit || await og.preview(raw, { lookup: require("node:dns").promises.lookup });
+    if (!hit) ogRemember(raw, data, data.title || data.image ? 86400000 : 600000);
+    res.set("Cache-Control", "public, max-age=86400");
+    res.set("X-Content-Type-Options", "nosniff");
+    res.status(200).json({
+      title: String(data.title || ""),
+      image: String(data.image || ""),
+      site: String(data.site || ""),
+    });
+  } catch (err) {
+    const status = err && err.status >= 400 && err.status < 600 ? err.status : 502;
+    res.set("Cache-Control", "no-store").status(status).json({ title: "", image: "", site: "" });
+  }
+}
+
+async function handleOgImage(req, res) {
+  if (req.method !== "GET") {
+    res.set("Allow", "GET").set("Cache-Control", "no-store").status(405).end();
+    return;
+  }
+  if (!ogCallerOk(req)) {
+    res.set("Cache-Control", "no-store").status(403).end();
+    return;
+  }
+  try {
+    const got = await og.image(ogQuery(req), { lookup: require("node:dns").promises.lookup });
+    res.set("Content-Type", got.type);
+    res.set("Cache-Control", "public, max-age=86400");
+    res.set("X-Content-Type-Options", "nosniff");
+    res.set("Content-Security-Policy", "default-src 'none'; sandbox");
+    res.set("Cross-Origin-Resource-Policy", "same-origin");
+    res.set("Referrer-Policy", "no-referrer");
+    res.status(200).send(got.body);
+  } catch (err) {
+    const status = err && err.status >= 400 && err.status < 600 ? err.status : 502;
+    res.set("Cache-Control", "no-store").status(status).end();
+  }
+}
+
+exports.ogPreview = onRequest({ region: REGION, maxInstances: 3, memory: "256MiB", timeoutSeconds: 15, invoker: "public" }, handleOgPreview);
+exports.ogImage = onRequest({ region: REGION, maxInstances: 3, memory: "256MiB", timeoutSeconds: 15, invoker: "public" }, handleOgImage);

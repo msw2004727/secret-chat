@@ -1230,9 +1230,69 @@ html[data-theme="dark"] #chat .c-ann-drop:active { background: rgba(239, 83, 80,
 }
 
 /* ---------- 訊息裡的連結 ---------- */
-/* 只把網址變成可點，不抓預覽圖 —— 抓預覽等於把網址送給第三方伺服器。 */
+/* 連結本身仍然只是可點的文字。縮圖走自己的代理（YouTube 封面除外），
+   不把網址交給現成的第三方預覽服務。關掉「網址縮圖」就只剩這條連結。 */
 .bub a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .row.you .bub a { color: var(--me); }
+.bub a.lp-card,
+.row.you .bub a.lp-card,
+.row.me .bub a.lp-card {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* 網址卡片。縮圖框先用 16:9 佔住高度，圖還沒解碼時捲動位置也不會跳。 */
+.lp-card {
+  display: block;
+  margin: 6px 0 0;
+  border-radius: 12px;
+  overflow: hidden;
+  white-space: normal;
+  max-width: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+.row.me .lp-card { background: rgba(0,0,0,.20); }
+.row.you .lp-card { background: rgba(127,127,127,.14); }
+html[data-theme="dark"] .row.you .lp-card { background: rgba(255,255,255,.06); }
+.lp-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #14161a;
+  overflow: hidden;
+}
+.lp-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.lp-meta { padding: 6px 9px 7px; }
+.lp-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lp-domain {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  letter-spacing: .15px;
+  opacity: .7;
+}
+.bub.has-lp .time {
+  float: none;
+  display: block;
+  top: 0;
+  margin: 4px 0 0;
+  text-align: right;
+}
+.row.you .bub.has-lp .time { text-align: left; }
 
 .c-icon {
   flex: 0 0 auto;

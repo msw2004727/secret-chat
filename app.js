@@ -20,7 +20,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.33";
+const APP_VERSION = "v61.34";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -7155,6 +7155,7 @@ function rowEl(m, prev, observe = true) {
     bub.className = "bub";
     bub.appendChild(linkify(m.body.d));
     bub.insertAdjacentHTML("beforeend", time);
+    mountLinkPreview(bub, m.body && m.body.d);
     /* 「愛」關鍵字：外框繞一道粉光（v49；v46 是整顆粉紅），而且會自己微微冒出愛心。
        ⚠️ 冒出來的那幾顆「不放進泡泡裡」—— 泡泡有 `overflow` 之外的兩個問題：
           愛心要從泡泡「底緣往外」飄，放進去會被泡泡的圓角與範圍切掉；
@@ -7257,7 +7258,8 @@ function rowEl(m, prev, observe = true) {
 /* 把訊息裡的網址變成可點的連結。
    一律用 DOM 節點組出來，絕對不碰 innerHTML —— 訊息是對方送來的內容，
    拼進 HTML 就是現成的 XSS。
-   刻意不抓預覽圖：抓預覽等於把這條網址送給第三方伺服器。 */
+   縮圖另外走 mountLinkPreview：只處理第一條 http(s)，失敗就當沒有卡片。
+   不把網址交給第三方預覽服務，也不寫進即時資料庫。 */
 const URL_RE = /\bhttps?:\/\/[^\s<>"'）)】」，,。]+/g;
 
 function linkify(text) {
@@ -7276,6 +7278,216 @@ function linkify(text) {
   }
   if (last < str.length) frag.appendChild(document.createTextNode(str.slice(last)));
   return frag;
+}
+
+function youtubeId(raw) {
+  let url;
+  try { url = new URL(String(raw)); } catch { return ""; }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  const idOk = (id) => /^[A-Za-z0-9_-]{11}$/.test(id || "");
+  if (host === "youtu.be") {
+    const id = url.pathname.split("/").filter(Boolean)[0] || "";
+    return idOk(id) ? id : "";
+  }
+  if (host !== "youtube.com" && host !== "m.youtube.com") return "";
+  if (url.pathname === "/watch") {
+    const id = url.searchParams.get("v") || "";
+    return idOk(id) ? id : "";
+  }
+  const shorts = url.pathname.match(/^\/shorts\/([A-Za-z0-9_-]{11})(?:\/|$)/);
+  return shorts ? shorts[1] : "";
+}
+
+function firstHttpUrl(text) {
+  const re = new RegExp(URL_RE.source, "g");
+  const found = re.exec(String(text ?? ""));
+  return found ? found[0] : "";
+}
+
+function safeLinkHost(href) {
+  try { return new URL(href).hostname.replace(/^www\./i, ""); } catch { return ""; }
+}
+
+/* 卡片插進去會改變高度。貼在底部就繼續貼著；人正在看更上面的舊訊息時，
+   成長發生在畫面上方才把捲動補回去，避免長對話被往下扯（跟載入舊訊息同一條規矩）。
+   縮圖框有固定 16:9，圖解碼完不會再把高度撐開。 */
+function withPreviewScroll(bub, work) {
+  const sc = $("scroller");
+  const at = sc && sc.scrollHeight - sc.scrollTop - sc.clientHeight < 90;
+  const above = !!(sc && bub && bub.getBoundingClientRect().bottom < 8);
+  const keep = above ? sc.scrollHeight - sc.scrollTop : 0;
+  work();
+  if (!sc) return;
+  if (at) sc.scrollTop = sc.scrollHeight;
+  else if (above) sc.scrollTop = Math.max(0, sc.scrollHeight - keep);
+}
+
+function buildLinkCard({ href, title, image, site, youtube }) {
+  if (!title && !image) return null;
+  const card = document.createElement("a");
+  card.className = "lp-card";
+  card.href = href;
+  card.target = "_blank";
+  card.rel = "noopener noreferrer nofollow";
+  if (image) {
+    const thumb = document.createElement("div");
+    thumb.className = "lp-thumb";
+    const img = document.createElement("img");
+    img.alt = "";
+    img.referrerPolicy = "no-referrer";
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.src = youtube ? image : ("/api/ogimg?url=" + encodeURIComponent(image));
+    img.addEventListener("error", () => { img.remove(); }, { once: true });
+    thumb.appendChild(img);
+    if (youtube) {
+      const play = document.createElement("span");
+      play.className = "vd-play";
+      play.setAttribute("aria-hidden", "true");
+      thumb.appendChild(play);
+    }
+    card.appendChild(thumb);
+  }
+  const meta = document.createElement("div");
+  meta.className = "lp-meta";
+  if (title) {
+    const heading = document.createElement("div");
+    heading.className = "lp-title";
+    heading.textContent = title;
+    meta.appendChild(heading);
+  }
+  const domain = document.createElement("div");
+  domain.className = "lp-domain";
+  domain.textContent = site || safeLinkHost(href);
+  meta.appendChild(domain);
+  card.appendChild(meta);
+  return card;
+}
+
+const LP_MEM = new Map();
+const LP_MISS = new Map();
+const LP_FLIGHT = new Map();
+const LP_STORE = "sc-og-cache";
+const LP_CAP = 40;
+
+function lpRead(url) {
+  if (LP_MEM.has(url)) return LP_MEM.get(url);
+  const missed = LP_MISS.get(url);
+  if (missed && missed > Date.now()) return null;
+  if (missed) LP_MISS.delete(url);
+  try {
+    const all = JSON.parse(localStorage.getItem(LP_STORE) || "{}");
+    const hit = all && all[url];
+    if (hit && (hit.title || hit.image)) {
+      LP_MEM.set(url, hit);
+      return hit;
+    }
+  } catch (_) {}
+  return undefined;
+}
+
+function lpWrite(url, data) {
+  LP_MEM.set(url, data);
+  LP_MISS.delete(url);
+  try {
+    const all = JSON.parse(localStorage.getItem(LP_STORE) || "{}");
+    all[url] = data;
+    const keys = Object.keys(all);
+    while (keys.length > LP_CAP) delete all[keys.shift()];
+    const raw = JSON.stringify(all);
+    if (raw.length > 100000) return;
+    localStorage.setItem(LP_STORE, raw);
+  } catch (_) {}
+}
+
+function lpMiss(url) {
+  LP_MISS.set(url, Date.now() + 10 * 60 * 1000);
+}
+
+function lpFetch(url) {
+  const cached = lpRead(url);
+  if (cached) return Promise.resolve(cached);
+  if (cached === null) return Promise.resolve(null);
+  if (LP_FLIGHT.has(url)) return LP_FLIGHT.get(url);
+  const task = fetch("/api/og?url=" + encodeURIComponent(url), { referrerPolicy: "same-origin" })
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
+      if (!data || typeof data !== "object") { lpMiss(url); return null; }
+      const title = String(data.title || "").slice(0, 300);
+      const image = String(data.image || "").slice(0, 2048);
+      const site = String(data.site || "").slice(0, 80);
+      let imageOk = "";
+      if (image) {
+        try {
+          const abs = new URL(image);
+          if (abs.protocol === "http:" || abs.protocol === "https:") imageOk = abs.href;
+        } catch (_) {}
+      }
+      if (!title && !imageOk) { lpMiss(url); return null; }
+      const clean = { title, image: imageOk, site };
+      lpWrite(url, clean);
+      return clean;
+    })
+    .catch(() => { lpMiss(url); return null; })
+    .finally(() => LP_FLIGHT.delete(url));
+  LP_FLIGHT.set(url, task);
+  return task;
+}
+
+function mountLinkPreview(bub, text) {
+  if (!LinkPreview.enabled() || !bub || bub.querySelector(".lp-card")) return;
+  const href = firstHttpUrl(text);
+  if (!href) return;
+  const yt = youtubeId(href);
+  if (yt) {
+    const cached = lpRead(href);
+    const card = buildLinkCard({
+      href,
+      title: cached && cached.title || "",
+      image: `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`,
+      site: "youtube.com",
+      youtube: true,
+    });
+    withPreviewScroll(bub, () => {
+      bub.classList.add("has-lp");
+      const time = [...bub.children].find((el) => el.classList.contains("time"));
+      if (time) bub.insertBefore(card, time);
+      else bub.appendChild(card);
+    });
+    if (cached && cached.title) return;
+    lpFetch(href).then((data) => {
+      if (!data || !data.title || !LinkPreview.enabled() || !card.isConnected) return;
+      withPreviewScroll(bub, () => {
+        let heading = card.querySelector(".lp-title");
+        if (!heading) {
+          heading = document.createElement("div");
+          heading.className = "lp-title";
+          const meta = card.querySelector(".lp-meta");
+          if (meta) meta.insertBefore(heading, meta.firstChild);
+        }
+        heading.textContent = data.title;
+      });
+    });
+    return;
+  }
+  lpFetch(href).then((data) => {
+    if (!data || !LinkPreview.enabled() || !bub.isConnected || bub.querySelector(".lp-card")) return;
+    const card = buildLinkCard({
+      href,
+      title: data.title,
+      image: data.image,
+      site: data.site || safeLinkHost(href),
+      youtube: false,
+    });
+    if (!card) return;
+    withPreviewScroll(bub, () => {
+      bub.classList.add("has-lp");
+      const time = [...bub.children].find((el) => el.classList.contains("time"));
+      if (time) bub.insertBefore(card, time);
+      else bub.appendChild(card);
+    });
+  });
 }
 
 /* 往上翻舊訊息時才出現「回到最新」 */
@@ -8835,6 +9047,10 @@ function syncSettingsUI() {
   const w = $("setWatch"); if (w) w.checked = Watch.has(S.roomId);
   const ty = $("setTyping"); if (ty) ty.checked = Typing.enabled();
   const pets = $("setPets"); if (pets) pets.checked = Pets.enabled();
+  const lpRow = $("setLinkPreviewRow");
+  if (lpRow) lpRow.hidden = CFG.linkPreview === false;
+  const lp = $("setLinkPreview");
+  if (lp) lp.checked = LinkPreview.enabled();
 
   // 搖晃保護整組關掉時，開關就不要出現
   const shakeRow = $("setShake")?.closest(".c-set-row");
@@ -9172,6 +9388,13 @@ function bindSettings() {
     const on = $("setPets").checked;
     Pets.set(on);
     toast(on ? "趣味特效回來了" : "已關閉聊天室貓咪與趣味特效");
+  });
+
+  $("setLinkPreview")?.addEventListener("change", () => {
+    const on = $("setLinkPreview").checked;
+    LinkPreview.set(on);
+    if (S.msgs.length) renderAll();
+    toast(on ? "網址縮圖已開啟" : "已關閉網址縮圖");
   });
 
   $("setIdle").addEventListener("click", (e) => {
@@ -10485,6 +10708,17 @@ const Pets = {
   set(on) {
     try { localStorage.setItem(this.KEY, on ? "on" : "off"); } catch (_) {}
     window.dispatchEvent(new CustomEvent("sc-pets", { detail: { on: !!on } }));
+  },
+};
+
+const LinkPreview = {
+  KEY: "sc-link-preview",
+  enabled() {
+    if (CFG.linkPreview === false) return false;
+    try { return localStorage.getItem(this.KEY) !== "off"; } catch (_) { return true; }
+  },
+  set(on) {
+    try { localStorage.setItem(this.KEY, on ? "on" : "off"); } catch (_) {}
   },
 };
 

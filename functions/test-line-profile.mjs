@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+const ogMod = createRequire(import.meta.url)('./og.js');
 const source=fs.readFileSync(new URL('./index.js',import.meta.url),'utf8');
 const uid='U'+'a'.repeat(32),other='U'+'b'.repeat(32),rid='1'.repeat(32),rid2='2'.repeat(32),store=new Map();
 let caller={uid,lp:true},profile={sub:uid,aud:'channel',name:'Verified Name',picture:'https://profile.line-scdn.net/avatar'},fallback={userId:uid,displayName:'Fallback Name',pictureUrl:'https://profile.line-scdn.net/fallback'};
@@ -8,7 +10,7 @@ let now=1000000000,failSave=false;
 const db={ref:path=>({get:async()=>({val:()=>store.get(path)||null}),set:async value=>{if(failSave)throw Error('offline');store.set(path,value)},update:async value=>{store.set(path,{...store.get(path),...value})}})};
 const auth={verifyIdToken:async()=>caller,createCustomToken:async()=> 'fake-custom-token'};
 class Clock extends Date{static now(){return now;}}
-const ctx=vm.createContext({process:{env:{LINE_CHANNEL_ID:'channel',LINE_CHANNEL_SECRET:'fake',ADMIN_LINE_UID:other}},Date:Clock,URLSearchParams,AbortSignal,REGION:'asia-southeast1',logger:{info(){},warn(){},error(){}},exports:{},getDb:()=>db,require:id=>{if(id==='firebase-admin/app')return{getApps:()=>[{}],initializeApp:()=>({})};if(id==='firebase-admin/auth')return{getAuth:()=>auth};if(id==='firebase-admin/database')return{ServerValue:{TIMESTAMP:now}};if(id==='firebase-functions/v2/https')return{onRequest:(_,handler)=>handler};throw Error(id)},fetch:async url=>({ok:true,json:async()=>url.endsWith('/token')?{id_token:'verified',access_token:'access'}:url.endsWith('/verify')?profile:fallback})});
+const ctx=vm.createContext({process:{env:{LINE_CHANNEL_ID:'channel',LINE_CHANNEL_SECRET:'fake',ADMIN_LINE_UID:other}},Date:Clock,URLSearchParams,AbortSignal,REGION:'asia-southeast1',logger:{info(){},warn(){},error(){}},exports:{},getDb:()=>db,require:id=>{if(id==='firebase-admin/app')return{getApps:()=>[{}],initializeApp:()=>({})};if(id==='firebase-admin/auth')return{getAuth:()=>auth};if(id==='firebase-admin/database')return{ServerValue:{TIMESTAMP:now}};if(id==='firebase-functions/v2/https')return{onRequest:(_,handler)=>handler};if(id==='./og')return ogMod;throw Error(id)},fetch:async url=>({ok:true,json:async()=>url.endsWith('/token')?{id_token:'verified',access_token:'access'}:url.endsWith('/verify')?profile:fallback})});
 vm.runInContext(source.slice(source.indexOf('const LINE_TOKEN_URL')),ctx);
 async function call(body){const result={};const res={status(code){result.status=code;return this},json(value){result.body=value;return this}};await ctx.exports.__handleLineAuth({method:'POST',get:()=> 'Bearer test',body},res);return result;}
 const oauth={rid,code:'code',verifier:'v'.repeat(43),redirect:'https://sb.02251121.com/'};
