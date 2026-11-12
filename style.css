@@ -3223,12 +3223,42 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   position: absolute;
   left: 0;
   right: 0;
-  bottom: var(--cat-floor, 60px);
+  bottom: var(--cat-floor, 60px); /* 第一幀的位置；之後 JS 改成訊息列表的底，往上滑會跟著走 */
   height: 0;
   overflow: visible;
   pointer-events: none;
   z-index: 0;
 }
+.rooster {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.rooster canvas { position: absolute; left: 0; bottom: 0; width: 100%; height: 100%; display: block; }
+.rooster-shadow {
+  position: absolute; left: 18%; right: 18%; bottom: -2px; height: 5px;
+  border-radius: 50%; background: rgba(0,0,0,.35); pointer-events: none;
+}
+.rooster-say {
+  position: absolute; left: 58%; bottom: 72%;
+  display: none; padding: 2px 7px; border-radius: 10px;
+  background: #fff; color: #202124; font-size: 12px; line-height: 1.3;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25); white-space: nowrap;
+}
+.rooster-say.show { display: block; }
+.rooster-heart, .rooster-dust {
+  position: absolute; width: 8px; height: 8px; border-radius: 50%;
+  pointer-events: none; animation: roosterUp .9s ease-out forwards;
+}
+.rooster-note {
+  position: absolute; color: #8ab4ff; font-style: normal; font-size: 14px;
+  pointer-events: none; animation: roosterUp 1s ease-out forwards;
+}
+.rooster-heart { background: #ff5a7a; }
+.rooster-dust { background: rgba(180,160,120,.7); width: 5px; height: 5px; }
+@keyframes roosterUp { to { transform: translateY(-18px); opacity: 0; } }
 .bub { isolation: isolate; }
 .bub > canvas.bub-shade {
   position: absolute;
