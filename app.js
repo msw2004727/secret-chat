@@ -20,7 +20,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.39";
+const APP_VERSION = "v61.40";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -10762,6 +10762,10 @@ function toggleTheme() {
    註冊失敗完全不影響功能，靜靜跳過就好。 */
 function initServiceWorker() {
   if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
+  $("updateBannerGo")?.addEventListener("click", () => {
+    if (Acl.busy || window.__sq) return;
+    location.reload();
+  });
   window.addEventListener("load", () => {
     /* 新版本上線之後，這個分頁裡跑的還是舊的那一份 JS —— 一定要重新整理才會換。
        偽裝首頁的用法是「退出去、再輸入密碼進來」，整個過程都不會重新載入頁面，
@@ -10780,10 +10784,19 @@ function initServiceWorker() {
       S.needsReload = true;
       maybeReload();
     });
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) navigator.serviceWorker.getRegistration()
-        .then((r) => r?.update()).catch(() => {});
-    });
+    const SW_UPDATE_MS = 5 * 60 * 1000;
+    let swCheckAt = 0;
+    const checkSwUpdate = () => {
+      if (document.hidden) return;
+      const now = Date.now();
+      if (now - swCheckAt < 15000) return;
+      swCheckAt = now;
+      navigator.serviceWorker.getRegistration().then((r) => r && r.update()).catch(() => {});
+    };
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) checkSwUpdate(); });
+    window.addEventListener("focus", checkSwUpdate);
+    window.addEventListener("online", checkSwUpdate);
+    setInterval(checkSwUpdate, SW_UPDATE_MS);
 
     navigator.serviceWorker.register("sw.js").then((reg) => {
       // 有新版本待命就立刻叫它上工，不要等所有分頁關掉
@@ -10804,11 +10817,20 @@ function initServiceWorker() {
 
 /* ────────────────────────── 12. 偽裝機制 ────────────────────────── */
 
-/* 只在「人不在聊天室也不在儀表板」的時候重整 —— 正在看訊息時把人踢回首頁太粗暴 */
+/* 只在「人不在聊天室也不在儀表板」的時候重整 —— 正在看訊息時把人踢回首頁太粗暴。
+   人還在裡面就留一條毛玻璃提示，等自己點「更新」或退回偽裝首頁再重整。 */
+function paintUpdateBanner() {
+  const bar = $("updateBanner");
+  if (!bar) return;
+  const inApp = !$("chat").hidden || !$("admin").hidden;
+  bar.hidden = !(S.needsReload && inApp);
+}
+
 function maybeReload() {
-  if (!S.needsReload) return;
+  if (!S.needsReload) { paintUpdateBanner(); return; }
   if (Acl.busy || window.__sq) return;
-  if (!$("chat").hidden || !$("admin").hidden) return;
+  if (!$("chat").hidden || !$("admin").hidden) { paintUpdateBanner(); return; }
+  paintUpdateBanner();
   location.reload();
 }
 
