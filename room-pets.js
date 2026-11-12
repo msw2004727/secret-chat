@@ -1714,7 +1714,7 @@ export function mountRoomPets() {
     }
 
     /* 灰貓、橘貓偶爾各說一句固定的話。樣式沿用心情泡泡的白底黑邊小尾巴。 */
-    const CAT_TALK = { gray: "小麥我愛妳~喵", brown: "辛巴我愛妳~喵" };
+    const CAT_TALK = { gray: "小麥我愛你~喵", brown: "辛巴我愛妳~喵" };
     const TALK_MS = 3000;
     function talkingBusy() { return cats.some((c) => c.talking); }
     function canTalk(cat, now) {

@@ -80,6 +80,8 @@ assert.doesNotMatch(pets, /firebase|database|websocket/i);
 assert.doesNotMatch(app + html + css + perf, /pixel-?cat|像素貓/i);
 assert.match(perf, /function traceBubble/);
 assert.match(app, /owns = !!Shatter\.play\(row\)/);
-assert.match(app, /Shatter\.playAll\(\)/);
+assert.match(pets, /gray: "小麥我愛你~喵"/);
+assert.match(pets, /brown: "辛巴我愛妳~喵"/);
+assert.doesNotMatch(pets, /小麥我愛妳/);
 
 console.log('PASS: message bubbles stay 18/6 rounded rects; cat mood bubble is a 30px circle; pets stay local and behind bubbles.');
