@@ -1713,8 +1713,19 @@ export function mountRoomPets() {
       showBubble(cat, now, icon);
     }
 
-    /* 灰貓、橘貓偶爾各說一句固定的話。樣式沿用心情泡泡的白底黑邊小尾巴。 */
-    const CAT_TALK = { gray: "小麥我愛妳~喵", brown: "辛巴我愛妳~喵" };
+    /* 灰貓、橘貓各有幾句，每次隨機說一句，不連說同一句。樣式沿用心情泡泡的白底黑邊小尾巴。 */
+    const CAT_TALK = {
+      gray: ["小麥我愛你~喵", "小麥摸摸我~喵", "肚子餓了~喵", "想睡覺了~喵"],
+      brown: ["辛巴我愛妳~喵", "辛巴抱抱~喵", "陪我玩球~喵", "今天也很可愛~喵"],
+    };
+    function pickTalk(cat) {
+      const lines = CAT_TALK[cat.name];
+      if (!lines || !lines.length) return "";
+      const pool = lines.length > 1 && cat.lastTalk ? lines.filter((t) => t !== cat.lastTalk) : lines;
+      const text = pick(pool);
+      cat.lastTalk = text;
+      return text;
+    }
     const TALK_MS = 3000;
     function talkingBusy() { return cats.some((c) => c.talking); }
     function canTalk(cat, now) {
@@ -1735,7 +1746,7 @@ export function mountRoomPets() {
       cat.nextTalk = now + rand(45000, 90000);
     }
     function showTalk(cat, now, force) {
-      const text = CAT_TALK[cat.name];
+      const text = pickTalk(cat);
       if (!text) return false;
       if (!force && !canTalk(cat, now)) return false;
       for (const o of cats) if (o !== cat && o.talking) hideTalk(o, now);
