@@ -50,6 +50,21 @@ assert.match(pets, /borderTopLeftRadius/);
 assert.match(pets, /Math\.abs\(cats\[0\]\.x - cats\[1\]\.x\) < W \* S \* 0\.7/);
 assert.match(pets, /cats\[f\]\.el\.style\.zIndex = "3"/);
 assert.match(pets, /function parkBall\(\)/);
+assert.match(pets, /scrollEl\.scrollHeight - scrollEl\.scrollTop - scrollEl\.clientHeight/);
+assert.match(pets, /sr\.bottom \+ slack/);
+assert.match(pets, /import \{ attachRooster \} from "\.\/rooster-room\.js"/);
+assert.match(pets, /roosterApi\.step\(now\)/);
+assert.match(pets, /roosterApi\.shift\(dy\)/);
+const rooster = fs.readFileSync(new URL('../rooster.js', import.meta.url), 'utf8');
+const room = fs.readFileSync(new URL('../rooster-room.js', import.meta.url), 'utf8');
+for (const act of ["idle", "walk", "peck", "crow", "flap", "scratch", "tap"]) {
+  assert.match(rooster, new RegExp('action === "' + act + '"'));
+}
+assert.match(rooster, /黑羽土雞/);
+assert.match(room, /咕咕/);
+assert.match(room, /roam: true/);
+assert.match(room, /enabled\(\)/);
+assert.doesNotMatch(rooster + room, /firebase|database|websocket/i);
 assert.match(pets, /ball\.state === "carried" && ball\.carrier \? ball\.carrier\.el : layer/);
 assert.match(pets, /tx -= carrier\.x/);
 assert.match(pets, /ty \+= H \* S/);
