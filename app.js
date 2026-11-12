@@ -20,7 +20,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.49";
+const APP_VERSION = "v61.50";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -5249,10 +5249,15 @@ async function enterChat() {
     }
   }));
 
-  /* 雙擊訊息垂下去。跟表情一樣是訊息旁邊的小節點，不寫進加密的訊息本身。 */
+  /* 泡泡軟掉或掉下去。跟表情一樣是訊息旁邊的小節點，不寫進加密的訊息本身。
+     fall 用 by 前綴跟「停在軟掉」分開，資料庫欄位仍是 on、t、by。 */
   Droop.mount();
   Droop.now = nowServer;
-  Droop.write = (key, on) => set(ref(db, `${base}/dr/${key}`), { on: !!on, t: serverTimestamp(), by: S.clientId }).catch(() => {});
+  Droop.write = (key, on, kind) => set(ref(db, `${base}/dr/${key}`), {
+    on: kind === "fall" ? true : !!on,
+    t: serverTimestamp(),
+    by: kind === "fall" ? ("fall:" + S.clientId) : S.clientId,
+  }).catch(() => {});
   S.subs.push(onValue(ref(db, `${base}/dr`), (snap) => {
     if (myGen !== S.gen) return;
     Droop.sync(snap.val() || {}, nowServer());

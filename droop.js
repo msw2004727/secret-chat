@@ -1,16 +1,26 @@
-/* 連點同一則泡泡五下：從釘住的那一側軟軟垂到垂直，再鬆開掉出畫面。
-   掉出去滿 5 秒，原位用約 1 秒淡回來；空位留著，其他訊息不跳。
-   以前是雙擊（320ms 內、兩下距離 26px 以內）在「垂下 60 度」和「挺回」之間切換。
-   狀態仍由呼叫端寫進 rooms/<房>/dr/<訊息鍵> {on,t,by}。on 為 true 的 t 是這次開始的時間，
-   太舊的不重播。這裡只負責畫。 */
+/* 兩段手勢，都寫進 rooms/<房>/dr/<訊息鍵> {on,t,by}。
+   還沒軟的泡泡：連點兩下（每下相隔 600ms 內）軟成 60 度，並讓橘貓去爬灰貓。
+   同一串裡多出來的點不算第二次，也不會直接掉下去。
+   已經軟的泡泡：另起一串。正好兩下，停 600ms 就挺回並同步關掉。
+   第三下立刻掉出畫面（by 以 fall: 開頭），五秒後以普通形狀淡回，空位留著。
+   這裡只負責畫。 */
 export const DROOP = {
+  SOFT_ANGLE_DEG: 60,
+  SOFTNESS: 1,
+  CURVE_POW: 1.3,
+  MAX_BEND_PX: 230,
+  SOFT_MS: 1150,
+  SOFT_WOBBLE: 0.14,
+  RECOVER_MS: 2500,
+  RECOVER_OVERSHOOT: 0.05,
   ANGLE_DEG: 90,
   HINGE_POW: 0.07, /* 小於 1：彎折集中在釘住的那一側，泡泡本體垂成一直線 */
   SAG_MS: 1100,
   WOBBLE: 0.12,
   JELLY_PX: 6,
-  TAP_COUNT: 5,
+  TAP_COUNT: 3,
   TAP_GAP_MS: 600,
+  FALL_BY: "fall:",
   GONE_MS: 5000,
   FADE_MS: 1000,
   REDUCE_OUT_MS: 400,
@@ -32,7 +42,7 @@ export function droopClimbIds(val, now, seen, freshMs = DROOP_CLIMB_FRESH_MS) {
   const have = seen || new Set();
   for (const key of Object.keys(val)) {
     const rec = val[key];
-    if (!rec || rec.on !== true) continue;
+    if (!rec || rec.on !== true || droopIsFall(rec.by)) continue;
     const t = Number(rec.t);
     if (!Number.isFinite(t) || Math.abs(+now - t) > freshMs) continue;
     const id = key + ":" + t;
@@ -54,8 +64,42 @@ export function droopTapCount(prev, sameRow, gapMs) {
   if (!sameRow || !Number.isFinite(gapMs) || gapMs < 0 || gapMs > DROOP.TAP_GAP_MS) return 1;
   return n + 1;
 }
-export function droopTapFires(count) {
-  return count >= DROOP.TAP_COUNT;
+export function droopIsFall(by) {
+  return typeof by === "string" && by.startsWith(DROOP.FALL_BY);
+}
+/* on 為 true 且 by 不是 fall: → 停在軟掉。fall: 是掉出去那一次。 */
+export function droopRecordKind(rec) {
+  if (!rec || rec.on !== true) return "off";
+  return droopIsFall(rec.by) ? "fall" : "soft";
+}
+/* mode 是這一串開始時泡泡的狀態，中途不變。
+   普通泡泡只有第 2 下會軟，第 3 下之後這串不再做事。
+   已經軟的泡泡，第 3 下立刻掉；正好 2 下要等這一串結束才挺回。單下一律不算。 */
+export function droopTapAction(mode, count) {
+  const n = Number(count) || 0;
+  if (mode === "soft") {
+    if (n === DROOP.TAP_COUNT) return "fall";
+    if (n === 2) return "pending";
+    return "none";
+  }
+  if (n === 2) return "soft";
+  return "none";
+}
+export function droopBurstEndAction(mode, count) {
+  const n = Number(count) || 0;
+  if (mode === "soft" && n >= 2 && n < DROOP.TAP_COUNT) return "restore";
+  return "none";
+}
+export function droopPlayBurst(mode, taps) {
+  const actions = [];
+  const n = Number(taps) || 0;
+  for (let i = 1; i <= n; i++) {
+    const act = droopTapAction(mode, i);
+    if (act === "soft" || act === "fall") actions.push(act);
+  }
+  const end = droopBurstEndAction(mode, n);
+  if (end !== "none") actions.push(end);
+  return actions;
 }
 /* 從這次 t 起算的階段。reduced 時沒有下墜，淡出後直接進入「人不在畫面」的等待。 */
 export function droopPhase(elapsedMs, fallMs, reduced) {
@@ -79,17 +123,70 @@ export function droopFallMs(distancePx, g = DROOP.GRAVITY, maxMs = DROOP.FALL_MA
   if (!(distancePx > 0) || !(g > 0)) return 0;
   return Math.min(maxMs, Math.sqrt((2 * distancePx) / g) * 1000);
 }
-export function droopSag(ms) {
-  const D = DROOP.SAG_MS;
+function springTo(ms, duration, wobble) {
+  const D = duration;
   if (ms >= D) return 1;
   if (ms <= 0) return 0;
-  const W = Math.max(0, Math.min(0.6, DROOP.WOBBLE));
+  const W = Math.max(0, Math.min(0.6, wobble));
   const t = ms / 1000;
   if (W < 0.002) { const w = 6 / (D / 1000); return 1 - (1 + w * t) * Math.exp(-w * t); }
   const L = Math.log(W);
   const z = -L / Math.sqrt(Math.PI * Math.PI + L * L);
   const w0 = 4.8 / (z * D / 1000), wd = w0 * Math.sqrt(1 - z * z);
   return 1 - Math.exp(-z * w0 * t) * (Math.cos(wd * t) + (z * w0 / wd) * Math.sin(wd * t));
+}
+export function droopSag(ms) {
+  return springTo(ms, DROOP.SAG_MS, DROOP.WOBBLE);
+}
+export function droopSoftSag(ms) {
+  return springTo(ms, DROOP.SOFT_MS, DROOP.SOFT_WOBBLE);
+}
+function riseCurve(ms) {
+  const D = DROOP.RECOVER_MS;
+  if (ms >= D) return 0;
+  if (ms <= 0) return 1;
+  const p = ms / D;
+  const g = 0.5 - 0.5 * Math.cos(Math.PI * clamp01(p / 0.82));
+  const bump = p > 0.68 ? Math.sin(Math.PI * (p - 0.68) / 0.32) : 0;
+  return (1 - g) - DROOP.RECOVER_OVERSHOOT * bump;
+}
+function softAmt(st, now) {
+  const e = now - st.t;
+  if (st.on) return (st.a0 || 0) + (1 - (st.a0 || 0)) * droopSoftSag(e);
+  return (st.a0 == null ? 1 : st.a0) * riseCurve(e);
+}
+/* 軟掉是整條慢慢彎，不是垂成一直線。彎最多的地方在末端。 */
+function softCenterline(L, theta) {
+  const N = DROOP.COLS * 4;
+  const soft = Math.max(0.05, Math.min(1, DROOP.SOFTNESS));
+  const s0 = L - Math.min(L * soft, Math.max(40, DROOP.MAX_BEND_PX));
+  const X = new Float32Array(N + 1), Y = new Float32Array(N + 1), A = new Float32Array(N + 1);
+  for (let i = 1; i <= N; i++) {
+    const sm = L * (i - 0.5) / N;
+    const u = clamp01((sm - s0) / (L - s0 || 1));
+    const ph = theta * Math.pow(u, DROOP.CURVE_POW);
+    X[i] = X[i - 1] + Math.cos(ph) * L / N;
+    Y[i] = Y[i - 1] + Math.sin(ph) * L / N;
+    A[i] = theta * Math.pow(clamp01((L * i / N - s0) / (L - s0 || 1)), DROOP.CURVE_POW);
+  }
+  return { X, Y, A, N, L };
+}
+function softBend(cl, st, sx, sy) {
+  const w = st.w, h = st.h;
+  const s = st.right ? w - sx : sx;
+  const f = Math.max(0, Math.min(cl.N, (s / cl.L) * cl.N));
+  const i = Math.min(cl.N - 1, Math.floor(f)), k = f - i;
+  const cx = cl.X[i] + (cl.X[i + 1] - cl.X[i]) * k;
+  const cy = cl.Y[i] + (cl.Y[i + 1] - cl.Y[i]) * k;
+  const ph = cl.A[i] + (cl.A[i + 1] - cl.A[i]) * k;
+  const n = sy - h / 2;
+  const x = cx - n * Math.sin(ph), y = h / 2 + cy + n * Math.cos(ph);
+  return { x: st.right ? w - x : x, y };
+}
+export function droopSoftPose(length, theta) {
+  const cl = softCenterline(length, theta);
+  const mid = Math.max(1, Math.round(cl.N * 0.55));
+  return { hinge: cl.A[0], mid: cl.A[mid], end: cl.A[cl.N] };
 }
 function centerline(L, theta) {
   const N = DROOP.COLS * 4;
@@ -250,8 +347,10 @@ export const Droop = {
     scroller.insertAdjacentElement("afterend", layer);
     this.layer = layer;
     this.map = new Map();
+    this.intent = new Map();
     this.raf = 0;
     this.taps = null;
+    this.burstTimer = 0;
     this.tapDown = null;
     const MOVE = 12;
     scroller.addEventListener("pointerdown", (e) => {
@@ -264,20 +363,27 @@ export const Droop = {
     scroller.addEventListener("pointerup", (e) => {
       const d = this.tapDown;
       this.tapDown = null;
-      if (!d || d.moved || performance.now() - d.t > 300) { this.taps = null; return; }
-      if (menu && !menu.hidden) { this.taps = null; return; }
+      if (!d || d.moved || performance.now() - d.t > 300) return;
+      if (menu && !menu.hidden) return;
       const row = this.rowAt(e.clientX, e.clientY) || e.target.closest?.(".row");
-      if (!row || !row.dataset.k || row.classList.contains("shattering") || !row.querySelector(".bub")) { this.taps = null; return; }
+      if (!row || !row.dataset.k || row.classList.contains("shattering") || !row.querySelector(".bub")) return;
+      if (this.rowMode(row) === "fall") return;
       const now = performance.now();
       const prev = this.taps;
-      const same = !!(prev && prev.row === row);
-      const n = droopTapCount(same ? prev.n : 0, same, prev ? now - prev.t : Infinity);
-      this.taps = { row, n, t: now };
-      if (!droopTapFires(n)) return;
-      this.taps = null;
-      if (petsOff()) return; /* 趣味特效關掉：不軟、也不寫資料庫 */
-      if (this.map.has(row)) return; /* 這則還在垂、掉或淡回，不重來 */
-      if (this.write) this.write(row.dataset.k, true);
+      const same = !!(prev && prev.row === row && now - prev.t <= DROOP.TAP_GAP_MS);
+      if (prev && !same) this.endBurst();
+      const mode = same ? prev.mode : this.rowMode(row);
+      if (mode !== "soft" && mode !== "normal") return;
+      const n = same ? prev.n + 1 : 1;
+      this.taps = { row, n, t: now, mode };
+      this.armBurst();
+      const act = droopTapAction(mode, n);
+      if (act === "soft") this.commit(row, true);
+      else if (act === "fall") {
+        if (this.burstTimer) { clearTimeout(this.burstTimer); this.burstTimer = 0; }
+        this.taps = null;
+        this.commit(row, true, "fall");
+      }
     }, true);
     list.addEventListener("dblclick", (e) => e.preventDefault());
     /* 還垂著的時候跟著捲動。鬆開之後改在螢幕座標往下掉，不再跟著訊息走。 */
@@ -320,63 +426,168 @@ export const Droop = {
   },
   straighten(row) { if (row) this.clear(row); },
   clearAll() { for (const row of [...this.map.keys()]) this.clear(row); },
-  apply(row, on, t) {
+  rowMode(row) {
+    const st = this.map.get(row);
+    if (st && st.mode === "fall") return "fall";
+    const intent = this.intent && this.intent.get(row);
+    if (intent === "fall") return "fall";
+    if ((st && st.mode === "soft" && st.on) || intent === "soft") return "soft";
+    return "normal";
+  },
+  armBurst() {
+    if (this.burstTimer) clearTimeout(this.burstTimer);
+    this.burstTimer = setTimeout(() => this.endBurst(), DROOP.TAP_GAP_MS);
+  },
+  endBurst() {
+    if (this.burstTimer) { clearTimeout(this.burstTimer); this.burstTimer = 0; }
+    const b = this.taps;
+    this.taps = null;
+    if (!b) return;
+    if (droopBurstEndAction(b.mode, b.n) === "restore") this.commit(b.row, false);
+  },
+  commit(row, on, kind) {
+    if (petsOff() || !row || !row.dataset || !row.dataset.k) return;
+    if (!this.intent) this.intent = new Map();
+    this.intent.set(row, kind === "fall" ? "fall" : on ? "soft" : "normal");
+    if (this.write) this.write(row.dataset.k, kind === "fall" ? true : !!on, kind === "fall" ? "fall" : undefined);
+  },
+  takeSnap(bub) {
+    const had = bub.classList.contains("droop");
+    if (had) bub.classList.remove("droop");
+    let snap = null;
+    try { snap = snapshotBubble(bub); } catch (_) { snap = null; }
+    if (had) bub.classList.add("droop");
+    return snap;
+  },
+  apply(row, on, t, by) {
     const bub = row && row.querySelector(".bub");
     if (!bub || row.classList.contains("shattering") || row.classList.contains("gone")) return;
-    const now = this.now();
-    t = typeof t === "number" ? t : now;
-    if (!on) { this.clear(row); return; }
-    const prev = this.map.get(row);
-    if (prev && prev.t === t) return;
-    if (prev) this.clear(row);
-    const reduced = reducedMotion();
-    const elapsed = now - t;
-    const cap = (reduced ? DROOP.REDUCE_OUT_MS : DROOP.SAG_MS + DROOP.FALL_MAX_MS) + DROOP.GONE_MS + DROOP.FADE_MS;
-    row.dataset.drooped = "1"; /* 垂過（包含已經回來的）：貓永遠不碰 */
-    if (elapsed > cap) return; /* 進房時這次已經播完，不重播 */
+    t = typeof t === "number" ? t : this.now();
+    const kind = droopRecordKind({ on: !!on, by });
+    if (kind === "fall") this.applyFall(row, bub, t);
+    else if (kind === "off") this.applyOff(row, t);
+    else this.applySoft(row, bub, t);
+  },
+  applyOff(row, t) {
+    const st = this.map.get(row);
+    if (this.intent) this.intent.set(row, "normal");
+    if (!st) return;
+    if (st.mode === "fall") { this.clear(row); return; }
+    if (!st.on && st.t === t) return;
+    st.a0 = Math.max(0, Math.min(1.2, softAmt(st, this.now())));
+    st.on = false;
+    st.t = t;
+    st.drawnFinal = false;
+    this.kick();
+  },
+  applySoft(row, bub, t) {
+    let st = this.map.get(row);
+    if (st && st.mode === "soft" && st.on && st.t === t) return;
+    row.dataset.drooped = "1";
+    if (!this.intent) this.intent = new Map();
+    this.intent.set(row, "soft");
     bub.classList.remove("holding");
+    if (st && st.mode !== "soft") {
+      const snap = st.snap;
+      try { st.cv?.remove(); } catch (_) {}
+      this.map.delete(row);
+      st = snap ? this.makeSoft(row, bub, t, snap) : null;
+      if (st) this.kick();
+      return;
+    }
+    if (st && st.mode === "soft") {
+      st.a0 = Math.max(0, Math.min(1.2, softAmt(st, this.now())));
+      st.on = true;
+      st.t = t;
+      st.drawnFinal = false;
+      this.kick();
+      return;
+    }
+    if (!this.makeSoft(row, bub, t, null)) return;
+    try { bub.dispatchEvent(new CustomEvent("bub-droop", { bubbles: true })); } catch (_) {}
+    this.kick();
+  },
+  makeSoft(row, bub, t, snap) {
+    if (!snap) snap = this.takeSnap(bub);
+    if (!snap) return null;
     const w = bub.offsetWidth, h = bub.offsetHeight;
-    const right = row.classList.contains("me");
-    const st = { row, bub, cv: null, snap: null, dpr: 1, w, h, padX: 0, padT: 0, padB: 0, right, on: true, t, reduced, fallMs: 0, release: null, inkTop: 0 };
+    const dpr = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
+    const maxA = DROOP.SOFT_ANGLE_DEG * Math.PI / 180 * (1 + Math.max(0, DROOP.SOFT_WOBBLE) + 0.05);
+    const padX = 16;
+    const padT = 14 + Math.ceil(w * Math.sin(DROOP.SOFT_ANGLE_DEG * Math.PI / 180 * 0.12));
+    const bendL = Math.min(w * Math.max(0.05, Math.min(1, DROOP.SOFTNESS)), Math.max(40, DROOP.MAX_BEND_PX));
+    const padB = 14 + Math.ceil(bendL * Math.sin(Math.min(Math.PI / 2, maxA)) + h * 0.5);
+    const cv = this.makeCanvas(row, w, h, dpr, padX, padT, padB);
+    const st = { mode: "soft", row, bub, cv, snap, dpr, w, h, padX, padT, padB, right: row.classList.contains("me"), on: true, t, a0: 0, drawnFinal: false };
+    this.map.set(row, st);
+    bub.classList.add("droop");
+    this.draw(st, this.now());
+    this.place(st, 0, 0);
+    cv.style.visibility = "";
+    return st;
+  },
+  applyFall(row, bub, t) {
+    const reduced = reducedMotion();
+    const elapsed = this.now() - t;
+    const cap = (reduced ? DROOP.REDUCE_OUT_MS : DROOP.SAG_MS + DROOP.FALL_MAX_MS) + DROOP.GONE_MS + DROOP.FADE_MS;
+    row.dataset.drooped = "1";
+    if (!this.intent) this.intent = new Map();
+    if (elapsed > cap) {
+      this.intent.set(row, "normal");
+      this.clear(row);
+      return; /* 掉下去的那次已經播完，進來的人看到普通泡泡，不重播 */
+    }
+    this.intent.set(row, "fall");
+    bub.classList.remove("holding");
+    const prev = this.map.get(row);
+    if (prev && prev.mode === "fall" && prev.t === t) return;
+    let snap = prev && prev.snap;
+    if (prev) { try { prev.cv?.remove(); } catch (_) {} this.map.delete(row); }
     if (!reduced) {
-      let snap;
-      try { snap = snapshotBubble(bub); } catch (_) { return; }
+      if (!snap) snap = this.takeSnap(bub);
       if (!snap) return;
-      const dpr = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
+    }
+    const w = bub.offsetWidth, h = bub.offsetHeight;
+    const dpr = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
+    const st = { mode: "fall", row, bub, cv: null, snap, dpr, w, h, padX: 0, padT: 0, padB: 0, right: row.classList.contains("me"), on: true, t, reduced, fallMs: 0, release: null, inkTop: 0 };
+    if (!reduced) {
       const theta = DROOP.ANGLE_DEG * Math.PI / 180 * (1 + Math.max(0, DROOP.WOBBLE) + 0.04);
       const span = droopInkSpan(w, h, theta);
       const padX = Math.ceil(Math.max(18, -span.minX, span.maxX - w) + DROOP.JELLY_PX + 10);
       const padT = Math.ceil(Math.max(14, -span.minY) + DROOP.JELLY_PX + 8);
       const padB = Math.ceil(Math.max(14, span.maxY - h) + DROOP.JELLY_PX + 12);
       const hang = droopInkSpan(w, h, DROOP.ANGLE_DEG * Math.PI / 180);
-      const cv = document.createElement("canvas");
-      cv.className = "bub-droop";
-      cv.style.zIndex = String(1000 - [...this.list.querySelectorAll(".row")].indexOf(row));
-      cv.width = Math.round((w + padX * 2) * dpr);
-      cv.height = Math.round((h + padT + padB) * dpr);
-      cv.style.width = (w + padX * 2) + "px";
-      cv.style.height = (h + padT + padB) + "px";
-      cv.style.visibility = "hidden";
-      this.layer.appendChild(cv);
+      const cv = this.makeCanvas(row, w, h, dpr, padX, padT, padB);
       st.cv = cv;
-      st.snap = snap;
-      st.dpr = dpr;
       st.padX = padX;
       st.padT = padT;
       st.padB = padB;
       st.inkTop = padT + hang.minY;
-      this.draw(st, t + Math.min(elapsed, DROOP.SAG_MS));
+      this.map.set(row, st);
+      this.draw(st, t + Math.min(Math.max(0, elapsed), DROOP.SAG_MS));
       this.place(st, 0, 0);
       const visualTop = cv.getBoundingClientRect().top + st.inkTop;
       st.fallMs = droopFallMs(window.innerHeight - visualTop + DROOP.FALL_MARGIN);
-    }
+      cv.style.visibility = "hidden";
+    } else this.map.set(row, st);
     if (droopPhase(elapsed, st.fallMs, reduced) === "done") {
-      try { st.cv?.remove(); } catch (_) {}
+      this.intent.set(row, "normal");
+      this.clear(row);
       return;
     }
     try { bub.dispatchEvent(new CustomEvent("bub-droop", { bubbles: true })); } catch (_) {}
-    this.map.set(row, st);
     this.kick();
+  },
+  makeCanvas(row, w, h, dpr, padX, padT, padB) {
+    const cv = document.createElement("canvas");
+    cv.className = "bub-droop";
+    cv.style.zIndex = String(1000 - [...this.list.querySelectorAll(".row")].indexOf(row));
+    cv.width = Math.round((w + padX * 2) * dpr);
+    cv.height = Math.round((h + padT + padB) * dpr);
+    cv.style.width = (w + padX * 2) + "px";
+    cv.style.height = (h + padT + padB) + "px";
+    this.layer.appendChild(cv);
+    return cv;
   },
   sync(val, serverNow) {
     this.mount();
@@ -393,9 +604,11 @@ export const Droop = {
       row.dataset.drooped = "1"; /* 垂過（包含已經挺回來的）：貓永遠不碰（room-pets.js 的 everDrooped） */
       const on = rec.on === true;
       const t = Number(rec.t);
+      const kind = droopRecordKind(rec);
       const st = this.map.get(row);
-      if (st && st.on === on && st.t === t) continue;
-      this.apply(row, on, Number.isFinite(t) ? t : now);
+      const same = st && st.t === t && ((kind === "off" && st.mode === "soft" && !st.on) || (kind === "soft" && st.mode === "soft" && st.on) || (kind === "fall" && st.mode === "fall"));
+      if (same) continue;
+      this.apply(row, on, Number.isFinite(t) ? t : now, rec.by);
     }
     for (const row of [...this.map.keys()]) {
       if (!seen.has(row.dataset.k)) this.clear(row);
@@ -409,6 +622,7 @@ export const Droop = {
     void now;
   },
   draw(st, now) {
+    if (st.mode === "soft") return this.drawSoft(st, now);
     if (!st.cv || !st.snap) return;
     const amt = droopSag(now - st.t);
     st.amt = amt;
@@ -445,6 +659,39 @@ export const Droop = {
       drawTri(c, img, sc, S[r][q + 1], S[r + 1][q + 1], S[r + 1][q], P[r][q + 1], P[r + 1][q + 1], P[r + 1][q]);
     }
   },
+  drawSoft(st, now) {
+    if (!st.cv || !st.snap) return;
+    const amt = softAmt(st, now);
+    st.amt = amt;
+    const theta = amt * DROOP.SOFT_ANGLE_DEG * Math.PI / 180;
+    const cv = st.cv, c = cv.getContext("2d"), sc = st.snap.scale, dpr = st.dpr;
+    if (!c) return;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, cv.width, cv.height);
+    if (Math.abs(theta) < 0.0015) {
+      c.setTransform(dpr, 0, 0, dpr, st.padX * dpr, st.padT * dpr);
+      c.drawImage(st.snap.canvas, 0, 0, st.w, st.h);
+      return;
+    }
+    c.setTransform(dpr, 0, 0, dpr, st.padX * dpr, st.padT * dpr);
+    c.imageSmoothingEnabled = true;
+    const cl = softCenterline(st.w, theta);
+    const C = DROOP.COLS, R = DROOP.ROWS, P = [], S = [];
+    for (let r = 0; r <= R; r++) {
+      const pr = [], sr = [];
+      for (let q = 0; q <= C; q++) {
+        const sx = st.w * q / C, sy = st.h * r / R;
+        sr.push({ x: sx, y: sy });
+        pr.push(softBend(cl, st, sx, sy));
+      }
+      P.push(pr); S.push(sr);
+    }
+    const img = st.snap.canvas;
+    for (let r = 0; r < R; r++) for (let q = 0; q < C; q++) {
+      drawTri(c, img, sc, S[r][q], S[r][q + 1], S[r + 1][q], P[r][q], P[r][q + 1], P[r + 1][q]);
+      drawTri(c, img, sc, S[r][q + 1], S[r + 1][q + 1], S[r + 1][q], P[r][q + 1], P[r + 1][q + 1], P[r + 1][q]);
+    }
+  },
   place(st, dy, spin) {
     if (!st.cv) return;
     const lr = this.layer.getBoundingClientRect();
@@ -469,9 +716,10 @@ export const Droop = {
     for (const [row, st] of [...this.map]) {
       if (!row.isConnected || !st.bub.isConnected) { this.clear(row); continue; }
       try {
+        if (st.mode === "soft") { this.tickSoft(row, st, now); continue; }
         const elapsed = now - st.t;
         const phase = droopPhase(elapsed, st.fallMs, st.reduced);
-        if (phase === "done") { this.clear(row); continue; }
+        if (phase === "done") { if (this.intent) this.intent.set(row, "normal"); this.clear(row); continue; }
         if (st.reduced) {
           let opacity = 0;
           if (phase === "fadeout") opacity = 1 - clamp01(elapsed / DROOP.REDUCE_OUT_MS);
@@ -525,5 +773,16 @@ export const Droop = {
     }
     if (this.map.size) this.kick();
   },
+  tickSoft(row, st, now) {
+    const e = now - st.t;
+    const settled = st.on ? e > DROOP.SOFT_MS + 40 : e > DROOP.RECOVER_MS;
+    if (!st.on && settled) { this.clear(row); return; }
+    st.bub.classList.add("droop");
+    st.bub.style.opacity = "";
+    if (!settled || !st.drawnFinal) { this.draw(st, now); st.drawnFinal = !!(settled && st.on); }
+    this.place(st, 0, 0);
+    if (st.cv) st.cv.style.visibility = "";
+  },
   kick() { if (!this.raf) this.raf = requestAnimationFrame(() => this.tick()); },
 };
+try { if (typeof window !== "undefined") window.__droop = Droop; } catch (_) {}
