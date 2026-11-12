@@ -2878,6 +2878,19 @@ export function mountRoomPets() {
       for (const c of cats) if (c.act && c.act.type === "hang" && c.act.el === el) hangDrop(c, c.act, n);
       for (const j of jellies.slice()) if (j.el === el) resetJelly(j);
     });
+    /* 房間裡任何人把泡泡軟掉：這台也讓橘貓跑去爬灰貓。
+       已經在爬就不要重來。灰貓若還沒趴下，startClimb 會先讓牠趴好。趣味特效關掉就不播。 */
+    window.addEventListener("sc-droop-climb", () => {
+      if (petsOn === false) return;
+      if (soc && soc.kind === "climb") return;
+      const n = performance.now();
+      if (soc) endSoc(n);
+      for (const c of cats) {
+        try { stopBite(c, n); } catch (_) {}
+        c.y = 0;
+      }
+      startClimb(n);
+    });
     msgList.addEventListener("bub-shatter", (e) => {
       const el = e.target;
       const n = performance.now();
