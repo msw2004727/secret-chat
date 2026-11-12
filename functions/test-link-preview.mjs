@@ -235,4 +235,62 @@ await fn.__dispatchLineRequest({ method: "GET", path: "/", originalUrl: "/", get
 assert.equal(statuses[2].statusCode, 405);
 assert.deepEqual(statuses[2].body, { error: "method" });
 
+const pinned = og.pinnedLookup({ address: "93.184.216.34", family: 4 });
+pinned("example.com", { all: true }, (err, rows) => {
+  assert.equal(err, null);
+  assert.deepEqual(rows, [{ address: "93.184.216.34", family: 4 }]);
+});
+pinned("example.com", { all: false }, (err, address, family) => {
+  assert.equal(err, null);
+  assert.equal(address, "93.184.216.34");
+  assert.equal(family, 4);
+});
+pinned("example.com", (err, address, family) => {
+  assert.equal(err, null);
+  assert.equal(address, "93.184.216.34");
+  assert.equal(family, 4);
+});
+
+const ogSrc = fs.readFileSync(new URL("./og.js", import.meta.url), "utf8");
+const imageFn = ogSrc.slice(ogSrc.indexOf("async function image"), ogSrc.indexOf("module.exports"));
+assert.match(imageFn, /retrieve\(raw/);
+assert.doesNotMatch(imageFn, /lookup\(/);
+assert.match(ogSrc, /lookup: pinnedLookup\(target\)/);
+
+const http = require("node:http");
+const server = http.createServer((req, res) => {
+  if (req.url.startsWith("/img")) {
+    res.writeHead(200, { "content-type": "image/jpeg" });
+    res.end(Buffer.from("jpeg-bytes"));
+    return;
+  }
+  res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+  res.end('<meta property="og:title" content="本地頁"><meta property="og:image" content="/img.jpg">');
+});
+await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+try {
+  const { port } = server.address();
+  const pageUrl = new URL(`http://127.0.0.1:${port}/page`);
+  const html = await og.defaultRequest({ url: pageUrl, address: "127.0.0.1", family: 4 }, {
+    accept: "text/html",
+    timeout: 2000,
+    maxBytes: 10000,
+  });
+  assert.equal(html.statusCode, 200);
+  const parsedLocal = og.parseOg(html.body.toString("utf8"), pageUrl.href);
+  assert.equal(parsedLocal.title, "本地頁");
+  const imgUrl = new URL(parsedLocal.image);
+  const img = await og.defaultRequest({ url: imgUrl, address: "127.0.0.1", family: 4 }, {
+    accept: "image/jpeg",
+    timeout: 2000,
+    maxBytes: 10000,
+  });
+  assert.equal(img.statusCode, 200);
+  assert.match(String(img.headers["content-type"]), /^image\/jpeg/);
+  assert.equal(img.body.toString(), "jpeg-bytes");
+  await assert.rejects(() => og.checkUrl(pageUrl.href, async () => [{ address: "127.0.0.1", family: 4 }]), (err) => err.status === 403);
+} finally {
+  await new Promise((resolve) => server.close(resolve));
+}
+
 console.log("PASS: link preview URL detection, SSRF blocklist, OG parser, and same-origin proxy wiring.");

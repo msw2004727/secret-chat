@@ -170,6 +170,19 @@ function lowerHeaders(headers) {
   return out;
 }
 
+/* Node 20+ 的 happy eyeballs 會帶 options.all = true，回呼要的是位址陣列。
+   只回事先檢查過的那一個位址，不讓它再自己解析。 */
+function pinnedLookup(target) {
+  return function lookup(hostname, options, cb) {
+    if (typeof options === "function") {
+      cb = options;
+      options = null;
+    }
+    if (options && options.all) cb(null, [{ address: target.address, family: target.family }]);
+    else cb(null, target.address, target.family);
+  };
+}
+
 function defaultRequest(target, { accept, timeout, maxBytes }) {
   const http = require("node:http");
   const https = require("node:https");
@@ -188,10 +201,7 @@ function defaultRequest(target, { accept, timeout, maxBytes }) {
       },
       timeout,
       servername: target.url.hostname,
-      lookup(hostname, options, cb) {
-        if (typeof options === "function") cb = options;
-        cb(null, target.address, target.family);
-      },
+      lookup: pinnedLookup(target),
     }, (res) => {
       const code = res.statusCode || 0;
       if (code === 301 || code === 302 || code === 303 || code === 307 || code === 308) {
@@ -356,6 +366,8 @@ async function image(raw, opts = {}) {
 
 module.exports = {
   youtubeId,
+  pinnedLookup,
+  defaultRequest,
   ipBlocked,
   allowedCaller,
   checkUrl,
