@@ -188,6 +188,14 @@ button { font: inherit; cursor: pointer; }
   text-align: center;
   font-family: arial, sans-serif;
 }
+/* 位置回報：另外一顆小綠點，不跟聊天室未讀的紅點混在一起。
+   紅點在右上，綠點在右下，兩顆同時亮也不會疊在一起。 */
+.g-bell-dot.g-bell-loc {
+  top: auto;
+  bottom: 3px;
+  right: 5px;
+  background: #34a853;
+}
 
 .g-tab {
   display: flex; align-items: center;

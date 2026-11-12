@@ -4060,7 +4060,12 @@ const LocSeen = {
         任何人打開偽裝首頁按一下鈴鐺就會連上 Firebase，
         而「沒開提示的裝置點鈴鐺不會連線」是 test-bell 守著的隱私前提。 */
   has() { return !!this.get(); },
-  set(k) { try { if (k) localStorage.setItem(LOC_SEEN, k); } catch (_) {} },
+  set(k) {
+    try { if (k) localStorage.setItem(LOC_SEEN, k); } catch (_) {}
+    /* 儀表板看過或清掉位置回報：綠點收掉。紅點是聊天室未讀，這裡不動。 */
+    const locDot = $("gBellLoc");
+    if (locDot) locDot.hidden = true;
+  },
 
   /* 進儀表板時把「看過了」推到最新那一筆。 */
   mark(rows) {
@@ -10377,16 +10382,17 @@ async function checkUnread() {
     }));
 
     /* 顯示「幾間房有新訊息」，不顯示是哪一間 ——
-       真的 Google 通知徽章本來就會顯示數字，所以偽裝不吃虧。 */
-    /* 位置回報也算一則（v42）。
-       ⚠️ 跟房間的未讀合起來算 —— 使用者要的是「有沒有東西要看」，
-          不是「哪一種東西」。真的 Google 的徽章本來也只給一個數字。 */
+       真的 Google 通知徽章本來就會顯示數字，所以偽裝不吃虧。
+       ⚠️ v61.33：位置回報不再算進這個數字，也不再點亮紅點。
+          有新的位置回報時，另外亮一顆小綠點（gBellLoc）。 */
     let n = flags.filter(Boolean).length;
-    if (await LocSeen.unread(f)) n++;
+    const locNew = await LocSeen.unread(f);
 
     dot.textContent = n > 1 ? String(n) : "";
     dot.classList.toggle("num", n > 1);
     dot.hidden = n === 0;
+    const locDot = $("gBellLoc");
+    if (locDot) locDot.hidden = !locNew;
   } catch (_) {
     // 連不上就維持原狀，不要在偽裝頁上留下任何痕跡
   } finally {

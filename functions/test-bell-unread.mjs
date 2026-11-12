@@ -30,15 +30,21 @@ assert.match(check, /const local = ReadMark\.load\(rid\);/);
 assert.match(check, /return mine \? newest > mine : true;/);
 assert.match(check, /filter\(\(x\) => typeof x === "string" && x\)/);
 
-// LocSeen is also counted, and neither clicking the bell nor entering a room
-// updates sc-loc-seen — only the admin dashboard does. If a location report
-// is newer than the last dashboard visit, the bell will light on every click
-// even when chat messages are all read. Keep this documented; do not change
-// it in this fix without the user asking.
-assert.match(check, /if \(await LocSeen\.unread\(f\)\) n\+\+;/);
-const enterHidesDot = src.includes('$("gBellDot").hidden = true;   // 進來看了就不算未讀，紅點先收掉');
-assert.equal(enterHidesDot, true);
+// Location reports use a separate green dot. They must not increment the
+// chat-room count that lights the red dot. Clicking the bell and entering a
+// room still must not call LocSeen.mark / set — only the admin dashboard does.
+assert.doesNotMatch(check, /LocSeen\.unread\(f\)\) n\+\+/);
+assert.match(check, /const locNew = await LocSeen\.unread\(f\);/);
+assert.match(check, /\$\("gBellLoc"\)/);
+assert.match(check, /locDot\.hidden = !locNew/);
+assert.match(check, /if \(!rooms\.length && !LocSeen\.has\(\)\) return/);
+const enterAt = src.indexOf('$("gBellDot").hidden = true;   // 進來看了就不算未讀，紅點先收掉');
+assert.ok(enterAt > 0);
+assert.doesNotMatch(src.slice(enterAt, enterAt + 180), /gBellLoc/);
 assert.equal(src.includes('LocSeen.mark') && !check.includes('LocSeen.mark') && !check.includes('LocSeen.set'), true);
+const locSeen = src.slice(src.indexOf('const LocSeen = {'), src.indexOf('const LocSeen = {') + 1400);
+assert.match(locSeen, /gBellLoc/);
+assert.match(locSeen, /locDot\.hidden = true/);
 
 // --- tryMarkRead now always writes the local mark ---
 const tryFn = src.slice(src.indexOf('function tryMarkRead() {'), src.indexOf('function tryMarkRecv() {'));
