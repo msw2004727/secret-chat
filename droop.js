@@ -1,8 +1,8 @@
 /* 兩段手勢，都寫進 rooms/<房>/dr/<訊息鍵> {on,t,by}。
    還沒軟的泡泡：連點兩下（每下相隔 600ms 內）軟成 60 度，並讓橘貓去爬灰貓。
    同一串裡多出來的點不算第二次，也不會直接掉下去。
-   已經軟的泡泡：另起一串。兩到四下，停 600ms 就挺回並同步關掉。
-   第五下立刻掉出畫面（by 以 fall: 開頭），五秒後以普通形狀淡回，空位留著。
+   已經軟的泡泡：另起一串。正好兩下，停 600ms 就挺回並同步關掉。
+   第三下立刻掉出畫面（by 以 fall: 開頭），五秒後以普通形狀淡回，空位留著。
    這裡只負責畫。 */
 export const DROOP = {
   SOFT_ANGLE_DEG: 60,
@@ -18,7 +18,7 @@ export const DROOP = {
   SAG_MS: 1100,
   WOBBLE: 0.12,
   JELLY_PX: 6,
-  TAP_COUNT: 5,
+  TAP_COUNT: 3,
   TAP_GAP_MS: 600,
   FALL_BY: "fall:",
   GONE_MS: 5000,
@@ -74,12 +74,12 @@ export function droopRecordKind(rec) {
 }
 /* mode 是這一串開始時泡泡的狀態，中途不變。
    普通泡泡只有第 2 下會軟，第 3 下之後這串不再做事。
-   已經軟的泡泡，第 5 下立刻掉；2 到 4 下要等這一串結束才挺回。 */
+   已經軟的泡泡，第 3 下立刻掉；正好 2 下要等這一串結束才挺回。單下一律不算。 */
 export function droopTapAction(mode, count) {
   const n = Number(count) || 0;
   if (mode === "soft") {
-    if (n >= DROOP.TAP_COUNT) return "fall";
-    if (n >= 2) return "pending";
+    if (n === DROOP.TAP_COUNT) return "fall";
+    if (n === 2) return "pending";
     return "none";
   }
   if (n === 2) return "soft";
