@@ -17,6 +17,9 @@ assert.equal(firebase.hosting.site,'daily-notes-7bb64');
 for(const file of manifest.immutable){const rule=firebase.hosting.headers.find(h=>h.source==='/'+file);assert.ok(rule);assert.match(rule.headers[0].value,/immutable/)}
 assert.equal(firebase.hosting.headers.some(h=>/index\.html|sw\.js/.test(h.source)&&h.headers.some(x=>/immutable/.test(x.value))),false);
 assert.equal(sw.match(/const SHELL = ([^;]+);/)[1].includes('chunk-assets'),false,'stickers stay lazy');
+const quokka = manifest.immutable.find(f => f.endsWith('.gif'));
+assert.ok(quokka, 'quokka gif is a hashed immutable asset');
+assert.ok(sw.includes('"'+ '/' + quokka + '"') || sw.includes('/' + quokka), 'service worker caches the quokka gif');
 let reads=0,offline=false,storageFails=false,putFails=false,installFails=false,activated=0;const events={},cache=new Map();
 const response=()=>({status:200,ok:true,type:'basic',clone(){return this}});
 const ctx=vm.createContext({URL,Response,self:{location:{origin:'https://fixture.invalid'},skipWaiting:()=>{activated++},addEventListener:(name,fn)=>events[name]=fn},
