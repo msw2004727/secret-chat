@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
+import { decodeQuokkaGif, quokkaFrame, QUOKKA_CSS_AT_REF } from '../quokka-gif.js';
 import { Bobo } from '../bobo.js';
 
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
@@ -115,6 +116,37 @@ const roosterPx = 11.4 * 1.12 * worldS;
 const boboPx = roosterPx * (2 / 3);
 assert.ok(Math.abs(roosterPx - 32.6) < 0.15, String(roosterPx));
 assert.ok(Math.abs(boboPx - 21.7) < 0.15, String(boboPx));
+assert.match(pets, /import \{ attachQuokka \} from "\.\/quokka-room\.js"/);
+assert.match(pets, /quokkaApi\.step\(now\)/);
+assert.match(pets, /quokkaApi\.shift\(dy\)/);
+assert.match(pets, /if \(quokkaApi\) quokkaApi\.hide\(\)/);
+const quokkaRoom = fs.readFileSync(new URL('../quokka-room.js', import.meta.url), 'utf8');
+const quokkaGif = fs.readFileSync(new URL('../quokka.gif', import.meta.url));
+assert.ok(quokkaGif.length < 60 * 1024, "quokka.gif " + quokkaGif.length);
+assert.match(quokkaRoom, /dir > 0/);
+assert.match(quokkaRoom, /scale\(-1, 1\)/);
+assert.match(quokkaRoom, /enabled\(\)/);
+assert.doesNotMatch(quokkaRoom, /firebase|database|websocket/i);
+assert.match(css, /\.quokka \{[\s\S]*overflow: visible;/);
+assert.match(css, /\.quokka \{[\s\S]*pointer-events: none;/);
+assert.match(css, /\.quokka \{[\s\S]*z-index: 2;/);
+const gif = decodeQuokkaGif(quokkaGif);
+assert.equal(gif.frames.length, 7);
+assert.equal(gif.width, 54);
+assert.equal(gif.height, 78);
+let clear = 0, brown = 0;
+const px = gif.frames[0];
+for (let i = 0; i < px.length; i += 4) {
+  if (px[i + 3] === 0) clear++;
+  else if (px[i] > 140 && px[i + 1] > 80 && px[i + 2] < 140) brown++;
+}
+assert.ok(clear > 100, "transparent pixels");
+assert.ok(brown > 100, "quokka body pixels");
+assert.equal(quokkaFrame(false, 5000, 0, 7), 0);
+assert.equal(quokkaFrame(true, 250, 0, 7), 2);
+assert.equal(QUOKKA_CSS_AT_REF, 26);
+const quokkaPx = QUOKKA_CSS_AT_REF;
+assert.ok(quokkaPx > boboPx && quokkaPx < roosterPx);
 assert.match(bobo, /scale\(-1,\s*1\)/);
 assert.match(boboRoom, /Bobo\.viewBox\(pose\)/);
 const actions = ["idle", "walk", "wave", "jump", "sit", "blink", "tap"];

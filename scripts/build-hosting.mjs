@@ -22,7 +22,8 @@ const hashed = async (name, ext, data) => {
 const bundled = await build({
   entryPoints: ['app.js'], bundle: true, splitting: true, format: 'esm',
   target: 'es2022', minify: true, legalComments: 'eof', outdir: dir,
-  entryNames: '[name]-[hash]', chunkNames: 'chunk-[name]-[hash]', metafile: true,
+  entryNames: '[name]-[hash]', chunkNames: 'chunk-[name]-[hash]',
+  assetNames: '[name]-[hash]', loader: { '.gif': 'file' }, metafile: true,
 });
 const outputs = Object.entries(bundled.metafile.outputs);
 const app = outputs.find(([, info]) => info.entryPoint === 'app.js')[0].split('/').pop();
