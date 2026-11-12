@@ -1228,7 +1228,7 @@ export const REAL = (() => {
   }
   /* 趴著：側面肚皮貼地、身體拉長。
      backX/backY＝灰貓背中央（黑貓胸口要靠在這裡）；chestX＝黑貓搭住時的胸口。
-     兩隻的畫布對齊方式：orange.x = gray.x + (backX - chestX) * S（臉朝右時）。 */
+     臉朝右時：黑貓.x = 灰貓.x + backX * S - chestX * S * 1.1（黑貓比灰貓大 10%）。 */
   const CLIMB = { backX: 13.6, backY: 14.0, chestX: 16.6, pawX: 24.0, pawY: 13.65, plantShift: 5.8, hipAmp: 1.15, hipHz: 5 };
   function liePose(i) {
     const glance = i === 1 || i === 3;

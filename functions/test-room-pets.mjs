@@ -193,7 +193,7 @@ for (const action of ["idle", "walk", "wave", "jump", "sit", "blink", "tap"]) {
 }
 assert.match(pets, /ball\.state === "carried" && ball\.carrier \? ball\.carrier\.el : layer/);
 assert.match(pets, /tx -= carrier\.x/);
-assert.match(pets, /ty \+= H \* S/);
+assert.match(pets, /ty \+= H \* catS\(carrier\)/);
 assert.match(css, /\.cat-front \{[\s\S]*z-index: 3;/);
 assert.match(css, /\.c-bar \{[^}]*z-index: 8;/);
 assert.match(css, /\.c-input \{[^}]*z-index: 8;/);
@@ -213,6 +213,8 @@ assert.match(realCats, /base: "#3a4458"/);
 assert.match(realCats, /iris: "#e2c14a"/);
 assert.doesNotMatch(realCats, /#c58a52|#cd804e/);
 assert.match(pets, /"b":"#3a4458"/);
+assert.match(pets, /BROWN_K = 1\.1/);
+assert.match(pets, /catS\(c\)/);
 assert.match(pets, /lines\.filter\(\(t\) => t !== cat\.lastTalk\)/);
 assert.match(pets, /const TALK_MS = 3000/);
 assert.doesNotMatch(pets, /小麥我愛妳/);
