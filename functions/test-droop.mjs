@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { droopClimbIds, DROOP_CLIMB_FRESH_MS } from '../droop.js';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
@@ -77,6 +78,22 @@ assert.match(pets, /BONK_MIN_V = 260/);
 assert.match(pets, /BONK_CD = 2500/);
 assert.match(pets, /classList\.contains\("droop"\)/);
 assert.match(pets, /bub-droop/);
+assert.match(droop, /sc-droop-climb/);
+assert.match(droop, /droopClimbIds\(this\.last, now, this\.climbSeen\)/);
+assert.match(pets, /sc-droop-climb/);
+assert.match(pets, /if \(petsOn === false\) return;/);
+assert.match(pets, /if \(soc && soc\.kind === "climb"\) return;/);
+assert.match(pets, /startClimb\(n\)/);
+assert.match(pets, /climb: grayDown \? 22 : 6/);
+const now = 1_700_000_000_000;
+const fresh = { m1: { on: true, t: now - 800, by: "a" }, old: { on: true, t: now - 60000, by: "b" }, off: { on: false, t: now, by: "c" } };
+const seen = new Set();
+assert.deepEqual(droopClimbIds(fresh, now, seen), ["m1:" + (now - 800)]);
+seen.add("m1:" + (now - 800));
+assert.deepEqual(droopClimbIds(fresh, now, seen), []);
+assert.deepEqual(droopClimbIds({ m1: { on: true, t: now } }, now, seen), ["m1:" + now]);
+assert.equal(DROOP_CLIMB_FRESH_MS >= 8000 && DROOP_CLIMB_FRESH_MS <= 20000, true);
+assert.deepEqual(droopClimbIds({ m1: { on: true } }, now, new Set()), []);
 assert.match(cfg, /panicTaps: 0/);
 assert.equal((app.match(/try \{ Shatter\.playAll\(\); \} catch \(err\) \{ console\.error\(err\); \}\n\s+resetList\(\);/g) || []).length, 2);
 

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
+import { Bobo } from '../bobo.js';
 
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -114,6 +115,31 @@ const roosterPx = 11.4 * 1.12 * worldS;
 const boboPx = roosterPx * (2 / 3);
 assert.ok(Math.abs(roosterPx - 32.6) < 0.15, String(roosterPx));
 assert.ok(Math.abs(boboPx - 21.7) < 0.15, String(boboPx));
+assert.match(bobo, /scale\(-1,\s*1\)/);
+assert.match(boboRoom, /Bobo\.viewBox\(pose\)/);
+const actions = ["idle", "walk", "wave", "jump", "sit", "blink", "tap"];
+const accessories = ["none", "bucket", "santa"];
+for (const action of actions) for (const acc of accessories) for (const dir of [-1, 1]) {
+  for (let i = 0; i <= 8; i++) {
+    const pose = Bobo.makePose(action, i / 8, { time: i * 500, dir, acc });
+    const ink = Bobo.inkBox(pose);
+    const view = Bobo.viewBox(pose);
+    assert.ok(ink.x0 >= view.x0 - 1e-6 && ink.x1 <= view.x1 + 1e-6 && ink.y0 >= view.y0 - 1e-6 && ink.y1 <= view.y1 + 1e-6, action + " " + acc + " " + dir);
+  }
+}
+const jumpInk = Bobo.inkBox(Bobo.makePose("jump", 0.44, { time: 0, dir: -1, acc: "none" }));
+assert.ok(jumpInk.y0 < 0, "jump lifts the head out of the old 24-tall canvas");
+assert.ok(Bobo.inkBox(Bobo.makePose("idle", 0, { time: 0, dir: -1, acc: "santa" })).y0 < 0);
+assert.ok(Bobo.inkBox(Bobo.makePose("jump", 0.44, { time: 0, dir: 1, acc: "bucket" })).y0 < 0);
+for (const action of ["idle", "walk", "wave", "jump", "sit", "blink", "tap"]) {
+  for (const acc of accessories) {
+    const left = Bobo.inkBox(Bobo.makePose(action, 0.3, { time: 1000, dir: -1, acc }));
+    const right = Bobo.inkBox(Bobo.makePose(action, 0.3, { time: 1000, dir: 1, acc }));
+    assert.ok(Math.abs(right.x0 - (Bobo.W - left.x1)) < 1e-4, action + " " + acc + " x0");
+    assert.ok(Math.abs(right.x1 - (Bobo.W - left.x0)) < 1e-4, action + " " + acc + " x1");
+    assert.ok(Math.abs(right.y0 - left.y0) < 1e-4 && Math.abs(right.y1 - left.y1) < 1e-4, action + " " + acc + " y");
+  }
+}
 assert.match(pets, /ball\.state === "carried" && ball\.carrier \? ball\.carrier\.el : layer/);
 assert.match(pets, /tx -= carrier\.x/);
 assert.match(pets, /ty \+= H \* S/);

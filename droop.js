@@ -16,6 +16,24 @@ export const DROOP = {
 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
+/* 軟掉寫進房間後，全房正在看的人各播一次橘貓爬背。
+   太舊的紀錄是進房時就在的，不重播。同一筆 t 只算一次。 */
+export const DROOP_CLIMB_FRESH_MS = 12000;
+export function droopClimbIds(val, now, seen, freshMs = DROOP_CLIMB_FRESH_MS) {
+  const ids = [];
+  if (!val || typeof val !== "object" || !Number.isFinite(+now)) return ids;
+  const have = seen || new Set();
+  for (const key of Object.keys(val)) {
+    const rec = val[key];
+    if (!rec || rec.on !== true) continue;
+    const t = Number(rec.t);
+    if (!Number.isFinite(t) || Math.abs(+now - t) > freshMs) continue;
+    const id = key + ":" + t;
+    if (have.has(id)) continue;
+    ids.push(id);
+  }
+  return ids;
+}
 function petsOff() {
   try { return localStorage.getItem("sc-pets") === "off"; } catch (_) { return false; }
 }
@@ -311,6 +329,12 @@ export const Droop = {
     }
     for (const row of [...this.map.keys()]) {
       if (!seen.has(row.dataset.k)) this.clear(row);
+    }
+    /* 剛被某人打開的軟掉：通知這台的貓去爬。舊資料進房時 t 已經超過新鮮時間，不會播。 */
+    if (!this.climbSeen) this.climbSeen = new Set();
+    for (const id of droopClimbIds(this.last, now, this.climbSeen)) {
+      this.climbSeen.add(id);
+      try { window.dispatchEvent(new CustomEvent("sc-droop-climb", { detail: { id } })); } catch (_) {}
     }
     void now;
   },
