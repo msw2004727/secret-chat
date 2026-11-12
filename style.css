@@ -449,6 +449,7 @@ html[data-theme="dark"] .update-banner {
   /* ⚠️ position: relative 是給飄浮愛心（.c-heart-field）當定位錨點的。
         拿掉的話愛心會往上找到別的祖先，飄到畫面別的地方去。 */
   position: relative;
+  z-index: 8; /* 高於貓、雞、球、對白和特效（最高 7），動物飛到頂端時從標題後面過去 */
   display: flex; align-items: center; gap: 2px;
   padding: 0 6px;
   padding-top: env(safe-area-inset-top);
@@ -1985,6 +1986,7 @@ html[data-theme="dark"] #chat {
   /* ⚠️ position: relative 是給「＋」附件選單當定位錨點的。
         拿掉的話 .c-plus 會往上找到別的祖先，選單會飄到畫面別的地方。 */
   position: relative;
+  z-index: 8; /* 跟標題列同一層，動物和對白不會蓋住輸入列 */
   display: flex; align-items: flex-end; gap: 6px;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
