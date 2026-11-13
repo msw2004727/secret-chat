@@ -491,6 +491,9 @@
           "answer": {
             ".validate": "newData.isString() && newData.val() === 'o'"
           },
+          "ms": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 120000"
+          },
           "$other": {
             ".validate": false
           }

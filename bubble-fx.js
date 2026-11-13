@@ -33,6 +33,13 @@ export function loveAskPhase(rec, me, now, limit = LOVE_ASK_MS) {
   if (rec.by === me) return answered ? "loved" : "caller";
   return answered ? "hearts" : "recipient";
 }
+
+/* 對方從看到卡片到按 O 的整秒。不到 1 秒也顯示 1。 */
+export function loveAskSeconds(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return 1;
+  return Math.max(1, Math.round(n / 1000));
+}
 export const BUBBLE_FX_STATES = ["stiff", "soft", "break", "normal"];
 
 export function bubbleFxNormalize(state) {
