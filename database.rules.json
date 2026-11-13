@@ -219,7 +219,7 @@
         },
         "pets": {
           "$kind": {
-            ".validate": "!newData.exists() || (($kind === 'cats' || $kind === 'quokka' || $kind === 'rooster') && newData.hasChildren(['on','t','by']))",
+            ".validate": "!newData.exists() || (($kind === 'cats' || $kind === 'quokka' || $kind === 'rooster' || $kind === 'catPregnant' || $kind === 'kittens') && newData.hasChildren(['on','t','by']))",
             "on": {
               ".validate": "newData.isBoolean()"
             },

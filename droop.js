@@ -55,12 +55,17 @@ function petsOff() {
   try { return localStorage.getItem("sc-pets") === "off"; } catch (_) { return false; }
 }
 
-/* 房間動物分組：rooms/<房>/pets/<cats|quokka|rooster> {on,t,by}。
-   沒有這筆、或 on 不是 false，都當作開。晚進房只看目前狀態，不重播跑走。 */
+/* 房間動物分組：rooms/<房>/pets/<cats|quokka|rooster|catPregnant|kittens> {on,t,by}。
+   三組動物沒寫、或 on 不是 false，都當作開。懷孕和幼貓沒寫就是關。
+   晚進房只看目前狀態，不重播跑走。 */
 export function petGroupsFromSnap(val) {
   const on = (rec) => !rec || rec.on !== false;
+  const opted = (rec) => !!(rec && rec.on === true);
   const v = val && typeof val === "object" ? val : {};
-  return { cats: on(v.cats), quokka: on(v.quokka), rooster: on(v.rooster) };
+  return {
+    cats: on(v.cats), quokka: on(v.quokka), rooster: on(v.rooster),
+    catPregnant: opted(v.catPregnant), kittens: opted(v.kittens),
+  };
 }
 
 function reducedMotion() {

@@ -362,7 +362,10 @@ export function mountRoomPets() {
 
     /* ----- 尺寸：手機上 3 倍、很窄時 2 倍，再縮小 15%。黑貓比灰貓大 10%。 ----- */
     const BROWN_K = 1.1;
+    /* 幼貓看起來跟 Bobo 差不多高。貓的畫布上方有空位，所以畫布要比 Bobo 的盒子再高一點。 */
+    const KITTEN_K = 11.4 * 1.12 * (2 / 3) / 20 * 1.28;
     function catK(cat) {
+      if (cat && cat.kit) return KITTEN_K;
       const name = typeof cat === "string" ? cat : cat && cat.name;
       return name === "brown" ? BROWN_K : 1;
     }
@@ -390,7 +393,7 @@ export function mountRoomPets() {
         for (const h of resHooks) { try { h(); } catch (_) {} }
       }
       if (typeof ball !== "undefined") { ball.x = clamp(ball.x, BR, areaW - BR); ball.y = clamp(ball.y, topY + BR, floorY - BR); }
-      for (const c of cats) {
+      for (const c of cats.concat(kits)) {
         const ks = catS(c);
         c.el.style.width = W * ks + "px";
         c.el.style.height = H * ks + "px";
@@ -1008,6 +1011,7 @@ export function mountRoomPets() {
 
     /* ----- 建立兩隻貓 ----- */
     const cats = [];
+    let kits = [];
     function makeCat(name, x, dir) {
       const el = document.createElement("div");
       el.className = "cat cat-" + name;
@@ -1044,6 +1048,16 @@ export function mountRoomPets() {
     const now0 = performance.now();
     cats.push(makeCat("brown", 0, 1));
     cats.push(makeCat("gray", 0, -1));
+    kits = [0, 1].map((i) => {
+      const k = makeCat("gray", 12 + i * 16, i ? 1 : -1);
+      k.kit = true;
+      k.i = i;
+      k.el.classList.add("cat-kit");
+      k.el.style.zIndex = "4";
+      k.el.hidden = true;
+      k.act = { type: "sit", t0: now0, dur: 1e9 };
+      return k;
+    });
     layer.appendChild(fightEl); /* 煙霧團疊在貓上面 */
     measure();
     cats[0].x = maxX() * 0.18;
@@ -1697,6 +1711,7 @@ export function mountRoomPets() {
     }
 
     function finish(cat, now) {
+      if (cat.kit) { cat.act = { type: "sit", t0: now, dur: rand(400, 1100) }; return; }
       const t = cat.act && cat.act.type;
       if (cat.pendingTap && t === "jump") { cat.pendingTap = false; cat.y = 0; tapSit(cat, now); return; }
       if (soc && inSoc(cat)) {
@@ -2211,20 +2226,20 @@ export function mountRoomPets() {
       if (a.type === "poop") { poopStep(cat, a, now); return; }
       if (a.type === "pet") { petStep(cat, a, now); return; }
       if (a.type === "walk" || a.type === "run") {
-        const step = a.speed * dt;
         const d = a.tx - cat.x;
+        const speed = (cat.pregnant && cat.name === "gray" && !cat.kit) ? a.speed * 0.62 : a.speed;
         if (a.exit || a.enter) {
-          if (Math.abs(d) <= step) {
+          if (Math.abs(d) <= speed * dt) {
             cat.x = a.tx;
             a.done = true;
             if (a.enter) finish(cat, now);
             return;
           }
-          cat.x += Math.sign(d) * step;
+          cat.x += Math.sign(d) * speed * dt;
           return;
         }
-        if (a.done || Math.abs(d) <= step) { cat.x = a.tx; finish(cat, now); return; }
-        cat.x += Math.sign(d) * step;
+        if (a.done || Math.abs(d) <= speed * dt) { cat.x = a.tx; finish(cat, now); return; }
+        cat.x += Math.sign(d) * speed * dt;
       } else if (a.type === "flee") {
         const step = a.speed * dt;
         const d = a.tx - cat.x;
@@ -2417,7 +2432,7 @@ export function mountRoomPets() {
       } else {
         ctx.imageSmoothingEnabled = false;
         if (k !== 1) ctx.drawImage(body, 0, cv.height * (1 - k), cv.width, cv.height * k);
-        else ctx.drawImage(body, 0, 0);
+        else ctx.drawImage(body, 0, 0, cv.width, cv.height);
         ctx.imageSmoothingEnabled = true;
         if (lv.blink > 0 && body.open && body.eyes && !bk) {
           grid();
@@ -2430,6 +2445,23 @@ export function mountRoomPets() {
         grid(); REAL.clawArms(ctx, cat.name, f.pose, ca || [{ x: 3.8, y: 11.0 }, { x: 3.8, y: 11.0 }]);
       }
       if (t && t.front) tail();
+      if (cat.pregnant && !cat.kit && cat.name === "gray" && f.anim && (f.anim === "sit" || f.anim === "walk" || f.anim === "run" || f.anim === "lick1")) {
+        ctx.save();
+        ctx.setTransform(R, 0, 0, R, 0, 0);
+        const bob = Math.sin((now || 0) / 260) * 0.15;
+        ctx.fillStyle = "#ece8e2";
+        ctx.beginPath();
+        ctx.ellipse(15.2, 15.6 + bob, 3.7, 2.9, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 0.35;
+        ctx.strokeStyle = "#6d7076";
+        ctx.stroke();
+        ctx.fillStyle = "#e7b7c3";
+        ctx.beginPath();
+        ctx.ellipse(15.2, 16.3 + bob, 0.55, 0.38, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     function bonkStage(cat, now) {
@@ -2560,7 +2592,10 @@ export function mountRoomPets() {
         cat.say.style.setProperty("--talk-tail", "calc(50% - " + shift + "px)");
         cat.say.style.visibility = cat.hidden ? "hidden" : "";
       }
-      cat.el.style.transform = "translate3d(" + x + "px,0,0)";
+      const waddle = (cat.pregnant && !cat.kit && cat.name === "gray" && cat.act && (cat.act.type === "walk" || cat.act.type === "run"))
+        ? " rotate(" + (Math.sin(now / 150) * 8).toFixed(1) + "deg)" : "";
+      cat.el.style.transform = "translate3d(" + x + "px,0,0)" + waddle;
+      if (waddle) cat.el.style.transformOrigin = "50% 100%";
       if (renderHang(cat)) return;
       cat.body.style.transform = "translate3d(" + (cat.act.type === "funny" ? (cat.jx || 0).toFixed(1) : "0") + "px," + (-Math.round(cat.y)) + "px,0)";
       const lift = clamp(cat.y / 60, 0, 1);
@@ -3694,6 +3729,7 @@ export function mountRoomPets() {
       try { if (fightEl) fightEl.style.display = "none"; } catch (_) {}
       layer.classList.add("cats-off");
       sayLayer.classList.add("cats-off");
+      for (const k of kits) k.el.hidden = true;
     }
     function showCats() {
       for (const c of cats) { c.el.hidden = false; c.hidden = false; c.el.style.visibility = ""; }
@@ -3750,6 +3786,65 @@ export function mountRoomPets() {
       if (key === "cats") { if (on) showCats(); else quietCats(now); }
       else settleFloor(key, on);
     }
+    let pregnant = false;
+    let wantKits = false;
+    let kitPhase = "gone";
+    function hideKits() {
+      kitPhase = "gone";
+      for (const k of kits) k.el.hidden = true;
+    }
+    function startKitLeave(now) {
+      kitPhase = "leaving";
+      for (const k of kits) {
+        k.el.hidden = false;
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        k.exitDir = dir;
+        const w = W * catS(k);
+        const tx = dir > 0 ? areaW + w + 12 : -w - 12;
+        start(k, { type: "run", tx, speed: 180, exit: true, dur: 1e9 }, now);
+      }
+    }
+    function startKitEnter(now) {
+      kitPhase = "entering";
+      for (const k of kits) {
+        k.el.hidden = false;
+        const back = -(k.exitDir || (k.i ? 1 : -1));
+        const w = W * catS(k);
+        k.x = back > 0 ? -w - 8 : areaW + 8;
+        k.y = 0;
+        k.queue = [];
+        const tx = Math.max(8, areaW * (k.i ? 0.62 : 0.38));
+        start(k, { type: "run", tx, speed: 160, enter: true, dur: 1e9 }, now);
+      }
+    }
+    function kitThink(k, now) {
+      const mom = cats.find((c) => c.name === "gray") || cats[0];
+      const home = mom.x + (k.i ? 1 : -1) * W * S * 0.72;
+      const tx = clamp(home, 4, Math.max(4, areaW - W * catS(k) - 4));
+      const a = k.act;
+      if (a && a.type === "jump") return;
+      if (Math.abs(tx - k.x) > 16) {
+        if (!a || a.type !== "walk") start(k, { type: "walk", tx, speed: 34, dur: 1e9 }, now);
+        else a.tx = tx;
+      } else if (a && a.type === "walk") {
+        start(k, { type: "sit", dur: rand(500, 1200) }, now);
+      } else if (a && a.type === "sit" && now - a.t0 > a.dur && Math.random() < 0.4) {
+        start(k, { type: "jump", x1: clamp(k.x + (Math.random() < 0.5 ? -18 : 18), 4, areaW - 8), h: 14, air: 340 }, now);
+      }
+    }
+    function syncKits(on, animate, now) {
+      wantKits = !!on;
+      const allow = groups.cats !== false && petsOn !== false;
+      if (wantKits && allow) {
+        if (!animate || kitPhase === "shown") {
+          kitPhase = "shown";
+          for (const k of kits) k.el.hidden = false;
+        } else startKitEnter(now);
+        return;
+      }
+      if (animate && allow && kitPhase === "shown") { startKitLeave(now); return; }
+      hideKits();
+    }
     function applyGroups(next, animate, now) {
       const live = !!animate && petsOn !== false && motionOk();
       for (const key of ["cats", "quokka", "rooster"]) {
@@ -3762,6 +3857,13 @@ export function mountRoomPets() {
         else if (on) startFloorEnter(key);
         else startFloorLeave(key);
       }
+      const preg = !!next.catPregnant;
+      if (preg !== pregnant) {
+        pregnant = preg;
+        const g = cats.find((c) => c.name === "gray");
+        if (g) { g.pregnant = preg; g.cur = null; }
+      }
+      syncKits(!!next.kittens, live, now);
     }
     let last = performance.now();
     let overlapped = false;
@@ -3838,6 +3940,19 @@ export function mountRoomPets() {
           quietCats(now);
           phase.cats = "gone";
         }
+      }
+      if (groups.cats !== false && (wantKits || kitPhase === "leaving" || kitPhase === "entering")) {
+        for (const k of kits) {
+          try {
+            if (kitPhase === "shown") kitThink(k, now);
+            update(k, now, dt);
+            render(k, now);
+          } catch (err) { k.el.hidden = true; }
+        }
+        if (kitPhase === "leaving" && kits.every((k) => k.act && k.act.exit && k.act.done)) hideKits();
+        if (kitPhase === "entering" && kits.every((k) => !(k.act && k.act.enter))) kitPhase = "shown";
+      } else if (kitPhase !== "leaving") {
+        for (const k of kits) k.el.hidden = true;
       }
       renderBall(now);
       drawShade(now, dt, shapes);
@@ -3939,7 +4054,7 @@ export function mountRoomPets() {
       nextBiteAt = Math.max(nextBiteAt, n + rand(6000, 12000));
       for (const c of cats) c.nextClawAt = Math.max(c.nextClawAt || 0, n + rand(10000, 25000));
       for (const c of cats) c.nextPoopAt = Math.max(c.nextPoopAt || 0, n + rand(POOP_FIRST[0], POOP_FIRST[1]));
-      applyGroups(groups, false, n);
+      applyGroups({ cats: groups.cats, quokka: groups.quokka, rooster: groups.rooster, catPregnant: pregnant, kittens: wantKits }, false, n);
       wake();
     }
     window.addEventListener("sc-pets", (e) => { if (e.detail && e.detail.on) petsEnable(); else petsDisable(); });
@@ -3947,13 +4062,15 @@ export function mountRoomPets() {
       cats: !d || d.cats !== false,
       quokka: !d || d.quokka !== false,
       rooster: !d || d.rooster !== false,
+      catPregnant: !!(d && d.catPregnant),
+      kittens: !!(d && d.kittens),
     }, !!(d && d.animate), performance.now());
     window.addEventListener("sc-pet-groups", (e) => takeGroups(e.detail || {}));
     try { if (localStorage.getItem("sc-pets") === "off") petsOn = false; } catch (_) {}
     if (window.__petGroupState) takeGroups({ ...window.__petGroupState, animate: false });
     if (petsOn === false) petsDisable(); else wake();
     /* 測試用：window.__cats 可以直接觸發互動 */
-    window.__cats = { cats, ball, get enabled() { return petsOn !== false; }, setEnabled: (on) => { if (on) petsEnable(); else petsDisable(); }, bonk: (i) => { const c = cats[i || 0]; c.bonkCd = 0; return bonk(c, performance.now()); }, get S() { return S; }, get floorY() { return floorY; },
+    window.__cats = { cats, kits, ball, get enabled() { return petsOn !== false; }, setEnabled: (on) => { if (on) petsEnable(); else petsDisable(); }, bonk: (i) => { const c = cats[i || 0]; c.bonkCd = 0; return bonk(c, performance.now()); }, get S() { return S; }, get floorY() { return floorY; },
       talk: (name, force) => { const c = typeof name === "number" ? cats[name] : cats.find((x) => x.name === name); return showTalk(c, performance.now(), force !== false); },
       throwBall: (x, y, vx, vy) => { ball.state = "loose"; ball.carrier = null; ball.x = x; ball.y = y; ball.vx = vx; ball.vy = vy; onThrow(performance.now()); },
       give: (i) => { endSoc(performance.now()); catchBall(cats[i], performance.now()); },
