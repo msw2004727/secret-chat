@@ -493,45 +493,62 @@ export const Droop = {
     st.drawnFinal = false;
     this.kick();
   },
-  applySoft(row, bub, t) {
+  applySoft(row, bub, t) { this.applyCurve(row, bub, t, 1); },
+  /* 堅挺：跟軟掉同一條彎，角度改成往上。不發 bub-droop，貓不會因此去爬。 */
+  applyStiff(row, t) {
+    const bub = row && row.querySelector(".bub");
+    if (!bub || row.classList.contains("shattering") || row.classList.contains("gone")) return;
+    t = typeof t === "number" ? t : this.now();
+    this.applyCurve(row, bub, t, -1);
+  },
+  applyCurve(row, bub, t, sign) {
+    const mode = sign < 0 ? "stiff" : "soft";
     let st = this.map.get(row);
-    if (st && st.mode === "soft" && st.on && st.t === t) return;
+    if (st && st.mode === mode && st.on && st.t === t) return;
     row.dataset.drooped = "1";
     if (!this.intent) this.intent = new Map();
-    this.intent.set(row, "soft");
+    this.intent.set(row, mode);
     bub.classList.remove("holding");
-    if (st && st.mode !== "soft") {
+    if (st && st.mode !== mode) {
       const snap = st.snap;
       try { st.cv?.remove(); } catch (_) {}
       this.map.delete(row);
-      st = snap ? this.makeSoft(row, bub, t, snap) : null;
-      if (st) this.kick();
+      if (snap || mode === "stiff") {
+        const made = this.makeSoft(row, bub, t, snap || null, sign);
+        if (made) this.kick();
+      }
       return;
     }
-    if (st && st.mode === "soft") {
+    if (st && st.mode === mode) {
       st.a0 = Math.max(0, Math.min(1.2, softAmt(st, this.now())));
       st.on = true;
       st.t = t;
+      st.sign = sign < 0 ? -1 : 1;
       st.drawnFinal = false;
       this.kick();
       return;
     }
-    if (!this.makeSoft(row, bub, t, null)) return;
-    try { bub.dispatchEvent(new CustomEvent("bub-droop", { bubbles: true })); } catch (_) {}
+    if (!this.makeSoft(row, bub, t, null, sign)) return;
+    if (mode === "soft") {
+      try { bub.dispatchEvent(new CustomEvent("bub-droop", { bubbles: true })); } catch (_) {}
+    }
     this.kick();
   },
-  makeSoft(row, bub, t, snap) {
+  makeSoft(row, bub, t, snap, sign = 1) {
     if (!snap) snap = this.takeSnap(bub);
     if (!snap) return null;
+    const up = sign < 0;
     const w = bub.offsetWidth, h = bub.offsetHeight;
     const dpr = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
     const maxA = DROOP.SOFT_ANGLE_DEG * Math.PI / 180 * (1 + Math.max(0, DROOP.SOFT_WOBBLE) + 0.05);
     const padX = 16;
-    const padT = 14 + Math.ceil(w * Math.sin(DROOP.SOFT_ANGLE_DEG * Math.PI / 180 * 0.12));
     const bendL = Math.min(w * Math.max(0.05, Math.min(1, DROOP.SOFTNESS)), Math.max(40, DROOP.MAX_BEND_PX));
-    const padB = 14 + Math.ceil(bendL * Math.sin(Math.min(Math.PI / 2, maxA)) + h * 0.5);
+    const slim = 14 + Math.ceil(w * Math.sin(DROOP.SOFT_ANGLE_DEG * Math.PI / 180 * 0.12));
+    const deep = 14 + Math.ceil(bendL * Math.sin(Math.min(Math.PI / 2, maxA)) + h * 0.5);
+    const padT = up ? deep : slim;
+    const padB = up ? slim : deep;
     const cv = this.makeCanvas(row, w, h, dpr, padX, padT, padB);
-    const st = { mode: "soft", row, bub, cv, snap, dpr, w, h, padX, padT, padB, right: row.classList.contains("me"), on: true, t, a0: 0, drawnFinal: false };
+    const st = { mode: up ? "stiff" : "soft", sign: up ? -1 : 1, row, bub, cv, snap, dpr, w, h, padX, padT, padB, right: row.classList.contains("me"), on: true, t, a0: 0, drawnFinal: false };
     this.map.set(row, st);
     bub.classList.add("droop");
     this.draw(st, this.now());
@@ -612,6 +629,8 @@ export const Droop = {
     for (const key of Object.keys(this.last)) {
       seen.add(key);
       const rec = this.last[key];
+      /* bubbleFx 較新而且形狀不同（例如堅挺）時，這筆 dr 不要蓋掉它。 */
+      if (typeof this.fxOwns === "function" && this.fxOwns(key, rec)) continue;
       const row = this.list.querySelector(`.row[data-k="${CSS.escape(key)}"]`);
       if (!row || !rec) continue;
       row.dataset.drooped = "1"; /* 垂過（包含已經挺回來的）：貓永遠不碰（room-pets.js 的 everDrooped） */
@@ -624,18 +643,25 @@ export const Droop = {
       this.apply(row, on, Number.isFinite(t) ? t : now, rec.by);
     }
     for (const row of [...this.map.keys()]) {
-      if (!seen.has(row.dataset.k)) this.clear(row);
+      if (seen.has(row.dataset.k)) continue;
+      /* 只有 bubbleFx、沒有 dr 的堅挺／軟掉／斷掉要留著，換一筆別的 dr 不該把畫布清掉。 */
+      if (typeof this.fxKeep === "function" && this.fxKeep(row.dataset.k)) continue;
+      this.clear(row);
     }
-    /* 剛被某人打開的軟掉：通知這台的貓去爬。舊資料進房時 t 已經超過新鮮時間，不會播。 */
+    /* 剛被某人打開的軟掉：通知這台的貓去爬。舊資料進房時 t 已經超過新鮮時間，不會播。
+       畫面上已經被較新的 bubbleFx 換成別的形狀時，不要再為這筆舊的軟掉爬一次。 */
     if (!this.climbSeen) this.climbSeen = new Set();
     for (const id of droopClimbIds(this.last, now, this.climbSeen)) {
+      const key = id.slice(0, id.lastIndexOf(":"));
+      if (key && typeof this.fxOwns === "function" && this.last[key] && this.fxOwns(key, this.last[key])) continue;
       this.climbSeen.add(id);
       try { window.dispatchEvent(new CustomEvent("sc-droop-climb", { detail: { id } })); } catch (_) {}
     }
+    if (typeof this.afterSync === "function") { try { this.afterSync(); } catch (_) {} }
     void now;
   },
   draw(st, now) {
-    if (st.mode === "soft") return this.drawSoft(st, now);
+    if (st.mode === "soft" || st.mode === "stiff") return this.drawSoft(st, now);
     if (!st.cv || !st.snap) return;
     const amt = droopSag(now - st.t);
     st.amt = amt;
@@ -676,7 +702,7 @@ export const Droop = {
     if (!st.cv || !st.snap) return;
     const amt = softAmt(st, now);
     st.amt = amt;
-    const theta = amt * DROOP.SOFT_ANGLE_DEG * Math.PI / 180;
+    const theta = (st.sign < 0 ? -1 : 1) * amt * DROOP.SOFT_ANGLE_DEG * Math.PI / 180;
     const cv = st.cv, c = cv.getContext("2d"), sc = st.snap.scale, dpr = st.dpr;
     if (!c) return;
     c.setTransform(1, 0, 0, 1, 0, 0);
@@ -729,7 +755,7 @@ export const Droop = {
     for (const [row, st] of [...this.map]) {
       if (!row.isConnected || !st.bub.isConnected) { this.clear(row); continue; }
       try {
-        if (st.mode === "soft") { this.tickSoft(row, st, now); continue; }
+        if (st.mode === "soft" || st.mode === "stiff") { this.tickSoft(row, st, now); continue; }
         const elapsed = now - st.t;
         const phase = droopPhase(elapsed, st.fallMs, st.reduced);
         if (phase === "done") { if (this.intent) this.intent.set(row, "normal"); this.clear(row); continue; }
