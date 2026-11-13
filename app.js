@@ -11,7 +11,7 @@
 
 import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat-performance.js";
 import { Droop, petGroupsFromSnap } from "./droop.js";
-import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING } from "./bubble-fx.js";
+import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS } from "./bubble-fx.js";
 attachBubbleFx(Droop);
 
 const CFG = window.CONFIG;
@@ -22,7 +22,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.56";
+const APP_VERSION = "v61.57";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5312,6 +5312,23 @@ async function enterChat() {
     if (myGen !== S.gen) return;
     BubbleFx.sync(snap.val() || {});
   }));
+  /* 假來電。按下的人只看到膠囊；其他人看到全螢幕。接受／拒絕只關自己這台。 */
+  const fakeCallRef = ref(db, `${base}/fakeCall`);
+  S.startFakeCall = () => {
+    const id = S.clientId + "-" + Math.random().toString(36).slice(2, 10);
+    showCallCapsule();
+    set(fakeCallRef, { id, by: S.clientId, t: serverTimestamp() }).catch(() => fadeCallCapsule());
+  };
+  S.answerFakeCall = async (id) => {
+    const snap = await get(fakeCallRef);
+    const rec = snap.val();
+    if (!rec || rec.id !== id) return;
+    await update(ref(db, `${base}/fakeCall/active`), { [S.clientId]: true });
+  };
+  S.subs.push(onValue(fakeCallRef, (snap) => {
+    if (myGen !== S.gen) return;
+    applyFakeCall(snap.val(), nowServer());
+  }));
 
   /* 動物分組跟這間房同步。總開關 sc-pets 仍只影響這台裝置看不看得到。 */
   bindPetGroupSync(f, S.roomId, S.clientId, S.subs);
@@ -5744,6 +5761,7 @@ async function enterChat() {
       remove(ref(db, `${base}/rx`)),
       remove(ref(db, `${base}/dr`)),
       remove(ref(db, `${base}/bubbleFx`)),
+      remove(ref(db, `${base}/fakeCall`)),
       remove(ref(db, `${base}/rain`)),
       remove(ref(db, `${base}/meta/last`)),
       /* 啟用時思念隨對話歸零；停用時不寫入或刪除既有計數。 */
@@ -9979,6 +9997,7 @@ function leaveChat() {
   $("toast").hidden = true;                  // 中文提示留在偽裝首頁上會直接破功
   $("offlineBar").hidden = true;
   $("msgMenu").hidden = true;
+  resetFakeCallUi();
   closeRxPicker();
   $("btnJump").hidden = true;
   S.pending.clear(); S.failed.clear();
@@ -10008,6 +10027,9 @@ function leaveChat() {
   S.setRx = null; S.rx = {};
   Droop.write = null;
   S.setBubbleFx = null;
+  S.startFakeCall = null;
+  S.answerFakeCall = null;
+  S.fakeCall = null;
   BubbleFx.last = null;
   Droop.clearAll();
   try { const rain = window.BallRain; if (rain) { rain.write = null; rain.writeEnd = null; rain.stop(); } } catch (_) {}
@@ -12328,6 +12350,7 @@ async function admWipe(i) {
       remove(ref(db, `${base}/rx`)),
       remove(ref(db, `${base}/dr`)),
       remove(ref(db, `${base}/bubbleFx`)),
+      remove(ref(db, `${base}/fakeCall`)),
       remove(ref(db, `${base}/rain`)),
       remove(ref(db, `${base}/meta/last`)),
       // 清空對話保留 nt（記事本），停用中的思念計數也不變動。
@@ -12638,6 +12661,102 @@ function lockCatSubs() {
   }
 }
 
+/* 假來電。撥出的人看右上角膠囊；其他人看全螢幕。任何一位對方按了，膠囊淡出。 */
+let fakeCallTimer = 0;
+let fakeCallDismissed = null;
+let fakeCallWasCaller = false;
+function clearFakeCallTimer() {
+  if (fakeCallTimer) { clearTimeout(fakeCallTimer); fakeCallTimer = 0; }
+}
+function hideFakeCallOverlay() {
+  const el = $("fakeCall");
+  if (!el) return;
+  el.classList.remove("open");
+  el.hidden = true;
+}
+function showFakeCallOverlay() {
+  const el = $("fakeCall");
+  if (!el) return;
+  const fresh = el.hidden;
+  el.hidden = false;
+  el.classList.add("open");
+  if (fresh) { try { history.pushState({ fakeCall: 1 }, ""); } catch (_) {} }
+}
+function fadeCallCapsule() {
+  const el = $("callCapsule");
+  if (!el || !el.classList.contains("show")) return;
+  el.classList.add("fade");
+  el.classList.remove("show");
+  el.setAttribute("aria-hidden", "true");
+  setTimeout(() => el.classList.remove("fade"), 520);
+}
+function showCallCapsule() {
+  const el = $("callCapsule");
+  if (!el) return;
+  el.classList.remove("fade");
+  el.classList.add("show");
+  el.setAttribute("aria-hidden", "false");
+}
+function resetFakeCallUi() {
+  clearFakeCallTimer();
+  fakeCallDismissed = null;
+  fakeCallWasCaller = false;
+  hideFakeCallOverlay();
+  const el = $("callCapsule");
+  if (!el) return;
+  el.classList.remove("show", "fade");
+  el.setAttribute("aria-hidden", "true");
+}
+function armFakeCallTimer(rec, now) {
+  clearFakeCallTimer();
+  const t = Number(rec && rec.t);
+  const left = FAKE_CALL_MS - (now - t);
+  if (!(left > 0) || !rec || !rec.id) return;
+  const id = rec.id;
+  fakeCallTimer = setTimeout(() => {
+    if (!S.fakeCall || S.fakeCall.id !== id) return;
+    applyFakeCall(S.fakeCall, nowServer());
+  }, left);
+}
+function applyFakeCall(rec, now) {
+  S.fakeCall = rec || null;
+  let phase = fakeCallPhase(rec, S.clientId, now);
+  const id = rec && rec.id;
+  if (phase === "recipient" && id && id === fakeCallDismissed) phase = "off";
+  if (phase === "caller") {
+    hideFakeCallOverlay();
+    showCallCapsule();
+    fakeCallWasCaller = true;
+    armFakeCallTimer(rec, now);
+    return;
+  }
+  if (phase === "recipient") {
+    if (fakeCallWasCaller) fadeCallCapsule();
+    else {
+      const cap = $("callCapsule");
+      if (cap) { cap.classList.remove("show", "fade"); cap.setAttribute("aria-hidden", "true"); }
+    }
+    fakeCallWasCaller = false;
+    showFakeCallOverlay();
+    armFakeCallTimer(rec, now);
+    return;
+  }
+  clearFakeCallTimer();
+  hideFakeCallOverlay();
+  if (fakeCallWasCaller) fadeCallCapsule();
+  else {
+    const cap = $("callCapsule");
+    if (cap) { cap.classList.remove("show", "fade"); cap.setAttribute("aria-hidden", "true"); }
+  }
+  fakeCallWasCaller = false;
+}
+function answerFakeCallTap() {
+  const rec = S.fakeCall;
+  if (rec && rec.id) fakeCallDismissed = rec.id;
+  hideFakeCallOverlay();
+  if (rec && rec.id && S.answerFakeCall) S.answerFakeCall(rec.id).catch(() => {});
+}
+
 /* 標題列的動物開關。勾選跟房間同步；總開關關掉時不能改，勾選狀態留著。 */
 function bindZoo() {
   const btn = $("btnZoo"), panel = $("zooPanel");
@@ -12685,6 +12804,29 @@ function bindZoo() {
     if (e.target && e.target.closest && e.target.closest("#zooSlot")) return;
     setOpen(false);
   }, true);
+  const callBtn = $("zooCall");
+  if (callBtn) callBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setOpen(false);
+    if (!S.startFakeCall) { toast("還在連線中，請稍候一下"); return; }
+    S.startFakeCall();
+  });
+  const blockCall = (e) => {
+    const el = $("fakeCall");
+    if (!el || el.hidden) return;
+    if (e.target && e.target.closest && e.target.closest("#fakeCallYes, #fakeCallNo")) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  ["touchstart", "touchmove", "pointerdown", "wheel"].forEach((type) => {
+    document.addEventListener(type, blockCall, { capture: true, passive: false });
+  });
+  window.addEventListener("popstate", () => {
+    const el = $("fakeCall");
+    if (el && !el.hidden) { try { history.pushState({ fakeCall: 1 }, ""); } catch (_) {} }
+  });
+  $("fakeCallNo")?.addEventListener("click", (e) => { e.stopPropagation(); answerFakeCallTap(); });
+  $("fakeCallYes")?.addEventListener("click", (e) => { e.stopPropagation(); answerFakeCallTap(); });
 }
 bindZoo();
 
