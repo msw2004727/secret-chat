@@ -362,8 +362,8 @@ export function mountRoomPets() {
 
     /* ----- 尺寸：手機上 3 倍、很窄時 2 倍，再縮小 15%。黑貓比灰貓大 10%。 ----- */
     const BROWN_K = 1.1;
-    /* 幼貓看起來跟 Bobo 差不多高。貓的畫布上方有空位，所以畫布要比 Bobo 的盒子再高一點。 */
-    const KITTEN_K = 11.4 * 1.12 * (2 / 3) / 20 * 1.28;
+    /* 幼貓先對到 Bobo 的高度，再縮小 30%。貓的畫布上方有空位，所以畫布要比 Bobo 的盒子再高一點。 */
+    const KITTEN_K = 11.4 * 1.12 * (2 / 3) / 20 * 1.28 * 0.7;
     function catK(cat) {
       if (cat && cat.kit) return KITTEN_K;
       const name = typeof cat === "string" ? cat : cat && cat.name;

@@ -257,7 +257,7 @@ assert.equal(petGroupsFromSnap({ kittens: { on: false, t: 1, by: "a" } }).kitten
 assert.match(html, /灰貓懷孕/);
 assert.match(html, /召喚幼貓 ×2/);
 assert.match(html, /id="zooCatMore"/);
-assert.match(pets, /KITTEN_K/);
+assert.match(pets, /KITTEN_K = 11\.4 \* 1\.12 \* \(2 \/ 3\) \/ 20 \* 1\.28 \* 0\.7/);
 assert.match(pets, /cat\.pregnant && !cat\.kit && cat\.name === "gray"/);
 
 const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url), 'utf8'));
