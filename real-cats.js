@@ -460,8 +460,8 @@ export const REAL = (() => {
     }
   }
 
-  /* 懷孕的下腹：先把外形切細，再把下緣順著脊椎往下推成圓弧，兩端收回原來的胸口和屁股 */
-  function bulgeDown(pts, hip, chest, amount) {
+  /* 懷孕的下腹：一顆圓球的下半弧。兩端用平滑權重接到原來的外形，底部不會被切成直線。 */
+  function bulgeDown(pts, hip, chest) {
     const ax = chest.x - hip.x, ay = chest.y - hip.y;
     const L = Math.hypot(ax, ay) || 1;
     const ux = ax / L, uy = ay / L;
@@ -470,23 +470,30 @@ export const REAL = (() => {
     const dense = [];
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i], b = pts[(i + 1) % pts.length];
-      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 0.4));
+      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 0.28));
       for (let s = 0; s < steps; s++) {
         const t = s / steps;
         dense.push(P(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t));
       }
     }
+    const mx = (hip.x + chest.x) / 2, my = (hip.y + chest.y) / 2;
+    const R = 4.85;
+    const bottom = 18.92;
+    const centerDrop = (bottom - my) - R;
+    const cx = mx + nx * centerDrop, cy = my + ny * centerDrop;
+    const ease = (t) => { const x = Math.max(0, Math.min(1, t)); return x * x * (3 - 2 * x); };
     return dense.map((q) => {
-      const vx = q.x - hip.x, vy = q.y - hip.y;
-      const along = (vx * ux + vy * uy) / L;
-      const down = vx * nx + vy * ny;
-      if (down <= 0.05 || along <= 0.02 || along >= 0.98) return q;
-      const bell = Math.sin(Math.PI * (along - 0.02) / 0.96);
-      let push = amount * bell;
-      const y = q.y + ny * push;
-      const limit = 19.15;
-      if (y > limit) push *= Math.max(0, (limit - q.y) / ((y - q.y) || 1));
-      return P(q.x + nx * push, q.y + ny * push);
+      const along = ((q.x - hip.x) * ux + (q.y - hip.y) * uy) / L;
+      const down = (q.x - mx) * nx + (q.y - my) * ny;
+      if (down <= 0.2 || along <= 0.02 || along >= 0.98) return q;
+      const dx = q.x - cx, dy = q.y - cy;
+      const dist = Math.hypot(dx, dy) || 1;
+      if ((dx * nx + dy * ny) <= 0 || dist >= R) return q;
+      let w = 1;
+      if (along < 0.22) w = ease(along / 0.22);
+      else if (along > 0.78) w = ease((1 - along) / 0.22);
+      const need = (R - dist) * w;
+      return P(q.x + dx / dist * need, q.y + dy / dist * need);
     });
   }
 
@@ -507,7 +514,7 @@ export const REAL = (() => {
       });
     }
     /* 懷孕：下腹沿著同一條外形往下圓出去，不另貼一層 */
-    if (p.preg) pts = bulgeDown(pts, hip, ch, 3.45);
+    if (p.preg) pts = bulgeDown(pts, hip, ch);
     const ang = Math.atan2(ch.y - hip.y, ch.x - hip.x);
     const nx = Math.sin(ang), ny = -Math.cos(ang); /* 朝背的方向 */
     const mx = (hip.x + ch.x) / 2, my = (hip.y + ch.y) / 2, R = Math.max(p.rh, p.rc);
