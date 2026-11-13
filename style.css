@@ -1526,6 +1526,50 @@ html[data-theme="dark"] .c-zoo-panel { box-shadow: 0 12px 28px rgba(0,0,0,.5); }
 .fake-call-orb.red .fake-call-hand { transform: rotate(135deg); }
 .fake-call-orb.green .fake-call-hand { transform: rotate(-8deg); }
 .fake-call-key b { font-weight: 400; font-size: 14px; letter-spacing: .02em; }
+.c-zoo-callbtn.is-love { color: #ff6b8a; border-color: rgba(255, 140, 164, .9); }
+.c-lovecap i { background: #ff8aa3; box-shadow: 0 0 8px rgba(255,110,150,.8); }
+.c-love-card {
+  position: fixed; z-index: 40; left: 0; right: 0; top: max(72px, calc(42vh - 104px)); margin: 0 auto;
+  width: min(320px, calc(100% - 40px)); padding: 28px 22px 24px; border-radius: 22px; text-align: center;
+  border: 1px solid rgba(255,255,255,.46); color: #fff;
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  background:
+    radial-gradient(120% 80% at 30% 0%, rgba(255,255,255,.38), rgba(255,255,255,0) 46%),
+    linear-gradient(165deg, rgba(40, 46, 58, .72), rgba(14, 16, 22, .62));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 18px 40px rgba(0,0,0,.35);
+}
+.c-love-card h1 { margin: 0 0 26px; font-size: 26px; font-weight: 600; letter-spacing: .04em; }
+.c-love-choices { display: flex; justify-content: center; gap: 36px; min-height: 92px; }
+.c-love-hold { width: 88px; height: 88px; flex: none; }
+.c-love-ox {
+  width: 88px; height: 88px; border: 0; border-radius: 50%; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  box-shadow: 0 8px 18px rgba(0,0,0,.28);
+  -webkit-tap-highlight-color: transparent;
+}
+.c-love-ox svg { width: 40px; height: 40px; display: block; }
+.c-love-o { background: #ff2d55; transform: none; animation: none; }
+.c-love-x { background: #3d5afe; position: relative; z-index: 45; transform-origin: center center; opacity: 1; }
+.c-love-hearts { position: fixed; inset: 0; z-index: 50; pointer-events: none; overflow: hidden; }
+.c-love-hearts.fading { opacity: 0; transition: opacity .8s ease; }
+.c-love-hearts i {
+  position: absolute; left: var(--x); top: var(--y); font-style: normal; line-height: 1;
+  font-size: var(--s); color: var(--c);
+  transform: translate(-50%, -50%) scale(0.2); opacity: 0;
+  animation: c-love-pop .28s ease forwards;
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,.18));
+}
+@keyframes c-love-pop { to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+.c-love-big {
+  position: fixed; inset: 0; z-index: 60; display: none;
+  align-items: center; justify-content: center; pointer-events: none;
+  font-size: 40px; font-weight: 900; letter-spacing: .02em; color: #fff;
+  text-shadow: 0 2px 0 #4a0614, 0 4px 16px rgba(0,0,0,.5);
+  text-align: center; padding: 0 12px;
+}
+.c-love-big.show { display: flex; }
+.c-love-big.fading { opacity: 0; transition: opacity .8s ease; }
 #cats.cats-off .claw-mark,
 #cats.cats-off .poop-pile,
 #cats.cats-off .cat-bonk,

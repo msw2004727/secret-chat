@@ -20,6 +20,19 @@ export function fakeCallPhase(rec, me, now, limit = FAKE_CALL_MS) {
   if (active[me] === true) return "off";
   return "recipient";
 }
+
+/* 愛我嗎。60 秒沒按 O 就作廢。caller＝發出的人看膠囊；recipient＝其他人看卡片。
+   answer 為 o 時，發出的人看愛心加大字，其他人只看愛心。 */
+export const LOVE_ASK_MS = 60000;
+export function loveAskPhase(rec, me, now, limit = LOVE_ASK_MS) {
+  if (!rec || typeof rec !== "object" || typeof rec.by !== "string" || !rec.by || typeof me !== "string" || !me) return "off";
+  const t = Number(rec.t);
+  const age = Number(now) - t;
+  if (!Number.isFinite(t) || !Number.isFinite(age) || age > limit || age < -limit) return "off";
+  const answered = rec.answer === "o";
+  if (rec.by === me) return answered ? "loved" : "caller";
+  return answered ? "hearts" : "recipient";
+}
 export const BUBBLE_FX_STATES = ["stiff", "soft", "break", "normal"];
 
 export function bubbleFxNormalize(state) {

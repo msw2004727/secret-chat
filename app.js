@@ -11,7 +11,7 @@
 
 import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat-performance.js";
 import { Droop, petGroupsFromSnap } from "./droop.js";
-import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS } from "./bubble-fx.js";
+import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS, loveAskPhase, LOVE_ASK_MS } from "./bubble-fx.js";
 attachBubbleFx(Droop);
 
 const CFG = window.CONFIG;
@@ -22,7 +22,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.58";
+const APP_VERSION = "v61.59";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5329,6 +5329,23 @@ async function enterChat() {
     if (myGen !== S.gen) return;
     applyFakeCall(snap.val(), nowServer());
   }));
+  /* 愛我嗎。按下的人只看膠囊；其他人看卡片。對方按 O 之後兩邊一起放愛心。 */
+  const loveAskRef = ref(db, `${base}/loveAsk`);
+  S.startLoveAsk = () => {
+    const id = S.clientId + "-" + Math.random().toString(36).slice(2, 10);
+    showLoveCapsule();
+    set(loveAskRef, { id, by: S.clientId, t: serverTimestamp() }).catch(() => hideLoveCapsule());
+  };
+  S.answerLoveAsk = async (id) => {
+    const snap = await get(loveAskRef);
+    const rec = snap.val();
+    if (!rec || rec.id !== id || rec.answer === "o") return;
+    await update(loveAskRef, { answer: "o" });
+  };
+  S.subs.push(onValue(loveAskRef, (snap) => {
+    if (myGen !== S.gen) return;
+    applyLoveAsk(snap.val(), nowServer());
+  }));
 
   /* 動物分組跟這間房同步。總開關 sc-pets 仍只影響這台裝置看不看得到。 */
   bindPetGroupSync(f, S.roomId, S.clientId, S.subs);
@@ -5762,6 +5779,7 @@ async function enterChat() {
       remove(ref(db, `${base}/dr`)),
       remove(ref(db, `${base}/bubbleFx`)),
       remove(ref(db, `${base}/fakeCall`)),
+      remove(ref(db, `${base}/loveAsk`)),
       remove(ref(db, `${base}/rain`)),
       remove(ref(db, `${base}/meta/last`)),
       /* 啟用時思念隨對話歸零；停用時不寫入或刪除既有計數。 */
@@ -9998,6 +10016,7 @@ function leaveChat() {
   $("offlineBar").hidden = true;
   $("msgMenu").hidden = true;
   resetFakeCallUi();
+  resetLoveAskUi();
   closeRxPicker();
   $("btnJump").hidden = true;
   S.pending.clear(); S.failed.clear();
@@ -10030,6 +10049,9 @@ function leaveChat() {
   S.startFakeCall = null;
   S.answerFakeCall = null;
   S.fakeCall = null;
+  S.startLoveAsk = null;
+  S.answerLoveAsk = null;
+  S.loveAsk = null;
   BubbleFx.last = null;
   Droop.clearAll();
   try { const rain = window.BallRain; if (rain) { rain.write = null; rain.writeEnd = null; rain.stop(); } } catch (_) {}
@@ -12351,6 +12373,7 @@ async function admWipe(i) {
       remove(ref(db, `${base}/dr`)),
       remove(ref(db, `${base}/bubbleFx`)),
       remove(ref(db, `${base}/fakeCall`)),
+      remove(ref(db, `${base}/loveAsk`)),
       remove(ref(db, `${base}/rain`)),
       remove(ref(db, `${base}/meta/last`)),
       // 清空對話保留 nt（記事本），停用中的思念計數也不變動。
@@ -12757,6 +12780,354 @@ function answerFakeCallTap() {
   if (rec && rec.id && S.answerFakeCall) S.answerFakeCall(rec.id).catch(() => {});
 }
 
+/* 愛我嗎。發出的人看右上角「等待回答…」；其他人看卡片。
+   O 固定。X 每次被碰到就繞著卡片果凍滑開，不蓋到 O 或題字。
+   按 O 之後兩邊愛心鋪滿再淡出；發出的人正中多一行「他說他愛你!!!!」。 */
+const LOVE_SHADES = ["#ffe4ec", "#ffd0dc", "#ffb3c7", "#ff8fab", "#ff6b8a", "#ff4d6d", "#ff2d55", "#f31248", "#e11d48", "#be123c", "#9f1239", "#fb7185"];
+let loveTimer = 0;
+let loveWasCaller = false;
+let loveWatch = null;
+let lovePlayed = null;
+let loveRun = 0;
+let loveDodgeLock = 0;
+let loveXPos = null;
+let loveXAnim = 0;
+let loveSlideGen = 0;
+function clearLoveTimer() {
+  if (loveTimer) { clearTimeout(loveTimer); loveTimer = 0; }
+}
+function hideLoveCapsule() {
+  const el = $("loveCapsule");
+  if (!el) return;
+  el.classList.remove("show", "fade");
+  el.setAttribute("aria-hidden", "true");
+}
+function showLoveCapsule() {
+  const el = $("loveCapsule");
+  if (!el) return;
+  el.classList.remove("fade");
+  el.classList.add("show");
+  el.setAttribute("aria-hidden", "false");
+}
+function fadeLoveCapsule() {
+  const el = $("loveCapsule");
+  if (!el || !el.classList.contains("show")) return;
+  el.classList.add("fade");
+  el.classList.remove("show");
+  el.setAttribute("aria-hidden", "true");
+  setTimeout(() => el.classList.remove("fade"), 520);
+}
+function placeLoveXHome() {
+  const noBtn = $("loveNo");
+  const card = $("loveCard");
+  if (!noBtn || !card) return;
+  if (loveXAnim) cancelAnimationFrame(loveXAnim);
+  loveXAnim = 0;
+  loveSlideGen++;
+  loveXPos = null;
+  const hold = card.querySelector(".c-love-hold");
+  if (hold) hold.replaceWith(noBtn);
+  noBtn.hidden = false;
+  noBtn.style.opacity = "1";
+  noBtn.style.visibility = "visible";
+  noBtn.style.position = "";
+  noBtn.style.left = "";
+  noBtn.style.top = "";
+  noBtn.style.margin = "";
+  noBtn.style.transform = "";
+  noBtn.style.zIndex = "";
+}
+function hideLoveCard() {
+  const card = $("loveCard");
+  if (card) card.hidden = true;
+  const noBtn = $("loveNo");
+  if (noBtn) noBtn.style.visibility = "hidden";
+}
+function showLoveCard() {
+  placeLoveXHome();
+  const card = $("loveCard");
+  if (card) card.hidden = false;
+}
+function stopLoveHearts() {
+  loveRun++;
+  const hearts = $("loveHearts");
+  if (hearts) {
+    hearts.replaceChildren();
+    hearts.classList.remove("fading");
+  }
+  const big = $("loveBig");
+  if (big) big.classList.remove("show", "fading");
+}
+function resetLoveAskUi() {
+  clearLoveTimer();
+  loveWasCaller = false;
+  loveWatch = null;
+  lovePlayed = null;
+  stopLoveHearts();
+  hideLoveCard();
+  placeLoveXHome();
+  hideLoveCapsule();
+  const card = $("loveCard");
+  if (card) card.hidden = true;
+}
+function loveViewLimits() {
+  const noBtn = $("loveNo");
+  const card = $("loveCard");
+  const size = (noBtn && noBtn.offsetWidth) || 88;
+  const hang = size / 2;
+  const cardBox = card ? card.getBoundingClientRect() : { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+  const side = 8;
+  const topBar = 54 + 8;
+  const bottom = 8;
+  const minX = Math.max(side, cardBox.left - hang);
+  const minY = Math.max(topBar, cardBox.top - hang);
+  const maxX = Math.min(innerWidth - size - side, cardBox.right - hang);
+  const maxY = Math.min(innerHeight - size - bottom, cardBox.bottom - hang);
+  return { size, minX, minY, maxX: Math.max(minX, maxX), maxY: Math.max(minY, maxY) };
+}
+function loveHitsRect(x, y, size, o, pad) {
+  if (!o || !o.width) return false;
+  return x < o.right + pad && x + size > o.left - pad && y < o.bottom + pad && y + size > o.top - pad;
+}
+function loveBlocked(x, y, size) {
+  const yes = $("loveYes");
+  const q = $("loveQ");
+  let text = null;
+  if (q) {
+    const range = document.createRange();
+    range.selectNodeContents(q);
+    text = range.getBoundingClientRect();
+  }
+  return loveHitsRect(x, y, size, yes && yes.getBoundingClientRect(), 16)
+    || loveHitsRect(x, y, size, text, 10);
+}
+function loveSideOf(x, y, size) {
+  const card = $("loveCard");
+  const box = card ? card.getBoundingClientRect() : { left: 0, top: 0, width: innerWidth, height: innerHeight };
+  const dx = x + size / 2 - (box.left + box.width / 2);
+  const dy = y + size / 2 - (box.top + box.height / 2);
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (ax < box.width * 0.22 && ay < box.height * 0.22) return "inside";
+  if (ay > box.height * 0.28 && ay >= ax * 0.72) return dy < 0 ? "top" : "bottom";
+  if (ax >= ay) return dx < 0 ? "left" : "right";
+  return dy < 0 ? "top" : "bottom";
+}
+function lovePathBlocked(x0, y0, x1, y1, size) {
+  for (let t = 0; t <= 1; t += 0.1) {
+    if (loveBlocked(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, size)) return true;
+  }
+  return false;
+}
+function pinLoveX(x, y, sx, sy) {
+  const noBtn = $("loveNo");
+  const card = $("loveCard");
+  if (!noBtn || !card) return;
+  const b = loveViewLimits();
+  const cx = Math.min(b.maxX, Math.max(b.minX, x));
+  const cy = Math.min(b.maxY, Math.max(b.minY, y));
+  loveXPos = { x: cx, y: cy };
+  if (noBtn.parentElement !== document.body) {
+    const hold = document.createElement("span");
+    hold.className = "c-love-hold";
+    hold.setAttribute("aria-hidden", "true");
+    noBtn.replaceWith(hold);
+    document.body.appendChild(noBtn);
+  }
+  noBtn.style.position = "fixed";
+  noBtn.style.left = "0";
+  noBtn.style.top = "0";
+  noBtn.style.margin = "0";
+  noBtn.style.opacity = "1";
+  noBtn.style.visibility = "visible";
+  noBtn.style.zIndex = "45";
+  noBtn.style.transform = "translate(" + cx + "px," + cy + "px) scale(" + sx + "," + sy + ")";
+}
+function slideLoveX(tx, ty) {
+  const noBtn = $("loveNo");
+  if (!noBtn) return;
+  if (!loveXPos) {
+    const r = noBtn.getBoundingClientRect();
+    loveXPos = { x: r.left, y: r.top };
+  }
+  const x0 = loveXPos.x, y0 = loveXPos.y;
+  const dx = tx - x0, dy = ty - y0;
+  const horiz = Math.abs(dx) >= Math.abs(dy);
+  const t0 = performance.now();
+  const dur = 280;
+  const gen = ++loveSlideGen;
+  if (loveXAnim) cancelAnimationFrame(loveXAnim);
+  const frame = (now) => {
+    if (gen !== loveSlideGen) return;
+    const p = Math.min(1, (now - t0) / dur);
+    const c1 = 1.35, c3 = c1 + 1;
+    const s = p >= 1 ? 1 : 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2);
+    const stretch = Math.sin(Math.min(p, 1) * Math.PI);
+    const wobble = Math.sin(p * Math.PI * 2.4) * (1 - p) * 0.14;
+    const sx = horiz ? 1 + 0.22 * stretch + wobble : 1 - 0.16 * stretch - wobble;
+    const sy = horiz ? 1 - 0.16 * stretch - wobble : 1 + 0.22 * stretch + wobble;
+    pinLoveX(x0 + dx * s, y0 + dy * s, p >= 1 ? 1 : sx, p >= 1 ? 1 : sy);
+    if (p < 1) loveXAnim = requestAnimationFrame(frame);
+    else { pinLoveX(tx, ty, 1, 1); loveXAnim = 0; }
+  };
+  loveXAnim = requestAnimationFrame(frame);
+}
+function pickLoveSpot(b, curX, curY, px, py) {
+  const spanX = Math.max(1, b.maxX - b.minX);
+  const spanY = Math.max(1, b.maxY - b.minY);
+  const spots = [];
+  for (let i = 0; i < 6; i++) {
+    for (let j = 0; j < 6; j++) spots.push([b.minX + spanX * (i / 5), b.minY + spanY * (j / 5)]);
+  }
+  for (let n = 0; n < 10; n++) spots.push([b.minX + Math.random() * spanX, b.minY + Math.random() * spanY]);
+  const here = loveSideOf(curX, curY, b.size);
+  const ranked = spots.map(([x, y]) => {
+    const moved = Math.hypot(x - curX, y - curY);
+    const away = Math.hypot(x + b.size / 2 - px, y + b.size / 2 - py);
+    const other = loveSideOf(x, y, b.size) !== here ? 140 : 0;
+    const clear = loveBlocked(x, y, b.size) ? 0 : 2000;
+    const open = lovePathBlocked(curX, curY, x, y, b.size) ? 0 : 240;
+    return { x, y, moved, score: clear + open + other + moved + away * 0.45 + Math.random() * 36 };
+  }).filter((s) => s.moved > 36).sort((a, c) => c.score - a.score);
+  if (ranked.length) return ranked[Math.floor(Math.random() * Math.min(4, ranked.length))];
+  return {
+    x: curX < b.minX + spanX / 2 ? b.maxX : b.minX,
+    y: curY < b.minY + spanY / 2 ? b.maxY : b.minY,
+  };
+}
+function dodgeLoveX(e) {
+  const card = $("loveCard");
+  const noBtn = $("loveNo");
+  if (!card || card.hidden || !noBtn) return;
+  const now = performance.now();
+  const hard = e.type === "pointerdown" || e.type === "touchstart" || e.type === "pointerenter";
+  if (now - loveDodgeLock < (hard ? 80 : 180)) return;
+  const rect = noBtn.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const px = e.clientX ?? cx;
+  const py = e.clientY ?? cy;
+  if (e.type === "pointermove" && Math.hypot(px - cx, py - cy) > rect.width / 2 + 28) return;
+  if (e.cancelable && hard) e.preventDefault();
+  e.stopPropagation?.();
+  loveDodgeLock = now;
+  const b = loveViewLimits();
+  const curX = loveXPos ? loveXPos.x : rect.left;
+  const curY = loveXPos ? loveXPos.y : rect.top;
+  const pick = pickLoveSpot(b, curX, curY, px, py);
+  slideLoveX(pick.x, pick.y);
+}
+function makeLoveHeart(hearts) {
+  const h = document.createElement("i");
+  h.textContent = "♥";
+  const big = Math.random() < 0.9;
+  h.style.setProperty("--s", (big ? 78 : 40) + Math.random() * (big ? 74 : 28) + "px");
+  h.style.setProperty("--c", LOVE_SHADES[(Math.random() * LOVE_SHADES.length) | 0]);
+  h.style.setProperty("--x", (-6 + Math.random() * 112) + "%");
+  h.style.setProperty("--y", (-6 + Math.random() * 112) + "%");
+  hearts.appendChild(h);
+}
+function playLoveHearts(withText) {
+  const hearts = $("loveHearts");
+  const big = $("loveBig");
+  if (!hearts) return;
+  const run = ++loveRun;
+  hearts.replaceChildren();
+  hearts.classList.remove("fading");
+  if (big) {
+    big.classList.toggle("show", !!withText);
+    big.classList.remove("fading");
+  }
+  hideLoveCapsule();
+  hideLoveCard();
+  let n = 0;
+  const goal = 220;
+  let gap = 160;
+  const step = () => {
+    if (run !== loveRun) return;
+    const batch = gap > 90 ? 1 : gap > 50 ? 2 : gap > 24 ? 4 : 8;
+    for (let i = 0; i < batch && n < goal; i++) { makeLoveHeart(hearts); n++; }
+    if (n >= goal) {
+      setTimeout(() => {
+        if (run !== loveRun) return;
+        hearts.classList.add("fading");
+        if (big) big.classList.add("fading");
+        setTimeout(() => {
+          if (run !== loveRun) return;
+          hearts.replaceChildren();
+          hearts.classList.remove("fading");
+          if (big) big.classList.remove("show", "fading");
+        }, 860);
+      }, 420);
+      return;
+    }
+    gap = Math.max(14, gap * 0.84);
+    setTimeout(step, gap);
+  };
+  step();
+}
+function armLoveTimer(rec, now) {
+  clearLoveTimer();
+  const t = Number(rec && rec.t);
+  const left = LOVE_ASK_MS - (now - t);
+  if (!(left > 0) || !rec || !rec.id) return;
+  const id = rec.id;
+  loveTimer = setTimeout(() => {
+    if (!S.loveAsk || S.loveAsk.id !== id) return;
+    applyLoveAsk(S.loveAsk, nowServer());
+  }, left);
+}
+function applyLoveAsk(rec, now) {
+  if (rec && rec.by && !Number.isFinite(Number(rec.t))) return;
+  S.loveAsk = rec || null;
+  const phase = loveAskPhase(rec, S.clientId, now);
+  const id = rec && rec.id;
+  if (phase === "caller") {
+    loveWatch = id;
+    loveWasCaller = true;
+    stopLoveHearts();
+    hideLoveCard();
+    showLoveCapsule();
+    armLoveTimer(rec, now);
+    return;
+  }
+  if (phase === "recipient") {
+    loveWatch = id;
+    if (loveWasCaller) fadeLoveCapsule();
+    else hideLoveCapsule();
+    loveWasCaller = false;
+    stopLoveHearts();
+    showLoveCard();
+    armLoveTimer(rec, now);
+    return;
+  }
+  if (phase === "loved" || phase === "hearts") {
+    clearLoveTimer();
+    hideLoveCard();
+    if (loveWasCaller) fadeLoveCapsule();
+    else hideLoveCapsule();
+    loveWasCaller = false;
+    if (loveWatch === id && lovePlayed !== id) {
+      lovePlayed = id;
+      playLoveHearts(phase === "loved");
+    }
+    return;
+  }
+  clearLoveTimer();
+  hideLoveCard();
+  stopLoveHearts();
+  if (loveWasCaller) fadeLoveCapsule();
+  else hideLoveCapsule();
+  loveWasCaller = false;
+}
+function answerLoveYes() {
+  const rec = S.loveAsk;
+  if (!rec || !rec.id || rec.by === S.clientId || rec.answer === "o") return;
+  lovePlayed = rec.id;
+  loveWatch = rec.id;
+  if (S.answerLoveAsk) S.answerLoveAsk(rec.id).catch(() => {});
+  playLoveHearts(false);
+}
+
 /* 標題列的動物開關。勾選跟房間同步；總開關關掉時不能改，勾選狀態留著。 */
 function bindZoo() {
   const btn = $("btnZoo"), panel = $("zooPanel");
@@ -12811,6 +13182,21 @@ function bindZoo() {
     if (!S.startFakeCall) { toast("還在連線中，請稍候一下"); return; }
     S.startFakeCall();
   });
+  const loveBtn = $("zooLove");
+  if (loveBtn) loveBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setOpen(false);
+    if (!S.startLoveAsk) { toast("還在連線中，請稍候一下"); return; }
+    S.startLoveAsk();
+  });
+  const loveNo = $("loveNo");
+  if (loveNo) {
+    ["pointerenter", "pointerdown", "touchstart"].forEach((ev) => {
+      loveNo.addEventListener(ev, dodgeLoveX, { passive: false });
+    });
+  }
+  document.addEventListener("pointermove", dodgeLoveX, { passive: true });
+  $("loveYes")?.addEventListener("click", (e) => { e.stopPropagation(); answerLoveYes(); });
   const blockCall = (e) => {
     const el = $("fakeCall");
     if (!el || el.hidden) return;
