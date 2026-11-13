@@ -22,7 +22,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.59";
+const APP_VERSION = "v61.60";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -12793,6 +12793,7 @@ let loveDodgeLock = 0;
 let loveXPos = null;
 let loveXAnim = 0;
 let loveSlideGen = 0;
+let loveHeartDraw = 0;
 function clearLoveTimer() {
   if (loveTimer) { clearTimeout(loveTimer); loveTimer = 0; }
 }
@@ -12850,10 +12851,16 @@ function showLoveCard() {
 }
 function stopLoveHearts() {
   loveRun++;
+  cancelAnimationFrame(loveHeartDraw);
   const hearts = $("loveHearts");
   if (hearts) {
-    hearts.replaceChildren();
     hearts.classList.remove("fading");
+    hearts.style.opacity = "1";
+    const ctx = hearts.getContext("2d");
+    if (ctx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, hearts.width, hearts.height);
+    }
   }
   const big = $("loveBig");
   if (big) big.classList.remove("show", "fading");
@@ -13016,36 +13023,106 @@ function dodgeLoveX(e) {
   const pick = pickLoveSpot(b, curX, curY, px, py);
   slideLoveX(pick.x, pick.y);
 }
-function makeLoveHeart(hearts) {
-  const h = document.createElement("i");
-  h.textContent = "♥";
-  const big = Math.random() < 0.9;
-  h.style.setProperty("--s", (big ? 78 : 40) + Math.random() * (big ? 74 : 28) + "px");
-  h.style.setProperty("--c", LOVE_SHADES[(Math.random() * LOVE_SHADES.length) | 0]);
-  h.style.setProperty("--x", (-6 + Math.random() * 112) + "%");
-  h.style.setProperty("--y", (-6 + Math.random() * 112) + "%");
-  hearts.appendChild(h);
+function fitLoveCanvas(hearts) {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  const w = innerWidth;
+  const h = innerHeight;
+  hearts.width = Math.round(w * dpr);
+  hearts.height = Math.round(h * dpr);
+  const ctx = hearts.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
+function drawLoveHeart(ctx, h, sc) {
+  const s = h.s * sc;
+  ctx.save();
+  ctx.translate(h.x, h.y);
+  ctx.rotate(h.rot);
+  ctx.scale(s / 36, s / 36);
+  ctx.beginPath();
+  ctx.moveTo(0, -6);
+  ctx.bezierCurveTo(-2, -14, -12, -16, -16, -8);
+  ctx.bezierCurveTo(-20, 0, -16, 8, 0, 18);
+  ctx.bezierCurveTo(16, 8, 20, 0, 16, -8);
+  ctx.bezierCurveTo(12, -16, 2, -14, 0, -6);
+  ctx.closePath();
+  ctx.fillStyle = h.color;
+  ctx.fill();
+  ctx.restore();
+}
+function loveHeartField(w, h) {
+  let step = 60;
+  const estimate = (gap) => 4 * (Math.ceil(w / gap) + 2) * (Math.ceil(h / gap) + 2);
+  while (estimate(step) > 720 && step < 96) step += 4;
+  const layers = [
+    { step, size: step * 3.05, ox: 0, oy: 0 },
+    { step, size: step * 3.2, ox: step * 0.5, oy: step * 0.5 },
+    { step: step * 0.78, size: step * 2.7, ox: step * 0.22, oy: step * 0.36 },
+    { step: step * 1.25, size: step * 3.7, ox: step * 0.18, oy: step * 0.1 },
+  ];
+  const out = [];
+  for (const layer of layers) {
+    const cols = Math.ceil((w + layer.step) / layer.step) + 1;
+    const rows = Math.ceil((h + layer.step) / layer.step) + 1;
+    const jitter = layer.step * 0.16;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        out.push({
+          x: -layer.step * 0.55 + layer.ox + c * layer.step + (Math.random() - 0.5) * jitter,
+          y: -layer.step * 0.55 + layer.oy + r * layer.step + (Math.random() - 0.5) * jitter,
+          s: layer.size * (0.94 + Math.random() * 0.12),
+          rot: (Math.random() - 0.5) * 0.4,
+          color: LOVE_SHADES[(Math.random() * LOVE_SHADES.length) | 0],
+        });
+      }
+    }
+  }
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const tmp = out[i];
+    out[i] = out[j];
+    out[j] = tmp;
+  }
+  return out;
 }
 function playLoveHearts(withText) {
   const hearts = $("loveHearts");
   const big = $("loveBig");
   if (!hearts) return;
   const run = ++loveRun;
-  hearts.replaceChildren();
+  cancelAnimationFrame(loveHeartDraw);
+  const ctx = fitLoveCanvas(hearts);
   hearts.classList.remove("fading");
+  hearts.style.opacity = "1";
   if (big) {
     big.classList.toggle("show", !!withText);
     big.classList.remove("fading");
   }
   hideLoveCapsule();
   hideLoveCard();
+  const field = loveHeartField(innerWidth, innerHeight);
+  const goal = field.length;
+  const born = [];
+  const draw = (now) => {
+    if (run !== loveRun) return;
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    for (let i = 0; i < born.length; i++) {
+      const p = Math.min(1, (now - born[i]) / 280);
+      const ease = 1 - Math.pow(1 - p, 3);
+      ctx.globalAlpha = ease;
+      drawLoveHeart(ctx, field[i], 0.2 + 0.8 * ease);
+    }
+    ctx.globalAlpha = 1;
+    loveHeartDraw = requestAnimationFrame(draw);
+  };
+  loveHeartDraw = requestAnimationFrame(draw);
   let n = 0;
-  const goal = 220;
   let gap = 160;
   const step = () => {
     if (run !== loveRun) return;
-    const batch = gap > 90 ? 1 : gap > 50 ? 2 : gap > 24 ? 4 : 8;
-    for (let i = 0; i < batch && n < goal; i++) { makeLoveHeart(hearts); n++; }
+    const batch = gap > 90 ? 3 : gap > 50 ? 8 : gap > 24 ? 18 : 40;
+    const now = performance.now();
+    for (let i = 0; i < batch && n < goal; i++) { born.push(now); n++; }
     if (n >= goal) {
       setTimeout(() => {
         if (run !== loveRun) return;
@@ -13053,14 +13130,17 @@ function playLoveHearts(withText) {
         if (big) big.classList.add("fading");
         setTimeout(() => {
           if (run !== loveRun) return;
-          hearts.replaceChildren();
+          cancelAnimationFrame(loveHeartDraw);
           hearts.classList.remove("fading");
+          hearts.style.opacity = "1";
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, hearts.width, hearts.height);
           if (big) big.classList.remove("show", "fading");
         }, 860);
       }, 420);
       return;
     }
-    gap = Math.max(14, gap * 0.84);
+    gap = Math.max(12, gap * 0.82);
     setTimeout(step, gap);
   };
   step();
