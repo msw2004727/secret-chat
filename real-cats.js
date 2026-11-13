@@ -460,6 +460,36 @@ export const REAL = (() => {
     }
   }
 
+  /* 懷孕的下腹：先把外形切細，再把下緣順著脊椎往下推成圓弧，兩端收回原來的胸口和屁股 */
+  function bulgeDown(pts, hip, chest, amount) {
+    const ax = chest.x - hip.x, ay = chest.y - hip.y;
+    const L = Math.hypot(ax, ay) || 1;
+    const ux = ax / L, uy = ay / L;
+    let nx = ay / L, ny = -ax / L;
+    if (ny < 0) { nx = -nx; ny = -ny; }
+    const dense = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 0.4));
+      for (let s = 0; s < steps; s++) {
+        const t = s / steps;
+        dense.push(P(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t));
+      }
+    }
+    return dense.map((q) => {
+      const vx = q.x - hip.x, vy = q.y - hip.y;
+      const along = (vx * ux + vy * uy) / L;
+      const down = vx * nx + vy * ny;
+      if (down <= 0.15 || along <= 0.08 || along >= 0.9) return q;
+      const bell = Math.sin(Math.PI * (along - 0.08) / 0.82);
+      const depth = Math.min(1, (down - 0.15) / 1.6);
+      let push = amount * bell * bell * (0.35 + 0.65 * depth);
+      const y = q.y + ny * push;
+      if (y > 18.55) push *= Math.max(0, (18.55 - q.y) / ((y - q.y) || 1));
+      return P(q.x + nx * push, q.y + ny * push);
+    });
+  }
+
   /* ---------- 側面身體 ---------- */
   function sideBody(ctx, pal, p) {
     const hip = p.hip, ch = p.chest;
@@ -476,10 +506,21 @@ export const REAL = (() => {
         return q;
       });
     }
+    /* 懷孕：下腹沿著同一條外形往下圓出去，不另貼一層 */
+    if (p.preg) pts = bulgeDown(pts, hip, ch, 1.85);
     const ang = Math.atan2(ch.y - hip.y, ch.x - hip.x);
     const nx = Math.sin(ang), ny = -Math.cos(ang); /* 朝背的方向 */
     const mx = (hip.x + ch.x) / 2, my = (hip.y + ch.y) / 2, R = Math.max(p.rh, p.rc);
-    const g = ctx.createLinearGradient(mx + nx * R, my + ny * R, mx - nx * R * 1.05, my - ny * R * 1.05);
+    let g0x = mx + nx * R, g0y = my + ny * R, g1x = mx - nx * R * 1.05, g1y = my - ny * R * 1.05;
+    if (p.preg) {
+      let sLo = Infinity, sHi = -Infinity;
+      for (const q of pts) {
+        const s = q.x * nx + q.y * ny;
+        if (s < sLo) { sLo = s; g1x = q.x; g1y = q.y; }
+        if (s > sHi) { sHi = s; g0x = q.x; g0y = q.y; }
+      }
+    }
+    const g = ctx.createLinearGradient(g0x, g0y, g1x, g1y);
     g.addColorStop(0, pal.top); g.addColorStop(0.4, pal.base); g.addColorStop(0.78, pal.light); g.addColorStop(1, pal.belly);
     smoothPath(ctx, pts); ctx.fillStyle = g; ctx.fill();
     ctx.save(); smoothPath(ctx, pts); ctx.clip();
@@ -496,9 +537,10 @@ export const REAL = (() => {
         const bx = lerp(hip.x, ch.x, t), byy = lerp(hip.y, ch.y, t);
         const r = lerp(p.rh, p.rc, t);
         ctx.lineWidth = i % 2 ? 0.5 : 0.62;
+        const reach = p.preg ? 0.95 : 0.35;
         ctx.beginPath();
         ctx.moveTo(bx + nx * r * 1.1 - 0.3, byy + ny * r * 1.1);
-        ctx.quadraticCurveTo(bx + nx * r * 0.2 + 0.45, byy + ny * r * 0.2, bx - nx * r * 0.35 - 0.1, byy - ny * r * 0.35);
+        ctx.quadraticCurveTo(bx + nx * r * 0.2 + 0.45, byy + ny * r * 0.2, bx - nx * r * reach - 0.1, byy - ny * r * reach);
         ctx.stroke();
       }
       ctx.strokeStyle = pal.stripe; ctx.lineWidth = 0.7;
@@ -510,9 +552,15 @@ export const REAL = (() => {
         ctx.beginPath(); ctx.ellipse(bx + nx * r * 0.55, byy + ny * r * 0.55, 0.35, r * 0.5, ang, 0, TAU); ctx.fill();
       }
     }
-    /* 肚子下緣的陰影 */
-    ctx.fillStyle = "rgba(0,0,0,.10)";
-    ctx.beginPath(); ctx.ellipse(mx - nx * R * 1.15, my - ny * R * 1.15, Math.hypot(ch.x - hip.x, ch.y - hip.y) * 0.55, R * 0.45, ang, 0, TAU); ctx.fill();
+    /* 肚子下緣的陰影。懷孕時用漸層，避免橢圓邊切出一圈接縫 */
+    if (p.preg) {
+      const sh = ctx.createLinearGradient(g0x, g0y, g1x, g1y);
+      sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(0.62, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0,.12)");
+      ctx.fillStyle = sh; ctx.fillRect(-4, -4, 44, 32);
+    } else {
+      ctx.fillStyle = "rgba(0,0,0,.10)";
+      ctx.beginPath(); ctx.ellipse(mx - nx * R * 1.15, my - ny * R * 1.15, Math.hypot(ch.x - hip.x, ch.y - hip.y) * 0.55, R * 0.45, ang, 0, TAU); ctx.fill();
+    }
     ctx.restore();
     contour(ctx, pts, pal);
     if (p.puff) { puffSpikes(ctx, pts, pal, p.puff); furEdge(ctx, pts, pal.base, 0.3 + p.puff * 0.5); } /* 炸毛 */
@@ -645,9 +693,9 @@ export const REAL = (() => {
       ctx.fillStyle = pal.light;
       ctx.beginPath(); ctx.ellipse(cx + sx * 3.6, fy - 0.45, 1.25, 0.55, 0, 0, TAU); ctx.fill();
     }
-    /* 身體（梨形） */
+    /* 身體（梨形）。懷孕時下腹更圓，底緣仍停在地板上 */
     const st = p.stretch || 0; /* 站高高（抓牆）：身體往上拉長 */
-    const blobs = [{ x: cx, y: fy - 3.0, rx: 3.6, ry: 3.0 }, { x: cx, y: fy - 6.0 - st * 0.5, rx: 3.0, ry: 2.6 + st * 0.3 },
+    const blobs = [{ x: cx, y: fy - (p.preg ? 3.35 : 3.0), rx: p.preg ? 4.5 : 3.6, ry: p.preg ? 3.35 : 3.0 }, { x: cx, y: fy - 6.0 - st * 0.5, rx: 3.0, ry: 2.6 + st * 0.3 },
       { x: cx + (p.shX || 0), y: fy - 7.6 - st * 0.85 + (p.shY || 0), rx: 2.95, ry: 1.9 }]; /* 肩膀：頭坐在肩膀上，不是坐在一根棍子上 */
     if (st) blobs.push({ x: cx + 0.3, y: fy - 6.4 - st, rx: 2.5, ry: 2.4 });
     const pts = blobPts(blobs, 26);
@@ -735,7 +783,9 @@ export const REAL = (() => {
   function drawCurl(ctx, name, p, out, bk) {
     const pal = PAL[name];
     const fy = 20, b = p.breath || 0;
-    const pts = blobPts([{ x: 9.5, y: fy - 2.9 - b, rx: 6.0, ry: 2.9 + b }, { x: 15.5, y: fy - 2.5, rx: 4.5, ry: 2.5 }], 28);
+    const pts = p.preg
+      ? blobPts([{ x: 9.2, y: fy - 3.4 - b, rx: 6.6, ry: 3.4 + b }, { x: 15.2, y: fy - 2.85, rx: 5.05, ry: 2.85 }], 28)
+      : blobPts([{ x: 9.5, y: fy - 2.9 - b, rx: 6.0, ry: 2.9 + b }, { x: 15.5, y: fy - 2.5, rx: 4.5, ry: 2.5 }], 28);
     const g = ctx.createLinearGradient(0, fy - 6.5, 0, fy);
     g.addColorStop(0, pal.top); g.addColorStop(0.5, pal.base); g.addColorStop(1, pal.light);
     smoothPath(ctx, pts); ctx.fillStyle = g; ctx.fill();
@@ -764,7 +814,7 @@ export const REAL = (() => {
     /* 遠側前腳 */
     leg(ctx, pal, [P(19.6, fy - 6.5), P(19.9, fy - 3.4), P(20.1, fy - 0.9), P(20.3, fy - 0.5)], [1.2, 1.05, 0.9, 0.95], true, false);
     /* 身體：大大的屁股＋往上斜的胸口 */
-    const pts = sideBody(ctx, pal, { hip: P(13.2, fy - 3.4), rh: 3.4, chest: P(18.6, fy - 7.6 - tall * 0.6), rc: 2.75, mid: { rx: 3.0, ry: 3.2, dx: 0.6, dy: 0.4 } });
+    const pts = sideBody(ctx, pal, { hip: P(13.2, fy - 3.4), rh: 3.4, chest: P(18.6, fy - 7.6 - tall * 0.6), rc: 2.75, mid: { rx: 3.0, ry: 3.2, dx: 0.6, dy: 0.4 }, preg: p.preg });
     void pts;
     /* 大腿（近側）和後腳掌 */
     thigh(ctx, pal, 13.6, fy - 3.0, 3.0, 2.85, -0.2, false);
@@ -882,7 +932,9 @@ export const REAL = (() => {
       ctx.restore();
       furEdge(ctx, nk, pal.base, 0.3);
       /* 身體：有重量地垂著，肚子往前（右邊）微微鼓出來，不要太細長 */
-      const pts = blobPts([{ x: cx, y: 10.5, rx: 3.2, ry: 2.4 }, { x: cx + 0.5, y: 13.5, rx: 3.9, ry: 3.2 }, { x: cx, y: 16.4, rx: 3.9, ry: 2.6 }], 26);
+      const pts = p.preg
+        ? blobPts([{ x: cx, y: 10.6, rx: 3.2, ry: 2.4 }, { x: cx + 0.9, y: 14.5, rx: 4.55, ry: 3.85 }, { x: cx + 0.25, y: 17.7, rx: 4.15, ry: 2.85 }], 26)
+        : blobPts([{ x: cx, y: 10.5, rx: 3.2, ry: 2.4 }, { x: cx + 0.5, y: 13.5, rx: 3.9, ry: 3.2 }, { x: cx, y: 16.4, rx: 3.9, ry: 2.6 }], 26);
       const g = ctx.createLinearGradient(cx - 3.8, 0, cx + 4, 0);
       g.addColorStop(0, pal.top); g.addColorStop(0.35, pal.base); g.addColorStop(0.75, pal.base); g.addColorStop(1, pal.light);
       smoothPath(ctx, pts); ctx.fillStyle = g; ctx.fill();
@@ -1391,7 +1443,9 @@ export const REAL = (() => {
     up(9.4, fy - 4.2, 8.4, fy - 11.0, true, true);
     up(18.6, fy - 4.4, 19.8, fy - 10.6, true, false);
     /* 身體：背貼地、肚子朝上（上面是白肚子，下面是背） */
-    const pts = blobPts([{ x: 10.6, y: fy - 3.0, r: 2.9 }, { x: 18.2, y: fy - 3.1, r: 2.8 }, { x: 14.4, y: fy - 3.3, rx: 4.6, ry: 2.85 }], 30);
+    const pts = p.preg
+      ? blobPts([{ x: 10.4, y: fy - 3.3, r: 3.15 }, { x: 18.2, y: fy - 3.3, r: 3.05 }, { x: 14.4, y: fy - 3.85, rx: 5.25, ry: 3.5 }], 30)
+      : blobPts([{ x: 10.6, y: fy - 3.0, r: 2.9 }, { x: 18.2, y: fy - 3.1, r: 2.8 }, { x: 14.4, y: fy - 3.3, rx: 4.6, ry: 2.85 }], 30);
     const g = ctx.createLinearGradient(0, fy - 6.3, 0, fy);
     g.addColorStop(0, pal.belly); g.addColorStop(0.35, pal.light); g.addColorStop(0.62, pal.base); g.addColorStop(1, pal.top);
     smoothPath(ctx, pts); ctx.fillStyle = g; ctx.fill();
@@ -1448,7 +1502,7 @@ export const REAL = (() => {
     ctx.fillStyle = "rgba(0,0,0,.2)"; ctx.beginPath(); ctx.ellipse(cx, fy - 0.45, 6.0, 0.7, 0, 0, TAU); ctx.fill(); /* 背貼在地上 */
     /* 身體：下面（肚子）比較寬、上面是胸口；手按的地方外形被推開一點點 */
     const pr = p.press, sq = pr ? pr.k || 0 : 0;
-    let pts = blobPts([{ x: cx, y: fy - 3.9, rx: 4.7 + sq * 0.12, ry: 3.3 - sq * 0.08 }, { x: cx, y: fy - 7.1, rx: 3.8, ry: 2.7 }, { x: cx, y: fy - 9.0, rx: 3.1, ry: 1.7 }], 28);
+    let pts = blobPts([{ x: cx, y: fy - (p.preg ? 4.2 : 3.9), rx: (p.preg ? 5.45 : 4.7) + sq * 0.12, ry: (p.preg ? 3.7 : 3.3) - sq * 0.08 }, { x: cx, y: fy - 7.1, rx: 3.8, ry: 2.7 }, { x: cx, y: fy - 9.0, rx: 3.1, ry: 1.7 }], 28);
     if (pr) pts = pts.map((q) => { const d = Math.hypot(q.x - pr.x, q.y - pr.y); if (d > 3.4) return q; const f = (1 - d / 3.4) * 0.5 * sq; return P(q.x + (q.x - pr.x) / (d || 1) * f, q.y + (q.y - pr.y) / (d || 1) * f); });
     const g = ctx.createLinearGradient(cx - 4.6, 0, cx + 4.6, 0);
     g.addColorStop(0, pal.top); g.addColorStop(0.28, pal.base); g.addColorStop(0.72, pal.base); g.addColorStop(1, pal.top);

@@ -259,6 +259,10 @@ assert.match(html, /召喚幼貓 ×2/);
 assert.match(html, /id="zooCatMore"/);
 assert.match(pets, /KITTEN_K = 11\.4 \* 1\.12 \* \(2 \/ 3\) \/ 20 \* 1\.28 \* 0\.7/);
 assert.match(pets, /cat\.pregnant && !cat\.kit && cat\.name === "gray"/);
+assert.match(pets, /preg \? ":p"/);
+assert.match(pets, /preg: true/);
+assert.doesNotMatch(pets, /#ece8e2/);
+assert.match(fs.readFileSync(new URL('../real-cats.js', import.meta.url), 'utf8'), /function bulgeDown/);
 
 const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url), 'utf8'));
 const petRules = rules.rules.rooms.$roomId.pets.$kind;

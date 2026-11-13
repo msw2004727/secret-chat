@@ -341,9 +341,9 @@ export function mountRoomPets() {
     let RES = 5; /* 每一格用幾個裝置像素畫 */
     const resHooks = [];
     const realCache = new Map();
-    function realBody(name, f, bk, gw, gh) {
+    function realBody(name, f, bk, gw, gh, preg) {
       const k = catK(name);
-      const key = name + ":" + f.anim + ":" + f.fi + ":" + (bk ? 1 : 0) + (bk === 2 ? "s" : "") + ":" + k;
+      const key = name + ":" + f.anim + ":" + f.fi + ":" + (bk ? 1 : 0) + (bk === 2 ? "s" : "") + ":" + k + (preg ? ":p" : "");
       let cv = realCache.get(key);
       if (cv) return cv;
       cv = document.createElement("canvas");
@@ -353,7 +353,8 @@ export function mountRoomPets() {
       c.imageSmoothingEnabled = true;
       c.setTransform(cv.width / gw, 0, 0, cv.height / gh, 0, 0);
       if (f.rot) { c.translate(0, 32); c.rotate(-Math.PI / 2); }
-      const pose = bk ? Object.assign({}, f.pose, { head: Object.assign({}, f.pose.head) }) : f.pose;
+      const pose0 = bk ? Object.assign({}, f.pose, { head: Object.assign({}, f.pose.head || {}) }) : f.pose;
+      const pose = preg ? Object.assign({}, pose0, { preg: true }) : pose0;
       const out = REAL.drawBody(c, name, pose, bk);
       cv.eyes = out.eyes || null; cv.open = !!out.open;
       realCache.set(key, cv);
@@ -2383,7 +2384,8 @@ export function mountRoomPets() {
       }
       now = now || performance.now();
       cat.paintT = now;
-      const body = realBody(cat.name, f, bk, w, h);
+      const preg = !!(cat.pregnant && !cat.kit && cat.name === "gray");
+      const body = realBody(cat.name, f, bk, w, h, preg);
       const lv = liveOf(cat, f, now);
       const hipSway = rearHipSway(cat, now);
       if (f.pose.kind === "hangFront") {
@@ -2391,7 +2393,7 @@ export function mountRoomPets() {
            頭另外畫到前面那張畫布，蓋在被咬的泡泡上面 */
         const tt = now / 1000 + (cat.name === "gray" ? 1.7 : 0), pt = f.pt, sd = cat.name === "gray" ? 2.1 : 0;
         const st = REAL.hangState(tt, sd);
-        const head = f.headF ? realBody(cat.name, f.headF, bk, w, h) : null;
+        const head = f.headF ? realBody(cat.name, f.headF, bk, w, h, preg) : null;
         const tf = (c2) => { c2.setTransform(R, 0, 0, R, 0, 0); c2.translate(pt.x, pt.y); c2.rotate(st.rot); c2.translate(-pt.x, -pt.y); };
         tf(ctx);
         ctx.save(); REAL.hangBodyXf(ctx, st);
@@ -2427,7 +2429,8 @@ export function mountRoomPets() {
       if (hipSway) {
         grid();
         if (k !== 1) { ctx.translate(0, h * (1 - k)); ctx.scale(1, k); }
-        const out = REAL.drawBody(ctx, cat.name, REAL.hipSwayPose(f.pose, hipSway), bk);
+        const swayed = REAL.hipSwayPose(f.pose, hipSway);
+        const out = REAL.drawBody(ctx, cat.name, preg ? Object.assign({}, swayed, { preg: true }) : swayed, bk);
         if (lv.blink > 0 && out.open && out.eyes && !bk) REAL.blinkLids(ctx, out.eyes, lv.blink);
       } else {
         ctx.imageSmoothingEnabled = false;
@@ -2445,23 +2448,6 @@ export function mountRoomPets() {
         grid(); REAL.clawArms(ctx, cat.name, f.pose, ca || [{ x: 3.8, y: 11.0 }, { x: 3.8, y: 11.0 }]);
       }
       if (t && t.front) tail();
-      if (cat.pregnant && !cat.kit && cat.name === "gray" && f.anim && (f.anim === "sit" || f.anim === "walk" || f.anim === "run" || f.anim === "lick1")) {
-        ctx.save();
-        ctx.setTransform(R, 0, 0, R, 0, 0);
-        const bob = Math.sin((now || 0) / 260) * 0.15;
-        ctx.fillStyle = "#ece8e2";
-        ctx.beginPath();
-        ctx.ellipse(15.2, 15.6 + bob, 3.7, 2.9, -0.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.lineWidth = 0.35;
-        ctx.strokeStyle = "#6d7076";
-        ctx.stroke();
-        ctx.fillStyle = "#e7b7c3";
-        ctx.beginPath();
-        ctx.ellipse(15.2, 16.3 + bob, 0.55, 0.38, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     function bonkStage(cat, now) {
