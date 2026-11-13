@@ -1,9 +1,6 @@
-/* 兩段手勢，都寫進 rooms/<房>/dr/<訊息鍵> {on,t,by}。
-   還沒軟的泡泡：連點兩下（每下相隔 600ms 內）軟成 60 度，並讓黑貓去爬灰貓。
-   同一串裡多出來的點不算第二次，也不會直接掉下去。
-   已經軟的泡泡：另起一串。正好兩下，停 600ms 就挺回並同步關掉。
-   第三下立刻掉出畫面（by 以 fall: 開頭），五秒後以普通形狀淡回，空位留著。
-   這裡只負責畫。 */
+/* 泡泡的軟掉、斷掉、挺回與堅挺只由長按環形選單寫進資料庫，再由這裡畫出來。
+   點一下、連點兩下、連點三下都不會改變形狀。
+   軟掉會讓黑貓去爬灰貓。斷掉（by 以 fall: 開頭）掉出畫面，五秒後以普通形狀淡回，空位留著。 */
 export const DROOP = {
   SOFT_ANGLE_DEG: 60,
   SOFTNESS: 1,
@@ -348,12 +345,10 @@ export const Droop = {
     if (this.ready) return;
     const list = document.getElementById("msgList");
     const scroller = document.getElementById("scroller");
-    const menu = document.getElementById("msgMenu");
     if (!list || !scroller) return;
     this.ready = true;
     this.list = list;
     this.scroller = scroller;
-    this.menu = menu;
     const layer = document.createElement("div");
     layer.id = "droopLayer";
     layer.setAttribute("aria-hidden", "true");
@@ -362,43 +357,6 @@ export const Droop = {
     this.map = new Map();
     this.intent = new Map();
     this.raf = 0;
-    this.taps = null;
-    this.burstTimer = 0;
-    this.tapDown = null;
-    const MOVE = 12;
-    scroller.addEventListener("pointerdown", (e) => {
-      this.tapDown = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false };
-    }, true);
-    scroller.addEventListener("pointermove", (e) => {
-      const d = this.tapDown;
-      if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > MOVE) d.moved = true;
-    }, { passive: true, capture: true });
-    scroller.addEventListener("pointerup", (e) => {
-      const d = this.tapDown;
-      this.tapDown = null;
-      if (!d || d.moved || performance.now() - d.t > 300) return;
-      if (menu && !menu.hidden) return;
-      const row = this.rowAt(e.clientX, e.clientY) || e.target.closest?.(".row");
-      if (!row || !row.dataset.k || row.classList.contains("shattering") || !row.querySelector(".bub")) return;
-      if (this.rowMode(row) === "fall") return;
-      const now = performance.now();
-      const prev = this.taps;
-      const same = !!(prev && prev.row === row && now - prev.t <= DROOP.TAP_GAP_MS);
-      if (prev && !same) this.endBurst();
-      const mode = same ? prev.mode : this.rowMode(row);
-      if (mode !== "soft" && mode !== "normal") return;
-      const n = same ? prev.n + 1 : 1;
-      this.taps = { row, n, t: now, mode };
-      this.armBurst();
-      const act = droopTapAction(mode, n);
-      if (act === "soft") this.commit(row, true);
-      else if (act === "fall") {
-        if (this.burstTimer) { clearTimeout(this.burstTimer); this.burstTimer = 0; }
-        this.taps = null;
-        this.commit(row, true, "fall");
-      }
-    }, true);
-    list.addEventListener("dblclick", (e) => e.preventDefault());
     /* 還垂著的時候跟著捲動。鬆開之後改在螢幕座標往下掉，不再跟著訊息走。 */
     scroller.addEventListener("scroll", () => {
       for (const [row, st] of [...this.map]) {
@@ -417,16 +375,6 @@ export const Droop = {
       else if (this.last) this.sync(this.last, this.now());
     });
   },
-  rowAt(x, y) {
-    for (const [row, st] of [...this.map].reverse()) {
-      if (!st.cv) continue;
-      const r = st.cv.getBoundingClientRect();
-      if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
-      const px = Math.floor((x - r.left) * st.dpr), py = Math.floor((y - r.top) * st.dpr);
-      try { if (st.cv.getContext("2d").getImageData(px, py, 1, 1).data[3] > 40) return row; } catch (_) {}
-    }
-    return null;
-  },
   clear(row) {
     const st = this.map.get(row);
     if (!st) return;
@@ -439,31 +387,6 @@ export const Droop = {
   },
   straighten(row) { if (row) this.clear(row); },
   clearAll() { for (const row of [...this.map.keys()]) this.clear(row); },
-  rowMode(row) {
-    const st = this.map.get(row);
-    if (st && st.mode === "fall") return "fall";
-    const intent = this.intent && this.intent.get(row);
-    if (intent === "fall") return "fall";
-    if ((st && st.mode === "soft" && st.on) || intent === "soft") return "soft";
-    return "normal";
-  },
-  armBurst() {
-    if (this.burstTimer) clearTimeout(this.burstTimer);
-    this.burstTimer = setTimeout(() => this.endBurst(), DROOP.TAP_GAP_MS);
-  },
-  endBurst() {
-    if (this.burstTimer) { clearTimeout(this.burstTimer); this.burstTimer = 0; }
-    const b = this.taps;
-    this.taps = null;
-    if (!b) return;
-    if (droopBurstEndAction(b.mode, b.n) === "restore") this.commit(b.row, false);
-  },
-  commit(row, on, kind) {
-    if (petsOff() || !row || !row.dataset || !row.dataset.k) return;
-    if (!this.intent) this.intent = new Map();
-    this.intent.set(row, kind === "fall" ? "fall" : on ? "soft" : "normal");
-    if (this.write) this.write(row.dataset.k, kind === "fall" ? true : !!on, kind === "fall" ? "fall" : undefined);
-  },
   takeSnap(bub) {
     const had = bub.classList.contains("droop");
     if (had) bub.classList.remove("droop");
