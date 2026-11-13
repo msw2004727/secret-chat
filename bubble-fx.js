@@ -6,6 +6,20 @@
 import { Droop, droopRecordKind, DROOP_CLIMB_FRESH_MS } from "./droop.js";
 
 export const BUBBLE_RING = { COUNT: 8, DIAMETER: 48, RADIUS: 81 };
+
+/* 假來電。60 秒沒人按就作廢。caller＝撥出的人看膠囊；recipient＝其他人看全螢幕。 */
+export const FAKE_CALL_MS = 60000;
+export function fakeCallPhase(rec, me, now, limit = FAKE_CALL_MS) {
+  if (!rec || typeof rec !== "object" || typeof rec.by !== "string" || !rec.by || typeof me !== "string" || !me) return "off";
+  const t = Number(rec.t);
+  const age = Number(now) - t;
+  if (!Number.isFinite(t) || !Number.isFinite(age) || age > limit || age < -limit) return "off";
+  const active = rec.active && typeof rec.active === "object" ? rec.active : {};
+  const anyExit = Object.keys(active).some((k) => active[k] === true);
+  if (rec.by === me) return anyExit ? "off" : "caller";
+  if (active[me] === true) return "off";
+  return "recipient";
+}
 export const BUBBLE_FX_STATES = ["stiff", "soft", "break", "normal"];
 
 export function bubbleFxNormalize(state) {

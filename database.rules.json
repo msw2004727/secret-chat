@@ -457,6 +457,26 @@
             }
           }
         },
+        "fakeCall": {
+          ".validate": "!newData.exists() || newData.hasChildren(['id','by','t'])",
+          "id": {
+            ".validate": "newData.isString() && newData.val().length <= 64"
+          },
+          "by": {
+            ".validate": "newData.isString() && newData.val().length <= 64"
+          },
+          "t": {
+            ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+          },
+          "active": {
+            "$uid": {
+              ".validate": "$uid.length <= 64 && newData.isBoolean() && newData.val() === true"
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
         "$other": {
           ".validate": false
         }
