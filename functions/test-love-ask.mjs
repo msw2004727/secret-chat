@@ -55,7 +55,7 @@ assert.match(html.slice(loveBtn, loveBtn + 400), /愛我嗎\?/);
 assert.match(html, /id="loveCard"/);
 assert.match(html, /你愛我嗎？/);
 assert.match(app, /他" \+ sec \+ "秒說他愛你啦!!!/);
-assert.match(app, /我" \+ sec \+ "秒才回覆她"/);
+assert.match(app, /我" \+ sec \+ "秒才回覆他"/);
 assert.match(app, /playLoveHearts\("mine", ms\)/);
 assert.match(app, /answer: "o", ms: wait/);
 assert.doesNotMatch(html, /他說他愛你!!!!/);
