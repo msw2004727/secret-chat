@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.53">
+<meta name="sc-shell" content="v61.54">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -513,14 +513,18 @@
     <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 16.5 5.5 10l1.4-1.4L12 13.7l5.1-5.1L18.5 10 12 16.5Z"/></svg>
   </button>
 
-  <!-- 單則訊息的長按選單。中文字，離開房間時一定要收掉。 -->
-  <div class="c-msgmenu" id="msgMenu" hidden>
-    <button type="button" class="c-mm-item" id="mmReply">回覆</button>
-    <button type="button" class="c-mm-item" id="mmCopy">複製</button>
-    <button type="button" class="c-mm-item" id="mmSave">收藏</button>
-    <!-- ⚠️ 只有文字訊息會出現。跑不動圖，讓人按下去才發現沒反應更糟。 -->
-    <button type="button" class="c-mm-item c-mm-ann" id="mmNotice">設為公告</button>
-    <button type="button" class="c-mm-item c-mm-danger" id="mmDelete">刪除</button>
+  <!-- 單則訊息的長按環形選單。八顆圓鈕繞著按壓點排一圈，離開房間時一定要收掉。
+       收藏只在貼圖時出現在圓心，不佔那八個位子。 -->
+  <div class="c-msgmenu" id="msgMenu" hidden role="menu" aria-label="訊息">
+    <button type="button" class="c-ring-btn c-ring-blue" id="mmStiff" data-i="0" style="--i:0">堅挺</button>
+    <button type="button" class="c-ring-btn c-ring-blue" id="mmSoft" data-i="1" style="--i:1">軟掉</button>
+    <button type="button" class="c-ring-btn c-ring-blue" id="mmBreak" data-i="2" style="--i:2">斷掉</button>
+    <button type="button" class="c-ring-btn c-ring-blue" id="mmRestore" data-i="3" style="--i:3">復原</button>
+    <button type="button" class="c-ring-btn c-ring-green" id="mmReply" data-i="4" style="--i:4">回覆</button>
+    <button type="button" class="c-ring-btn c-ring-green" id="mmCopy" data-i="5" style="--i:5">複製</button>
+    <button type="button" class="c-ring-btn c-ring-neutral c-mm-danger" id="mmDelete" data-i="6" style="--i:6">刪除</button>
+    <button type="button" class="c-ring-btn c-ring-neutral c-mm-ann" id="mmNotice" data-i="7" style="--i:7">公告</button>
+    <button type="button" class="c-ring-btn c-ring-green" id="mmSave" hidden>收藏</button>
   </div>
 
   <!-- 表情選擇器：點氣泡右下角那顆小圓鈕才展開。

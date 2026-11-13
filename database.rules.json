@@ -217,6 +217,23 @@
             }
           }
         },
+        "bubbleFx": {
+          "$msgId": {
+            ".validate": "!newData.exists() || (newData.hasChildren(['state','t','by']) && root.child('rooms/' + $roomId + '/m/' + $msgId).exists())",
+            "state": {
+              ".validate": "newData.isString() && (newData.val() === 'stiff' || newData.val() === 'soft' || newData.val() === 'break' || newData.val() === 'normal')"
+            },
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+            },
+            "by": {
+              ".validate": "newData.isString() && newData.val().length <= 64"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
         "pets": {
           "$kind": {
             ".validate": "!newData.exists() || (($kind === 'cats' || $kind === 'quokka' || $kind === 'rooster' || $kind === 'catPregnant' || $kind === 'kittens') && newData.hasChildren(['on','t','by']))",

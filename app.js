@@ -11,6 +11,8 @@
 
 import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat-performance.js";
 import { Droop, petGroupsFromSnap } from "./droop.js";
+import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING } from "./bubble-fx.js";
+attachBubbleFx(Droop);
 
 const CFG = window.CONFIG;
 
@@ -20,7 +22,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.53";
+const APP_VERSION = "v61.54";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5279,14 +5281,36 @@ async function enterChat() {
      fall 用 by 前綴跟「停在軟掉」分開，資料庫欄位仍是 on、t、by。 */
   Droop.mount();
   Droop.now = nowServer;
-  Droop.write = (key, on, kind) => set(ref(db, `${base}/dr/${key}`), {
-    on: kind === "fall" ? true : !!on,
-    t: serverTimestamp(),
-    by: kind === "fall" ? ("fall:" + S.clientId) : S.clientId,
-  }).catch(() => {});
+  /* 同一筆 serverTimestamp 寫進 dr 與 bubbleFx，兩邊的 t 才對得起來，動畫不會播兩次。
+     堅挺不寫 dr（那邊沒有往上捲的形狀），只走 setBubbleFx。 */
+  Droop.write = (key, on, kind) => {
+    const t = serverTimestamp();
+    const by = kind === "fall" ? ("fall:" + S.clientId) : S.clientId;
+    const state = kind === "fall" ? "break" : on ? "soft" : "normal";
+    update(ref(db, base), {
+      [`dr/${key}`]: { on: kind === "fall" ? true : !!on, t, by },
+      [`bubbleFx/${key}`]: { state, t, by: S.clientId },
+    }).catch(() => {});
+  };
+  S.setBubbleFx = (key, state) => {
+    if (!key) return;
+    if (state === "stiff") {
+      update(ref(db, base), {
+        [`bubbleFx/${key}`]: { state: "stiff", t: serverTimestamp(), by: S.clientId },
+      }).catch(() => {});
+      return;
+    }
+    if (state === "break") Droop.write(key, true, "fall");
+    else if (state === "soft") Droop.write(key, true);
+    else Droop.write(key, false);
+  };
   S.subs.push(onValue(ref(db, `${base}/dr`), (snap) => {
     if (myGen !== S.gen) return;
     Droop.sync(snap.val() || {}, nowServer());
+  }));
+  S.subs.push(onValue(ref(db, `${base}/bubbleFx`), (snap) => {
+    if (myGen !== S.gen) return;
+    BubbleFx.sync(snap.val() || {});
   }));
 
   /* 動物分組跟這間房同步。總開關 sc-pets 仍只影響這台裝置看不看得到。 */
@@ -5719,6 +5743,7 @@ async function enterChat() {
       remove(ref(db, `${base}/typing`)),
       remove(ref(db, `${base}/rx`)),
       remove(ref(db, `${base}/dr`)),
+      remove(ref(db, `${base}/bubbleFx`)),
       remove(ref(db, `${base}/rain`)),
       remove(ref(db, `${base}/meta/last`)),
       /* 啟用時思念隨對話歸零；停用時不寫入或刪除既有計數。 */
@@ -5788,6 +5813,7 @@ async function enterChat() {
     await remove(ref(db, `${base}/m/${key}`));
     remove(ref(db, `${base}/rx/${key}`)).catch(() => {});   // 表情也要跟著走，不留殘留
     remove(ref(db, `${base}/dr/${key}`)).catch(() => {});
+    remove(ref(db, `${base}/bubbleFx/${key}`)).catch(() => {});
     if (victim && MEDIA_KINDS.includes(victim.kind)) dropMediaBlob(victim.body);
   };
 
@@ -9575,7 +9601,7 @@ function jumpTo(key) {
 }
 
 
-/* 長按單則訊息 → 複製／刪除。
+/* 長按單則訊息 → 環形選單（堅挺／軟掉／斷掉／復原／回覆／複製／刪除／公告）。
    ⚠️ 長按一定要通知緊急退出的連點偵測「這不算一次點擊」，
       否則長按兩則訊息就會被判定成連點而彈回偽裝首頁。 */
 function bindMsgMenu() {
@@ -9585,54 +9611,52 @@ function bindMsgMenu() {
 
   const close = () => { menu.hidden = true; target = null; };
 
-  const open = (row) => {
+  const open = (row, x, y) => {
+    if (!row || !row.isConnected || !row.dataset.k) return;
+    if (row.classList.contains("shattering") || row.classList.contains("gone")) return;
     target = row;
-    const msg = S.msgs.find((x) => x.k === row.dataset.k);
+    const msg = S.msgs.find((item) => item.k === row.dataset.k);
     const sticker = msg && msg.kind === "st";
-    const photo = msg && MEDIA_KINDS.includes(msg.kind);
     const broken = msg && msg.kind === "err";
-    /* 文字：回覆 / 複製 / 刪除
-       貼圖：回覆 / 收藏 / 刪除
-       照片：回覆 / 刪除 —— 沒有「收藏」，貼圖庫是拿來放小圖的，
-             一張 2048px 的照片塞進去只會把本機空間吃光
-       解不開的：只有刪除 */
-    $("mmCopy").hidden = !!sticker || !!photo || broken;
+    /* 八顆環形鈕一律留在圈上，做不到的動作改在按下時拒絕，圈子才不會缺一角。
+       收藏不是那八顆：只有貼圖才出現在圓心。照片不進貼圖庫，一張大圖會把本機空間吃光。 */
+    for (const id of ["mmStiff", "mmSoft", "mmBreak", "mmRestore", "mmReply", "mmCopy", "mmDelete", "mmNotice"]) {
+      const btn = $(id);
+      if (btn) btn.hidden = false;
+    }
     $("mmSave").hidden = !sticker || broken;
-    $("mmReply").hidden = !!broken;
-    /* 只有文字能設成公告（使用者決定的）。
-       ⚠️ 照片／影片／貼圖也讓它出現的話，按下去只會什麼都沒發生 ——
-          「按了沒反應」比「這裡沒有這個選項」難懂得多。 */
-    /* 只有文字能設成公告（使用者決定的）。
-       ⚠️ v50 一度改成「即焚的不給設公告」，但私人房預設就是即焚 ——
-          那等於把公告整個功能關掉了。改成**公告跟著來源一起燒**
-          （設公告時記下來源鍵，來源被刪就自動下架），兩個功能才都還在。 */
-    $("mmNotice").hidden = !(msg && msg.kind === "tx");
-    /* 多人房只能刪自己送的。
-       ⚠️ 這是介面層的限制，不是資料庫規則擋的 —— 規則看得到的只有匿名 uid，
-          而發話者身分是本機隨機產生的 clientId，兩者對不起來。
-          也就是說：肯改程式的人繞得過去。私人房本來就是雙方都能刪，不受影響。 */
-    $("mmDelete").hidden = S.open && !row.classList.contains("me");
     menu.hidden = false;
-    // 先顯示才量得到尺寸，再夾在畫面內
-    const r = row.getBoundingClientRect();
-    const m = menu.getBoundingClientRect();
     const pad = 8;
-
-    let left = r.left + r.width / 2 - m.width / 2;
-    left = Math.max(pad, Math.min(left, window.innerWidth - m.width - pad));
-
-    /* 上緣不能壓到頂部列 —— 壓上去除了難看，還可能誤觸「離開」或「清除」。
-       上方放不下就改放訊息下方。 */
     const bar = document.querySelector(".c-bar");
-    const topLimit = (bar ? bar.getBoundingClientRect().bottom : 0) + 6;
-    const bottomLimit = window.innerHeight - m.height - pad;
-
-    let top = r.top - m.height - 6;
-    if (top < topLimit) top = r.bottom + 6;
-    top = Math.max(topLimit, Math.min(top, bottomLimit));
-
-    menu.style.left = Math.round(left) + "px";
-    menu.style.top = Math.round(top) + "px";
+    const form = document.getElementById("sendForm");
+    const reply = document.getElementById("replyBar");
+    const top = (bar ? bar.getBoundingClientRect().bottom : 0) + pad;
+    let bottom = window.innerHeight - pad;
+    if (form) {
+      const fr = form.getBoundingClientRect();
+      if (fr.top > top + 40) bottom = Math.min(bottom, fr.top - pad);
+    }
+    if (reply && !reply.hidden) {
+      const rr = reply.getBoundingClientRect();
+      if (rr.top > top + 40) bottom = Math.min(bottom, rr.top - pad);
+    }
+    const center = bubbleRingShift(x, y, BUBBLE_RING.RADIUS, BUBBLE_RING.DIAMETER, {
+      left: pad, top, right: window.innerWidth - pad, bottom,
+    });
+    menu.style.left = Math.round(center.x) + "px";
+    menu.style.top = Math.round(center.y) + "px";
+    const pts = bubbleRingPoints(BUBBLE_RING.COUNT, BUBBLE_RING.RADIUS, BUBBLE_RING.DIAMETER);
+    menu.querySelectorAll(".c-ring-btn[data-i]").forEach((btn) => {
+      const p = pts[Number(btn.dataset.i)];
+      if (!p) return;
+      btn.style.left = p.x.toFixed(1) + "px";
+      btn.style.top = p.y.toFixed(1) + "px";
+    });
+    if (!$("mmSave").hidden) {
+      const half = BUBBLE_RING.DIAMETER / 2;
+      $("mmSave").style.left = (-half) + "px";
+      $("mmSave").style.top = (-half) + "px";
+    }
     if (navigator.vibrate) { try { navigator.vibrate(12); } catch (_) {} }
   };
 
@@ -9645,7 +9669,7 @@ function bindMsgMenu() {
     timer = setTimeout(() => {
       timer = null;
       suppressNextTap();          // 長按不算點擊
-      open(row);
+      open(row, startPt ? startPt.x : 0, startPt ? startPt.y : 0);
     }, 450);
   });
 
@@ -9703,11 +9727,24 @@ function bindMsgMenu() {
     e.preventDefault();
   }, true);
 
+  const runFx = (state) => {
+    const row = target; close();
+    if (!row || !row.dataset.k) return;
+    if (!row.querySelector(".bub")) { toast("這則訊息沒有泡泡"); return; }
+    if (!S.setBubbleFx) { toast("還在連線中，請稍候一下"); return; }
+    S.setBubbleFx(row.dataset.k, state);
+  };
+  $("mmStiff").addEventListener("click", () => runFx("stiff"));
+  $("mmSoft").addEventListener("click", () => runFx("soft"));
+  $("mmBreak").addEventListener("click", () => runFx("break"));
+  $("mmRestore").addEventListener("click", () => runFx("normal"));
+
   $("mmNotice").addEventListener("click", async () => {
     const row = target; close();
     if (!row) return;
     const m = S.msgs.find((x) => x.k === row.dataset.k);
-    if (!m || m.kind !== "tx") return;
+    /* 只有文字能設成公告。即焚的也可以：公告記下來源鍵，來源燒掉公告就跟著下架。 */
+    if (!m || m.kind !== "tx") { toast("只有文字訊息能設成公告"); return; }
     const text = String(m.body && m.body.d || "").trim();
     if (!text) return;
     if (!S.setNotice) { toast("還在連線中，請稍候一下"); return; }
@@ -9723,7 +9760,7 @@ function bindMsgMenu() {
     const row = target; close();
     if (!row) return;
     const m = S.msgs.find((x) => x.k === row.dataset.k);
-    if (!m) return;
+    if (!m || m.kind === "err") { toast("這則訊息解不開"); return; }
     setReply({ k: m.k, s: m.s, p: replySnippet(m) });
     $("msgInput").focus();
   });
@@ -9761,6 +9798,10 @@ function bindMsgMenu() {
   $("mmDelete").addEventListener("click", async () => {
     const row = target; close();
     if (!row) return;
+    /* 多人房只能刪自己送的。私人房雙方都能刪，跟原本的長按選單一樣。
+       ⚠️ 這是介面層的限制，不是資料庫規則擋的 —— 規則看得到的只有匿名 uid，
+          而發話者身分是本機隨機產生的 clientId，兩者對不起來。 */
+    if (S.open && !row.classList.contains("me")) { toast("只能刪除自己的訊息"); return; }
     if (!S.delMsg) { toast("還在連線中，請稍候一下"); return; }
     try { await S.delMsg(row.dataset.k); toast("已刪除，對方也看不到了"); }
     catch (err) { console.error(err); toast("刪除失敗，請檢查網路"); }
@@ -9966,6 +10007,8 @@ function leaveChat() {
   S.markRecv = null; S.peerRecvKey = null; S.lastRecvSent = null;
   S.setRx = null; S.rx = {};
   Droop.write = null;
+  S.setBubbleFx = null;
+  BubbleFx.last = null;
   Droop.clearAll();
   try { const rain = window.BallRain; if (rain) { rain.write = null; rain.writeEnd = null; rain.stop(); } } catch (_) {}
   /* ⚠️ 公告一定要收乾淨。它是一段中文，留在偽裝首頁上會直接破功 ——
@@ -12284,6 +12327,7 @@ async function admWipe(i) {
       remove(ref(db, `${base}/typing`)),
       remove(ref(db, `${base}/rx`)),
       remove(ref(db, `${base}/dr`)),
+      remove(ref(db, `${base}/bubbleFx`)),
       remove(ref(db, `${base}/rain`)),
       remove(ref(db, `${base}/meta/last`)),
       // 清空對話保留 nt（記事本），停用中的思念計數也不變動。
