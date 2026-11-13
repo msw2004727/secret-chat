@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { DROOP, droopSoftPose, droopTapAction, droopPlayBurst } from '../droop.js';
 import {
-  BUBBLE_RING, BUBBLE_FX_STATES, bubbleFxNormalize, bubbleFxResolve, bubbleRingShift, bubbleRingPoints,
+  BUBBLE_RING, BUBBLE_FX_STATES, bubbleFxNormalize, bubbleFxResolve, bubbleRingShift, bubbleRingPoints, stiffClimbIds,
 } from '../bubble-fx.js';
 
 const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url), 'utf8'));
@@ -97,9 +97,9 @@ const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
 const droop = fs.readFileSync(new URL('../droop.js', import.meta.url), 'utf8');
-assert.match(app, /const APP_VERSION = "v61\.55"/);
-assert.match(html, /content="v61\.55"/);
-assert.match(sw, /const VERSION = "sc-v61\.55"/);
+assert.match(app, /const APP_VERSION = "v61\.56"/);
+assert.match(html, /content="v61\.56"/);
+assert.match(sw, /const VERSION = "sc-v61\.56"/);
 assert.match(html, /灰貓懷孕/);
 assert.match(html, /召喚幼貓/);
 assert.match(app, /kind === "fall" \? \("fall:" \+ S\.clientId\)/);
@@ -118,6 +118,13 @@ assert.match(droop, /st\.sign < 0 \? -1 : 1/);
 assert.doesNotMatch(droop, /droopTapAction\(mode, n\)/);
 assert.doesNotMatch(droop, /scroller\.addEventListener\("pointerup"/);
 assert.doesNotMatch(droop, /this\.commit\(/);
+const fxSrc = fs.readFileSync(new URL('../bubble-fx.js', import.meta.url), 'utf8');
+assert.match(fxSrc, /sc-droop-climb/);
+assert.match(fxSrc, /rec\.state !== "stiff"/);
+const climbNow = 1_700_000_000_000;
+const stiffFresh = { m1: { state: 'stiff', t: climbNow - 800, by: 'a' }, soft: { state: 'soft', t: climbNow, by: 'b' }, old: { state: 'stiff', t: climbNow - 60000, by: 'c' } };
+assert.deepEqual(stiffClimbIds(stiffFresh, climbNow, new Set()), ['m1:' + (climbNow - 800)]);
+assert.deepEqual(stiffClimbIds({ m1: { state: 'soft', t: climbNow, by: 'a' } }, climbNow, new Set()), []);
 assert.match(app, /runFx\("soft"\)|runFx\("break"\)|runFx\("normal"\)|runFx\("stiff"\)/);
 const menu = app.slice(app.indexOf('function bindMsgMenu'), app.indexOf('async function sendSticker'));
 assert.match(menu, /\}, 450\)/);
