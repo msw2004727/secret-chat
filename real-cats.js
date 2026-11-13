@@ -480,12 +480,12 @@ export const REAL = (() => {
       const vx = q.x - hip.x, vy = q.y - hip.y;
       const along = (vx * ux + vy * uy) / L;
       const down = vx * nx + vy * ny;
-      if (down <= 0.15 || along <= 0.08 || along >= 0.9) return q;
-      const bell = Math.sin(Math.PI * (along - 0.08) / 0.82);
-      const depth = Math.min(1, (down - 0.15) / 1.6);
-      let push = amount * bell * bell * (0.35 + 0.65 * depth);
+      if (down <= 0.05 || along <= 0.02 || along >= 0.98) return q;
+      const bell = Math.sin(Math.PI * (along - 0.02) / 0.96);
+      let push = amount * bell;
       const y = q.y + ny * push;
-      if (y > 18.55) push *= Math.max(0, (18.55 - q.y) / ((y - q.y) || 1));
+      const limit = 19.15;
+      if (y > limit) push *= Math.max(0, (limit - q.y) / ((y - q.y) || 1));
       return P(q.x + nx * push, q.y + ny * push);
     });
   }
@@ -507,7 +507,7 @@ export const REAL = (() => {
       });
     }
     /* 懷孕：下腹沿著同一條外形往下圓出去，不另貼一層 */
-    if (p.preg) pts = bulgeDown(pts, hip, ch, 1.85);
+    if (p.preg) pts = bulgeDown(pts, hip, ch, 3.45);
     const ang = Math.atan2(ch.y - hip.y, ch.x - hip.x);
     const nx = Math.sin(ang), ny = -Math.cos(ang); /* 朝背的方向 */
     const mx = (hip.x + ch.x) / 2, my = (hip.y + ch.y) / 2, R = Math.max(p.rh, p.rc);
@@ -620,19 +620,22 @@ export const REAL = (() => {
       if (L.hind) thigh(ctx, pal, L.pts[0].x + 0.3, L.pts[0].y + 0.4, p.rh * 0.72, p.rh * 0.82, -0.3, true);
       restPaw(L, true);
     }
-    sideBody(ctx, pal, p);
-    /* 近側的腳 */
-    for (const L of p.legs.filter((l) => !l.far)) {
-      /* 後腳：先畫小腿，再蓋上大腿，看起來是從大腿下面長出來 */
-      if (L.hind) {
-        leg(ctx, pal, L.pts.slice(1), L.ws ? L.ws.slice(1) : [1.4, 1.05, 1.08], false, true);
-        const k = L.pts[1], h = L.pts[0];
-        thigh(ctx, pal, lerp(h.x, k.x, 0.42), lerp(h.y, k.y, 0.42) - 0.2, p.thighRx || p.rh * 0.82, p.thighRy || p.rh * 0.98, Math.atan2(k.y - h.y, k.x - h.x) - Math.PI / 2, false);
-      } else {
-        leg(ctx, pal, L.pts, L.ws || [W1 * 1.15, W1 * 1.02, W2, W2 * 1.05], false, false, !!L.restPaw);
-        restPaw(L, false);
+    /* 近側的腳。懷孕時先畫，圓肚子再蓋上去，上半截腿被肚子遮住，腳看起來短。 */
+    const drawNear = () => {
+      for (const L of p.legs.filter((l) => !l.far)) {
+        if (L.hind) {
+          leg(ctx, pal, L.pts.slice(1), L.ws ? L.ws.slice(1) : [1.4, 1.05, 1.08], false, true);
+          const k = L.pts[1], h = L.pts[0];
+          thigh(ctx, pal, lerp(h.x, k.x, 0.42), lerp(h.y, k.y, 0.42) - 0.2, p.thighRx || p.rh * 0.82, p.thighRy || p.rh * 0.98, Math.atan2(k.y - h.y, k.x - h.x) - Math.PI / 2, false);
+        } else {
+          leg(ctx, pal, L.pts, L.ws || [W1 * 1.15, W1 * 1.02, W2, W2 * 1.05], false, false, !!L.restPaw);
+          restPaw(L, false);
+        }
       }
-    }
+    };
+    if (p.preg) drawNear();
+    sideBody(ctx, pal, p);
+    if (!p.preg) drawNear();
     /* 脖子：胸口連到頭 */
     const hd = p.head, ch = p.chest;
     const nk = P(lerp(ch.x, hd.x, 0.45), lerp(ch.y, hd.y, 0.5) + 0.4);
