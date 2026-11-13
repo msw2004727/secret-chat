@@ -22,7 +22,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.61";
+const APP_VERSION = "v61.62";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -13088,7 +13088,11 @@ function loveHeartField(w, h) {
   }
   return out;
 }
-function playLoveHearts(withText, ms) {
+function loveBigLine(ms, mine) {
+  const sec = loveAskSeconds(ms);
+  return mine ? "我" + sec + "秒才回覆她" : "他" + sec + "秒說他愛你啦!!!";
+}
+function playLoveHearts(who, ms) {
   const hearts = $("loveHearts");
   const big = $("loveBig");
   if (!hearts) return;
@@ -13097,9 +13101,10 @@ function playLoveHearts(withText, ms) {
   const ctx = fitLoveCanvas(hearts);
   hearts.classList.remove("fading");
   hearts.style.opacity = "1";
+  const withText = who === "sender" || who === "mine";
   if (big) {
-    if (withText) big.textContent = "他" + loveAskSeconds(ms) + "秒說他愛你啦!!!";
-    big.classList.toggle("show", !!withText);
+    if (withText) big.textContent = loveBigLine(ms, who === "mine");
+    big.classList.toggle("show", withText);
     big.classList.remove("fading");
   }
   hideLoveCapsule();
@@ -13193,7 +13198,7 @@ function applyLoveAsk(rec, now) {
     loveWasCaller = false;
     if (loveWatch === id && lovePlayed !== id) {
       lovePlayed = id;
-      playLoveHearts(phase === "loved", rec && rec.ms);
+      playLoveHearts(phase === "loved" ? "sender" : "hearts", rec && rec.ms);
     }
     return;
   }
@@ -13211,7 +13216,7 @@ function answerLoveYes() {
   lovePlayed = rec.id;
   loveWatch = rec.id;
   if (S.answerLoveAsk) S.answerLoveAsk(rec.id, ms).catch(() => {});
-  playLoveHearts(false);
+  playLoveHearts("mine", ms);
 }
 
 /* 標題列的動物開關。勾選跟房間同步；總開關關掉時不能改，勾選狀態留著。 */
