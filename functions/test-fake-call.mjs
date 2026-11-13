@@ -45,7 +45,7 @@ const ring = html.slice(html.indexOf('id="msgMenu"'), html.indexOf('id="rxPicker
 assert.equal((ring.match(/data-i="/g) || []).length, 8);
 assert.doesNotMatch(ring, /呼叫/);
 const overlay = html.slice(html.indexOf('id="fakeCall"'), html.indexOf('id="admin"'));
-assert.match(overlay, /老公/);
+assert.match(overlay, /重要的人/);
 assert.match(overlay, /LINE 語音…/);
 assert.match(overlay, /拒絕/);
 assert.match(overlay, /接受/);
