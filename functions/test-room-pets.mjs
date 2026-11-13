@@ -240,18 +240,29 @@ assert.match(app, /kind !== "quokka"/);
 assert.doesNotMatch(app, /localStorage\.setItem\(KEY/);
 const zoo = app.slice(app.indexOf("function bindZoo"), app.indexOf("\nbindZoo();"));
 assert.doesNotMatch(zoo, /localStorage\.setItem/);
-assert.match(zoo, /addEventListener\("sc-pets", paintMaster\)/);
+assert.match(zoo, /addEventListener\("sc-pets", \(\) => \{ paintMaster\(\); lockCatSubs\(\); \}\)/);
 assert.match(zoo, /box\.disabled = !on/);
 assert.match(zoo, /S\.petGroupsWrite\(kind/);
-assert.match(css, /\.c-zoo-panel\.is-locked \.c-zoo-row:not\(\.is-soon\) \{[^}]*pointer-events: none;/);
+assert.match(css, /\.c-zoo-panel\.is-locked \.c-sw,\n\.c-zoo-sub\.is-locked \.c-sw \{ pointer-events: none; \}/);
 assert.match(html, /id="setPets"/);
 assert.match(html, /聊天室貓咪與趣味特效/);
 assert.match(app, /KEY: "sc-pets"/);
 
-assert.deepEqual(petGroupsFromSnap(null), { cats: true, quokka: true, rooster: true });
-assert.deepEqual(petGroupsFromSnap({}), { cats: true, quokka: true, rooster: true });
-assert.deepEqual(petGroupsFromSnap({ quokka: { on: false, t: 1, by: "abc" } }), { cats: true, quokka: false, rooster: true });
+assert.deepEqual(petGroupsFromSnap(null), { cats: true, quokka: true, rooster: true, catPregnant: false, kittens: false });
+assert.deepEqual(petGroupsFromSnap({}), { cats: true, quokka: true, rooster: true, catPregnant: false, kittens: false });
+assert.deepEqual(petGroupsFromSnap({ quokka: { on: false, t: 1, by: "abc" } }), { cats: true, quokka: false, rooster: true, catPregnant: false, kittens: false });
 assert.equal(petGroupsFromSnap({ cats: { on: true, t: 1, by: "abc" } }).cats, true);
+assert.equal(petGroupsFromSnap({ catPregnant: { on: true, t: 1, by: "a" } }).catPregnant, true);
+assert.equal(petGroupsFromSnap({ kittens: { on: false, t: 1, by: "a" } }).kittens, false);
+assert.match(html, /灰貓懷孕/);
+assert.match(html, /召喚幼貓 ×2/);
+assert.match(html, /id="zooCatMore"/);
+assert.match(pets, /KITTEN_K = 11\.4 \* 1\.12 \* \(2 \/ 3\) \/ 20 \* 1\.28 \* 0\.7/);
+assert.match(pets, /cat\.pregnant && !cat\.kit && cat\.name === "gray"/);
+assert.match(pets, /preg \? ":p"/);
+assert.match(pets, /preg: true/);
+assert.doesNotMatch(pets, /#ece8e2/);
+assert.match(fs.readFileSync(new URL('../real-cats.js', import.meta.url), 'utf8'), /function bulgeDown/);
 
 const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url), 'utf8'));
 const petRules = rules.rules.rooms.$roomId.pets.$kind;
@@ -259,6 +270,8 @@ assert.equal(petRules.$other['.validate'], false);
 assert.match(petRules['.validate'], /\$kind === 'quokka'/);
 assert.match(petRules['.validate'], /\$kind === 'cats'/);
 assert.match(petRules['.validate'], /\$kind === 'rooster'/);
+assert.match(petRules['.validate'], /catPregnant/);
+assert.match(petRules['.validate'], /kittens/);
 assert.match(petRules.on['.validate'], /isBoolean/);
 assert.match(petRules.t['.validate'], /now \+ 60000/);
 assert.match(petRules.by['.validate'], /length <= 64/);
@@ -273,6 +286,12 @@ const petCtx = {
 assert.equal(vm.runInNewContext(petRules['.validate'], petCtx), true);
 petCtx.$kind = "bear";
 assert.equal(vm.runInNewContext(petRules['.validate'], petCtx), false);
+petCtx.$kind = "kittens";
+petCtx.newData = {
+  exists: () => true,
+  hasChildren: (keys) => keys.every((k) => ["on", "t", "by"].includes(k)),
+};
+assert.equal(vm.runInNewContext(petRules['.validate'], petCtx), true);
 petCtx.$kind = "quokka";
 petCtx.newData = { exists: () => false, hasChildren: () => false };
 assert.equal(vm.runInNewContext(petRules['.validate'], petCtx), true);

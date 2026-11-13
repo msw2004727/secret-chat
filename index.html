@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.52">
+<meta name="sc-shell" content="v61.53">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -328,7 +328,18 @@
         </svg>
       </button>
       <div class="c-zoo-panel" id="zooPanel" hidden>
-        <label class="c-zoo-row"><span>貓咪 ×2</span><span class="c-sw"><input type="checkbox" id="zooCats" checked><span class="c-sw-t"></span></span></label>
+        <div class="c-zoo-cat">
+          <div class="c-zoo-row">
+            <button type="button" class="c-zoo-caret" id="zooCatMore" aria-expanded="false" aria-controls="zooCatSub" aria-label="展開貓咪選項">
+              <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.2 4.3 6 8.1 9.8 4.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <label class="c-zoo-grow"><span class="c-zoo-name">貓咪 ×2</span><span class="c-sw"><input type="checkbox" id="zooCats" checked><span class="c-sw-t"></span></span></label>
+          </div>
+          <div class="c-zoo-sub" id="zooCatSub" hidden>
+            <label class="c-zoo-row is-sub"><span class="c-zoo-name">灰貓懷孕</span><span class="c-sw"><input type="checkbox" id="zooPreg"><span class="c-sw-t"></span></span></label>
+            <label class="c-zoo-row is-sub"><span class="c-zoo-name">召喚幼貓 ×2</span><span class="c-sw"><input type="checkbox" id="zooKits"><span class="c-sw-t"></span></span></label>
+          </div>
+        </div>
         <label class="c-zoo-row"><span>bobo + QUOKKA</span><span class="c-sw"><input type="checkbox" id="zooPals" checked><span class="c-sw-t"></span></span></label>
         <label class="c-zoo-row"><span>雞</span><span class="c-sw"><input type="checkbox" id="zooBird" checked><span class="c-sw-t"></span></span></label>
         <div class="c-zoo-row is-soon" aria-disabled="true"><span>敬請期待</span><span class="c-sw" aria-hidden="true"><span class="c-sw-t"></span></span></div>

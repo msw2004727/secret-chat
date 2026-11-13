@@ -20,7 +20,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.52";
+const APP_VERSION = "v61.53";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -12548,10 +12548,17 @@ function bindPetGroupSync(f, roomId, clientId, bag) {
   const paint = (val, animate) => {
     const g = petGroupsFromSnap(val);
     const cats = $("zooCats"), pals = $("zooPals"), bird = $("zooBird");
+    const preg = $("zooPreg"), kits = $("zooKits");
     if (cats) cats.checked = g.cats;
     if (pals) pals.checked = g.quokka;
     if (bird) bird.checked = g.rooster;
-    const detail = { cats: g.cats, quokka: g.quokka, rooster: g.rooster, animate: !!animate };
+    if (preg) preg.checked = g.catPregnant;
+    if (kits) kits.checked = g.kittens;
+    lockCatSubs();
+    const detail = {
+      cats: g.cats, quokka: g.quokka, rooster: g.rooster,
+      catPregnant: g.catPregnant, kittens: g.kittens, animate: !!animate,
+    };
     window.__petGroupState = detail;
     window.dispatchEvent(new CustomEvent("sc-pet-groups", { detail }));
   };
@@ -12561,7 +12568,7 @@ function bindPetGroupSync(f, roomId, clientId, bag) {
     paint(snap.val(), animate);
   });
   S.petGroupsWrite = (kind, on) => {
-    if (kind !== "cats" && kind !== "quokka" && kind !== "rooster") return;
+    if (kind !== "cats" && kind !== "quokka" && kind !== "rooster" && kind !== "catPregnant" && kind !== "kittens") return;
     f.set(f.ref(f.db, `${base}/pets/${kind}`), {
       on: !!on,
       t: f.serverTimestamp(),
@@ -12571,6 +12578,20 @@ function bindPetGroupSync(f, roomId, clientId, bag) {
   if (bag) bag.push(unsub);
   window.__petSyncReady = roomId;
   return unsub;
+}
+
+/* 貓咪子開關：總開關或「貓咪 ×2」關掉時變灰，不能改。 */
+function lockCatSubs() {
+  let master = true;
+  try { master = localStorage.getItem("sc-pets") !== "off"; } catch (_) {}
+  const catsOn = $("zooCats") ? $("zooCats").checked : true;
+  const sub = $("zooCatSub");
+  const lock = !master || !catsOn;
+  if (sub) sub.classList.toggle("is-locked", lock);
+  for (const id of ["zooPreg", "zooKits"]) {
+    const el = $(id);
+    if (el) el.disabled = lock;
+  }
 }
 
 /* 標題列的動物開關。勾選跟房間同步；總開關關掉時不能改，勾選狀態留著。 */
@@ -12590,7 +12611,17 @@ function bindZoo() {
     }
   };
   paintMaster();
-  window.addEventListener("sc-pets", paintMaster);
+  lockCatSubs();
+  window.addEventListener("sc-pets", () => { paintMaster(); lockCatSubs(); });
+  const more = $("zooCatMore");
+  if (more) more.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const sub = $("zooCatSub");
+    if (!sub) return;
+    const open = sub.hidden;
+    sub.hidden = !open;
+    more.setAttribute("aria-expanded", open ? "true" : "false");
+  });
   const setOpen = (on) => {
     panel.hidden = !on;
     btn.setAttribute("aria-expanded", on ? "true" : "false");
@@ -12600,9 +12631,10 @@ function bindZoo() {
     if (!masterOn()) return;
     const t = e.target;
     if (!t) return;
-    const kind = t.id === "zooCats" ? "cats" : t.id === "zooPals" ? "quokka" : t.id === "zooBird" ? "rooster" : "";
-    if (!kind || !S.petGroupsWrite) return;
+    const kind = t.id === "zooCats" ? "cats" : t.id === "zooPals" ? "quokka" : t.id === "zooBird" ? "rooster" : t.id === "zooPreg" ? "catPregnant" : t.id === "zooKits" ? "kittens" : "";
+    if (!kind || !S.petGroupsWrite || t.disabled) return;
     S.petGroupsWrite(kind, !!t.checked);
+    if (t.id === "zooCats") lockCatSubs();
   });
   document.addEventListener("pointerdown", (e) => {
     if (panel.hidden) return;

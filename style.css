@@ -1355,7 +1355,7 @@ html[data-theme="dark"] .row.you .lp-card { background: rgba(255,255,255,.06); }
   top: calc(100% + 8px);
   right: 0;
   z-index: 6;
-  width: min(220px, calc(100vw - 20px));
+  width: min(248px, calc(100vw - 20px));
   padding: 6px;
   border-radius: 14px;
   background: var(--bg);
@@ -1373,8 +1373,23 @@ html[data-theme="dark"] .c-zoo-panel { box-shadow: 0 12px 28px rgba(0,0,0,.5); }
   white-space: nowrap;
 }
 .c-zoo-row.is-soon { opacity: .42; pointer-events: none; user-select: none; }
-/* 總開關關掉：各組維持原本的開或關，只是變灰、按不了。 */
-.c-zoo-panel.is-locked .c-zoo-row:not(.is-soon) { opacity: .42; pointer-events: none; }
+.c-zoo-row { gap: 8px; }
+.c-zoo-grow { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.c-zoo-caret {
+  flex: 0 0 auto; width: 22px; height: 22px; border: 0; border-radius: 6px; padding: 0;
+  background: transparent; color: var(--txt-dim); display: flex; align-items: center; justify-content: center;
+}
+.c-zoo-caret svg { display: block; transition: transform .16s ease; }
+.c-zoo-caret[aria-expanded="true"] svg { transform: rotate(180deg); }
+.c-zoo-sub { display: flex; flex-direction: column; padding: 0 0 2px 22px; }
+.c-zoo-row.is-sub { min-height: 36px; font-size: 14px; }
+/* 總開關關掉，或貓咪那組關掉：子開關變灰、按不了，勾選留著。展開箭頭仍可點。 */
+.c-zoo-panel.is-locked .c-zoo-row:not(.is-soon) .c-zoo-name,
+.c-zoo-panel.is-locked .c-zoo-row:not(.is-soon) .c-sw,
+.c-zoo-sub.is-locked .c-zoo-name,
+.c-zoo-sub.is-locked .c-sw { opacity: .42; }
+.c-zoo-panel.is-locked .c-sw,
+.c-zoo-sub.is-locked .c-sw { pointer-events: none; }
 #cats.cats-off .claw-mark,
 #cats.cats-off .poop-pile,
 #cats.cats-off .cat-bonk,
