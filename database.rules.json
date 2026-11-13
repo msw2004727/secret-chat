@@ -491,8 +491,19 @@
           "answer": {
             ".validate": "newData.isString() && newData.val() === 'o'"
           },
+          "answeredAt": {
+            ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+          },
+          "answeredBy": {
+            ".validate": "newData.isString() && newData.val().length <= 64"
+          },
           "ms": {
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 120000"
+          },
+          "ack": {
+            "$uid": {
+              ".validate": "$uid.length <= 64 && newData.isBoolean() && newData.val() === true"
+            }
           },
           "$other": {
             ".validate": false

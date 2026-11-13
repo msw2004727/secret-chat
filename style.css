@@ -1553,15 +1553,26 @@ html[data-theme="dark"] .c-zoo-panel { box-shadow: 0 12px 28px rgba(0,0,0,.5); }
 .c-love-x { background: #3d5afe; position: relative; z-index: 45; transform-origin: center center; opacity: 1; }
 .c-love-hearts { position: fixed; inset: 0; z-index: 50; width: 100%; height: 100%; pointer-events: none; }
 .c-love-hearts.fading { opacity: 0; transition: opacity .8s ease; }
-.c-love-big {
-  position: fixed; inset: 0; z-index: 60; display: none;
-  align-items: center; justify-content: center; pointer-events: none;
-  font-size: 40px; font-weight: 900; letter-spacing: .02em; color: #fff;
-  text-shadow: 0 2px 0 #4a0614, 0 4px 16px rgba(0,0,0,.5);
-  text-align: center; padding: 0 12px;
+.c-love-final {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 28px; padding: 24px; pointer-events: none;
 }
-.c-love-big.show { display: flex; }
-.c-love-big.fading { opacity: 0; transition: opacity .8s ease; }
+.c-love-final.is-open { pointer-events: auto; }
+.c-love-big {
+  margin: 0; max-width: min(92vw, 720px);
+  font-size: clamp(28px, 7.2vw, 40px); font-weight: 900; letter-spacing: .02em;
+  line-height: 1.25; color: #fff; text-align: center;
+  text-shadow: 0 2px 0 #4a0614, 0 4px 16px rgba(0,0,0,.5);
+  overflow-wrap: anywhere;
+}
+.c-love-ok {
+  min-width: 148px; height: 64px; padding: 0 28px; border: 0; border-radius: 999px;
+  background: #ff2d55; color: #fff; font: inherit; font-size: 22px; font-weight: 800;
+  letter-spacing: .08em; cursor: pointer;
+  box-shadow: 0 8px 18px rgba(0,0,0,.28);
+  -webkit-tap-highlight-color: transparent;
+}
 #cats.cats-off .claw-mark,
 #cats.cats-off .poop-pile,
 #cats.cats-off .cat-bonk,
