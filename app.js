@@ -11,7 +11,7 @@
 
 import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat-performance.js";
 import { Droop, petGroupsFromSnap } from "./droop.js";
-import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS, loveAskPhase, loveAskSeconds, LOVE_ASK_MS } from "./bubble-fx.js";
+import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS, loveAskPhase, loveAskSeconds, loveAskBothAcked } from "./bubble-fx.js";
 attachBubbleFx(Droop);
 
 const CFG = window.CONFIG;
@@ -22,7 +22,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.64";
+const APP_VERSION = "v61.65";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5336,12 +5336,26 @@ async function enterChat() {
     showLoveCapsule();
     set(loveAskRef, { id, by: S.clientId, t: serverTimestamp() }).catch(() => hideLoveCapsule());
   };
-  S.answerLoveAsk = async (id, ms) => {
+  S.answerLoveAsk = async (id) => {
     const snap = await get(loveAskRef);
     const rec = snap.val();
     if (!rec || rec.id !== id || rec.answer === "o") return;
-    const wait = Math.max(0, Math.min(120000, Math.round(Number(ms) || 0)));
-    await update(loveAskRef, { answer: "o", ms: wait });
+    await update(loveAskRef, { answer: "o", answeredAt: serverTimestamp(), answeredBy: S.clientId });
+  };
+  S.ackLoveAsk = async (id) => {
+    const snap = await get(loveAskRef);
+    const rec = snap.val();
+    if (!rec || rec.id !== id) return;
+    const ack = Object.assign({}, rec.ack, { [S.clientId]: true });
+    const done = ack[rec.by] === true && typeof rec.answeredBy === "string" && ack[rec.answeredBy] === true;
+    if (done) { await remove(loveAskRef); return; }
+    await update(ref(db, `${base}/loveAsk/ack`), { [S.clientId]: true });
+  };
+  S.clearLoveAsk = async (id) => {
+    const snap = await get(loveAskRef);
+    const rec = snap.val();
+    if (!rec || rec.id !== id || !loveAskBothAcked(rec)) return;
+    await remove(loveAskRef);
   };
   S.subs.push(onValue(loveAskRef, (snap) => {
     if (myGen !== S.gen) return;
@@ -10052,6 +10066,8 @@ function leaveChat() {
   S.fakeCall = null;
   S.startLoveAsk = null;
   S.answerLoveAsk = null;
+  S.ackLoveAsk = null;
+  S.clearLoveAsk = null;
   S.loveAsk = null;
   BubbleFx.last = null;
   Droop.clearAll();
@@ -12781,23 +12797,25 @@ function answerFakeCallTap() {
   if (rec && rec.id && S.answerFakeCall) S.answerFakeCall(rec.id).catch(() => {});
 }
 
-/* 愛我嗎。發出的人看右上角「等待回答…」；其他人看卡片。
-   O 固定。X 每次被碰到就繞著卡片果凍滑開，不蓋到 O 或題字。
-   按 O 之後兩邊愛心鋪滿再淡出；發出的人正中看到對方花了幾秒。 */
+/* 愛我嗎。沒有逾時。發出的人看「等待回答…」，其他人看卡片。
+   按 O 之後愛心播一次，字留著，各自按「確定」才關。 */
 const LOVE_SHADES = ["#ffe4ec", "#ffd0dc", "#ffb3c7", "#ff8fab", "#ff6b8a", "#ff4d6d", "#ff2d55", "#f31248", "#e11d48", "#be123c", "#9f1239", "#fb7185"];
-let loveTimer = 0;
 let loveWasCaller = false;
 let loveWatch = null;
-let lovePlayed = null;
-let loveShownAt = 0;
+let loveClosed = null;
+let loveResultId = null;
+let loveResultMode = "";
 let loveRun = 0;
 let loveDodgeLock = 0;
 let loveXPos = null;
 let loveXAnim = 0;
 let loveSlideGen = 0;
 let loveHeartDraw = 0;
-function clearLoveTimer() {
-  if (loveTimer) { clearTimeout(loveTimer); loveTimer = 0; }
+function loveHeartsSeen(id) {
+  try { return localStorage.getItem("sc-love-seen:" + id) === "1"; } catch (_) { return false; }
+}
+function markLoveHeartsSeen(id) {
+  try { localStorage.setItem("sc-love-seen:" + id, "1"); } catch (_) {}
 }
 function hideLoveCapsule() {
   const el = $("loveCapsule");
@@ -12864,19 +12882,33 @@ function stopLoveHearts() {
       ctx.clearRect(0, 0, hearts.width, hearts.height);
     }
   }
+  hideLoveFinal();
+}
+function hideLoveFinal() {
+  const panel = $("loveFinal");
+  if (!panel) return;
+  panel.hidden = true;
+  panel.classList.remove("is-open");
+}
+function showLoveFinal(rec, mine) {
   const big = $("loveBig");
-  if (big) big.classList.remove("show", "fading");
+  const panel = $("loveFinal");
+  if (big) big.textContent = loveBigLine(rec, mine);
+  if (!panel) return;
+  panel.hidden = false;
+  panel.classList.add("is-open");
 }
 function resetLoveAskUi() {
-  clearLoveTimer();
   loveWasCaller = false;
   loveWatch = null;
-  lovePlayed = null;
-  loveShownAt = 0;
+  loveClosed = null;
+  loveResultId = null;
+  loveResultMode = "";
   stopLoveHearts();
   hideLoveCard();
   placeLoveXHome();
   hideLoveCapsule();
+  hideLoveFinal();
   const card = $("loveCard");
   if (card) card.hidden = true;
 }
@@ -13088,25 +13120,18 @@ function loveHeartField(w, h) {
   }
   return out;
 }
-function loveBigLine(ms, mine) {
-  const sec = loveAskSeconds(ms);
+function loveBigLine(rec, mine) {
+  const sec = loveAskSeconds(rec);
   return mine ? "我" + sec + "秒才回覆他" : "他" + sec + "秒說他愛你啦!!!";
 }
-function playLoveHearts(who, ms) {
+function playLoveHearts(done) {
   const hearts = $("loveHearts");
-  const big = $("loveBig");
-  if (!hearts) return;
+  if (!hearts) { if (done) done(); return; }
   const run = ++loveRun;
   cancelAnimationFrame(loveHeartDraw);
   const ctx = fitLoveCanvas(hearts);
   hearts.classList.remove("fading");
   hearts.style.opacity = "1";
-  const withText = who === "sender" || who === "mine";
-  if (big) {
-    if (withText) big.textContent = loveBigLine(ms, who === "mine");
-    big.classList.toggle("show", withText);
-    big.classList.remove("fading");
-  }
   hideLoveCapsule();
   hideLoveCard();
   const field = loveHeartField(innerWidth, innerHeight);
@@ -13136,7 +13161,6 @@ function playLoveHearts(who, ms) {
       setTimeout(() => {
         if (run !== loveRun) return;
         hearts.classList.add("fading");
-        if (big) big.classList.add("fading");
         setTimeout(() => {
           if (run !== loveRun) return;
           cancelAnimationFrame(loveHeartDraw);
@@ -13144,7 +13168,7 @@ function playLoveHearts(who, ms) {
           hearts.style.opacity = "1";
           ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.clearRect(0, 0, hearts.width, hearts.height);
-          if (big) big.classList.remove("show", "fading");
+          if (done) done();
         }, 860);
       }, 420);
       return;
@@ -13154,55 +13178,64 @@ function playLoveHearts(who, ms) {
   };
   step();
 }
-function armLoveTimer(rec, now) {
-  clearLoveTimer();
-  const t = Number(rec && rec.t);
-  const left = LOVE_ASK_MS - (now - t);
-  if (!(left > 0) || !rec || !rec.id) return;
-  const id = rec.id;
-  loveTimer = setTimeout(() => {
-    if (!S.loveAsk || S.loveAsk.id !== id) return;
-    applyLoveAsk(S.loveAsk, nowServer());
-  }, left);
-}
-function applyLoveAsk(rec, now) {
+function applyLoveAsk(rec) {
   if (rec && rec.by && !Number.isFinite(Number(rec.t))) return;
+  if (rec && rec.answer === "o" && !Number.isFinite(Number(rec.answeredAt)) && !Number.isFinite(Number(rec.ms))) return;
   S.loveAsk = rec || null;
-  const phase = loveAskPhase(rec, S.clientId, now);
+  if (rec && loveAskBothAcked(rec) && S.clearLoveAsk) S.clearLoveAsk(rec.id).catch(() => {});
+  const phase = loveAskPhase(rec, S.clientId);
   const id = rec && rec.id;
+  if ((phase === "loved" || phase === "mine") && loveClosed === id) {
+    hideLoveCard();
+    hideLoveCapsule();
+    return;
+  }
   if (phase === "caller") {
+    if (loveWatch !== id) { loveResultId = null; loveResultMode = ""; stopLoveHearts(); }
     loveWatch = id;
     loveWasCaller = true;
-    stopLoveHearts();
     hideLoveCard();
     showLoveCapsule();
-    armLoveTimer(rec, now);
     return;
   }
   if (phase === "recipient") {
-    if (loveWatch !== id) loveShownAt = performance.now();
+    if (loveWatch !== id) { loveResultId = null; loveResultMode = ""; stopLoveHearts(); }
     loveWatch = id;
-    if (loveWasCaller) fadeLoveCapsule();
-    else hideLoveCapsule();
+    hideLoveCapsule();
     loveWasCaller = false;
-    stopLoveHearts();
     showLoveCard();
-    armLoveTimer(rec, now);
     return;
   }
-  if (phase === "loved" || phase === "hearts") {
-    clearLoveTimer();
+  if (phase === "loved" || phase === "mine") {
     hideLoveCard();
-    if (loveWasCaller) fadeLoveCapsule();
-    else hideLoveCapsule();
+    hideLoveCapsule();
     loveWasCaller = false;
-    if (loveWatch === id && lovePlayed !== id) {
-      lovePlayed = id;
-      playLoveHearts(phase === "loved" ? "sender" : "hearts", rec && rec.ms);
+    loveWatch = id;
+    const mine = phase === "mine";
+    if (loveResultId === id && (loveResultMode === "playing" || loveResultMode === "final")) {
+      if (loveResultMode === "final") showLoveFinal(rec, mine);
+      return;
     }
+    loveResultId = id;
+    if (loveHeartsSeen(id)) {
+      loveResultMode = "final";
+      stopLoveHearts();
+      showLoveFinal(rec, mine);
+      return;
+    }
+    loveResultMode = "playing";
+    markLoveHeartsSeen(id);
+    hideLoveFinal();
+    playLoveHearts(() => {
+      if (loveResultId !== id) return;
+      loveResultMode = "final";
+      const cur = S.loveAsk && S.loveAsk.id === id ? S.loveAsk : rec;
+      showLoveFinal(cur, mine);
+    });
     return;
   }
-  clearLoveTimer();
+  loveResultId = null;
+  loveResultMode = "";
   hideLoveCard();
   stopLoveHearts();
   if (loveWasCaller) fadeLoveCapsule();
@@ -13212,11 +13245,18 @@ function applyLoveAsk(rec, now) {
 function answerLoveYes() {
   const rec = S.loveAsk;
   if (!rec || !rec.id || rec.by === S.clientId || rec.answer === "o") return;
-  const ms = loveShownAt ? Math.max(0, performance.now() - loveShownAt) : 0;
-  lovePlayed = rec.id;
-  loveWatch = rec.id;
-  if (S.answerLoveAsk) S.answerLoveAsk(rec.id, ms).catch(() => {});
-  playLoveHearts("mine", ms);
+  hideLoveCard();
+  if (S.answerLoveAsk) S.answerLoveAsk(rec.id).catch(() => {});
+}
+function confirmLove() {
+  const rec = S.loveAsk;
+  const id = rec && rec.id;
+  if (id) loveClosed = id;
+  loveResultId = null;
+  loveResultMode = "";
+  hideLoveFinal();
+  stopLoveHearts();
+  if (id && S.ackLoveAsk) S.ackLoveAsk(id).catch(() => {});
 }
 
 /* 標題列的動物開關。勾選跟房間同步；總開關關掉時不能改，勾選狀態留著。 */
@@ -13288,6 +13328,7 @@ function bindZoo() {
   }
   document.addEventListener("pointermove", dodgeLoveX, { passive: true });
   $("loveYes")?.addEventListener("click", (e) => { e.stopPropagation(); answerLoveYes(); });
+  $("loveOk")?.addEventListener("click", (e) => { e.stopPropagation(); confirmLove(); });
   const blockCall = (e) => {
     const el = $("fakeCall");
     if (!el || el.hidden) return;

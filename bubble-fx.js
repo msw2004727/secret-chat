@@ -21,24 +21,46 @@ export function fakeCallPhase(rec, me, now, limit = FAKE_CALL_MS) {
   return "recipient";
 }
 
-/* 愛我嗎。60 秒沒按 O 就作廢。caller＝發出的人看膠囊；recipient＝其他人看卡片。
-   answer 為 o 時，發出的人看愛心加大字，其他人只看愛心。 */
-export const LOVE_ASK_MS = 60000;
-export function loveAskPhase(rec, me, now, limit = LOVE_ASK_MS) {
+/* 愛我嗎。沒有逾時：沒回答就一直留著。
+   caller＝發出的人看膠囊；recipient＝其他人看卡片。
+   loved＝發出的人看結果；mine＝按 O 的人看結果。已按確定的人是 off。 */
+export function loveAskPhase(rec, me) {
   if (!rec || typeof rec !== "object" || typeof rec.by !== "string" || !rec.by || typeof me !== "string" || !me) return "off";
   const t = Number(rec.t);
-  const age = Number(now) - t;
-  if (!Number.isFinite(t) || !Number.isFinite(age) || age > limit || age < -limit) return "off";
-  const answered = rec.answer === "o";
-  if (rec.by === me) return answered ? "loved" : "caller";
-  return answered ? "hearts" : "recipient";
+  if (!Number.isFinite(t)) return "off";
+  const ack = rec.ack && typeof rec.ack === "object" ? rec.ack : {};
+  if (ack[me] === true) return "off";
+  if (rec.answer !== "o") return rec.by === me ? "caller" : "recipient";
+  if (rec.by === me) return "loved";
+  if (rec.answeredBy === me) return "mine";
+  return "off";
 }
 
-/* 對方從看到卡片到按 O 的秒數，固定兩位小數。兩邊用同一個值。 */
-export function loveAskSeconds(ms) {
-  const n = Number(ms);
-  const sec = Number.isFinite(n) && n > 0 ? n / 1000 : 0;
-  return sec.toFixed(2);
+/* play＝這次回答還沒播過愛心；final＝愛心播過了，只留字和確定。 */
+export function loveAskView(rec, me, seen) {
+  const phase = loveAskPhase(rec, me);
+  if (phase === "loved" || phase === "mine") return seen ? "final" : "play";
+  return phase;
+}
+
+export function loveAskBothAcked(rec) {
+  if (!rec || rec.answer !== "o" || typeof rec.by !== "string" || typeof rec.answeredBy !== "string" || !rec.answeredBy) return false;
+  const ack = rec.ack && typeof rec.ack === "object" ? rec.ack : {};
+  return ack[rec.by] === true && ack[rec.answeredBy] === true;
+}
+
+/* 秒數用伺服器時間 answeredAt - t。舊資料沒有 answeredAt 時才退回 ms。固定兩位小數。 */
+export function loveAskSeconds(rec) {
+  if (typeof rec === "number") {
+    const n = rec;
+    return (Number.isFinite(n) && n > 0 ? n / 1000 : 0).toFixed(2);
+  }
+  const t = Number(rec && rec.t);
+  const at = Number(rec && rec.answeredAt);
+  if (Number.isFinite(t) && Number.isFinite(at)) return (Math.max(0, at - t) / 1000).toFixed(2);
+  const ms = Number(rec && rec.ms);
+  if (Number.isFinite(ms) && ms > 0) return (ms / 1000).toFixed(2);
+  return "0.00";
 }
 export const BUBBLE_FX_STATES = ["stiff", "soft", "break", "normal"];
 

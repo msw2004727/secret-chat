@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.64">
+<meta name="sc-shell" content="v61.65">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -1103,7 +1103,10 @@
     </div>
   </div>
   <canvas class="c-love-hearts" id="loveHearts"></canvas>
-  <div class="c-love-big" id="loveBig"></div>
+  <div class="c-love-final" id="loveFinal" hidden>
+    <p class="c-love-big" id="loveBig"></p>
+    <button type="button" class="c-love-ok" id="loveOk">確定</button>
+  </div>
 
   <div class="fake-call" id="fakeCall" role="dialog" aria-modal="true" aria-label="LINE 語音來電" hidden>
     <div class="fake-call-frost"></div>
