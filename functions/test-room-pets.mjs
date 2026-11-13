@@ -1,7 +1,9 @@
 import fs from 'node:fs';
+import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { decodeQuokkaGif, quokkaFrame, quokkaMirror, QUOKKA_CSS_AT_REF } from '../quokka-gif.js';
 import { Bobo } from '../bobo.js';
+import { petGroupsFromSnap } from '../droop.js';
 
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -73,7 +75,8 @@ assert.match(pets, /function parkBall\(\)/);
 assert.match(pets, /scrollEl\.scrollHeight - scrollEl\.scrollTop - scrollEl\.clientHeight/);
 assert.match(pets, /sr\.bottom \+ slack/);
 assert.match(pets, /import \{ attachRooster \} from "\.\/rooster-room\.js"/);
-assert.match(pets, /roosterApi\.step\(now\)/);
+assert.match(pets, /floorStep\("rooster", \[roosterApi\]\)/);
+assert.match(pets, /api\.step\(now\)/);
 assert.match(pets, /roosterApi\.shift\(dy\)/);
 const rooster = fs.readFileSync(new URL('../rooster.js', import.meta.url), 'utf8');
 const room = fs.readFileSync(new URL('../rooster-room.js', import.meta.url), 'utf8');
@@ -86,7 +89,7 @@ assert.match(room, /roam: true/);
 assert.match(room, /enabled\(\)/);
 assert.doesNotMatch(rooster + room, /firebase|database|websocket/i);
 assert.match(pets, /import \{ attachBobo \} from "\.\/bobo-room\.js"/);
-assert.match(pets, /boboApi\.step\(now\)/);
+assert.match(pets, /floorStep\("quokka", \[boboApi, quokkaApi\]\)/);
 assert.match(pets, /boboApi\.shift\(dy\)/);
 assert.match(pets, /if \(boboApi\) boboApi\.hide\(\)/);
 const bobo = fs.readFileSync(new URL('../bobo.js', import.meta.url), 'utf8');
@@ -117,7 +120,7 @@ const boboPx = roosterPx * (2 / 3);
 assert.ok(Math.abs(roosterPx - 32.6) < 0.15, String(roosterPx));
 assert.ok(Math.abs(boboPx - 21.7) < 0.15, String(boboPx));
 assert.match(pets, /import \{ attachQuokka \} from "\.\/quokka-room\.js"/);
-assert.match(pets, /quokkaApi\.step\(now\)/);
+assert.match(pets, /quokkaApi\.march\(/);
 assert.match(pets, /quokkaApi\.shift\(dy\)/);
 assert.match(pets, /if \(quokkaApi\) quokkaApi\.hide\(\)/);
 const quokkaRoom = fs.readFileSync(new URL('../quokka-room.js', import.meta.url), 'utf8');
@@ -221,24 +224,61 @@ assert.doesNotMatch(pets, /小麥我愛妳/);
 
 assert.match(html, /id="btnZoo"[\s\S]*id="btnSettings"/);
 assert.match(html, /貓咪 ×2/);
-assert.match(html, /bobo \+ 棕熊/);
+assert.match(html, /bobo \+ QUOKKA/);
 assert.match(html, /id="zooBird"/);
 assert.equal((html.match(/敬請期待/g) || []).length, 2);
 assert.match(css, /\.c-zoo-row\.is-soon \{[^}]*pointer-events: none;/);
 assert.match(css, /#btnZoo\[aria-expanded="true"\] \.c-zoo-chev \{[^}]*rotate\(180deg\)/);
 assert.match(app, /sc-pet-groups/);
 assert.match(pets, /sc-pet-groups/);
-assert.match(pets, /groups\.cats && !soc/);
-assert.match(pets, /groups\.bird && roosterApi\) roosterApi\.step/);
-assert.match(pets, /groups\.pals && boboApi\) boboApi\.step/);
-assert.match(pets, /groups\.pals && quokkaApi\) quokkaApi\.step/);
+assert.match(pets, /phase\.cats === "shown" && !soc/);
+assert.match(pets, /floorStep\("rooster"/);
+assert.match(pets, /floorStep\("quokka"/);
+assert.match(pets, /a\.exit \|\| a\.enter/);
+assert.match(app, /\$\{base\}\/pets\/\$\{kind\}/);
+assert.match(app, /kind !== "quokka"/);
+assert.doesNotMatch(app, /localStorage\.setItem\(KEY/);
 const zoo = app.slice(app.indexOf("function bindZoo"), app.indexOf("\nbindZoo();"));
-assert.doesNotMatch(zoo, /firebase|database|rooms\//);
-assert.match(zoo, /localStorage\.setItem\(KEY/);
+assert.doesNotMatch(zoo, /localStorage\.setItem/);
 assert.match(zoo, /addEventListener\("sc-pets", paintMaster\)/);
 assert.match(zoo, /box\.disabled = !on/);
+assert.match(zoo, /S\.petGroupsWrite\(kind/);
 assert.match(css, /\.c-zoo-panel\.is-locked \.c-zoo-row:not\(\.is-soon\) \{[^}]*pointer-events: none;/);
 assert.match(html, /id="setPets"/);
 assert.match(html, /聊天室貓咪與趣味特效/);
+assert.match(app, /KEY: "sc-pets"/);
+
+assert.deepEqual(petGroupsFromSnap(null), { cats: true, quokka: true, rooster: true });
+assert.deepEqual(petGroupsFromSnap({}), { cats: true, quokka: true, rooster: true });
+assert.deepEqual(petGroupsFromSnap({ quokka: { on: false, t: 1, by: "abc" } }), { cats: true, quokka: false, rooster: true });
+assert.equal(petGroupsFromSnap({ cats: { on: true, t: 1, by: "abc" } }).cats, true);
+
+const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url), 'utf8'));
+const petRules = rules.rules.rooms.$roomId.pets.$kind;
+assert.equal(petRules.$other['.validate'], false);
+assert.match(petRules['.validate'], /\$kind === 'quokka'/);
+assert.match(petRules['.validate'], /\$kind === 'cats'/);
+assert.match(petRules['.validate'], /\$kind === 'rooster'/);
+assert.match(petRules.on['.validate'], /isBoolean/);
+assert.match(petRules.t['.validate'], /now \+ 60000/);
+assert.match(petRules.by['.validate'], /length <= 64/);
+const petCtx = {
+  now: 1_000_000,
+  $kind: "quokka",
+  newData: {
+    exists: () => true,
+    hasChildren: (keys) => keys.every((k) => ["on", "t", "by"].includes(k)),
+  },
+};
+assert.equal(vm.runInNewContext(petRules['.validate'], petCtx), true);
+petCtx.$kind = "bear";
+assert.equal(vm.runInNewContext(petRules['.validate'], petCtx), false);
+petCtx.$kind = "quokka";
+petCtx.newData = { exists: () => false, hasChildren: () => false };
+assert.equal(vm.runInNewContext(petRules['.validate'], petCtx), true);
+const onCtx = { newData: { isBoolean: () => true } };
+assert.equal(vm.runInNewContext(petRules.on['.validate'], onCtx), true);
+onCtx.newData = { isBoolean: () => false };
+assert.equal(vm.runInNewContext(petRules.on['.validate'], onCtx), false);
 
 console.log('PASS: message bubbles stay 18/6 rounded rects; cat mood bubble is a 30px circle; pets stay local and behind bubbles.');

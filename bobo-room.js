@@ -94,6 +94,31 @@ export function attachBobo(api) {
       if (bobo.blink > 0) { bobo.blink = 0; bobo.blinkUntil = now + rand(1800, 4200); }
       else { bobo.blink = 1; bobo.blinkUntil = now + 130; }
     }
+    if (march && march.done) { wrap.hidden = true; return; }
+    if (march) {
+      bobo.roam = false;
+      bobo.action = "walk";
+      bobo.dir = march.dir;
+      bobo.x += march.dir * 170 * dt;
+      bobo.local = (bobo.local + dt / 0.32) % 1;
+      const w = BW * scale();
+      if (march.mode === "out" && (bobo.x < -w - 8 || bobo.x > api.areaW() + 8)) {
+        march.done = true;
+        wrap.hidden = true;
+        return;
+      }
+      if (march.mode === "in" && ((march.dir > 0 && bobo.x >= march.dest) || (march.dir < 0 && bobo.x <= march.dest))) {
+        bobo.x = march.dest;
+        march = null;
+        bobo.action = "idle";
+        bobo.roam = true;
+        bobo.nextThink = now + 400;
+      }
+      const pose = Bobo.makePose("walk", bobo.local, { time: now, dir: bobo.dir, blink: bobo.blink, acc: bobo.acc || "none" });
+      lastPose = pose;
+      paint(pose);
+      return;
+    }
     think(now);
     if (bobo.actionDur && now - bobo.actionT0 >= bobo.actionDur) {
       bobo.actionDur = 0;
@@ -158,11 +183,32 @@ export function attachBobo(api) {
     if (hit(e.clientX, e.clientY)) setAction("tap", true);
   });
 
+  let march = null;
+  function beginMarch(mode, dir) {
+    const travel = dir < 0 ? -1 : 1;
+    const w = BW * scale();
+    placed = true;
+    if (mode === "in") bobo.x = travel > 0 ? -w - 12 : api.areaW() + 12;
+    bobo.dir = travel;
+    bobo.exitDir = mode === "out" ? travel : (bobo.exitDir || -travel);
+    bobo.action = "walk";
+    bobo.roam = false;
+    bobo.actionDur = 0;
+    wrap.hidden = false;
+    march = {
+      mode, dir: travel, done: false,
+      dest: travel > 0 ? Math.max(8, api.areaW() * 0.22) : Math.max(8, api.areaW() * 0.5),
+    };
+  }
+
   return {
     step,
     shift() {},
     setAction,
-    hide() { wrap.hidden = true; },
+    hide() { march = null; wrap.hidden = true; },
+    march: beginMarch,
+    marchDone() { return !march || !!march.done; },
+    settle(on) { march = null; wrap.hidden = !on; },
     get bobo() { return bobo; },
   };
 }

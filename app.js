@@ -10,7 +10,7 @@
  * ============================================================ */
 
 import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat-performance.js";
-import { Droop } from "./droop.js";
+import { Droop, petGroupsFromSnap } from "./droop.js";
 
 const CFG = window.CONFIG;
 
@@ -21,6 +21,21 @@ const CFG = window.CONFIG;
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
 const APP_VERSION = "v61.52";
+/* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
+const LOCAL_PREVIEW = (() => {
+  try {
+    const host = location.hostname;
+    if (host !== "127.0.0.1" && host !== "localhost") return null;
+    const q = new URLSearchParams(String(window.__sq || location.search || "").replace(/^\?/, ""));
+    if (q.get("emudb") !== "1") return null;
+    return {
+      auth: q.get("emuauth") === "1",
+      authPort: q.get("authport") || "9099",
+      dbPort: Number(q.get("emuport") || 9000),
+      room: q.get("petroom") || "",
+    };
+  } catch (_) { return null; }
+})();
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -1433,6 +1448,10 @@ async function connectOnce() {
   try {
     const app = appMod.initializeApp(CFG.firebase);
     const auth = authMod.getAuth(app);
+    /* 本機預覽才把 SDK 指到模擬器。正式網域 LOCAL_PREVIEW 是 null。 */
+    if (LOCAL_PREVIEW && LOCAL_PREVIEW.auth && typeof authMod.connectAuthEmulator === "function") {
+      authMod.connectAuthEmulator(auth, "http://127.0.0.1:" + LOCAL_PREVIEW.authPort, { disableWarnings: true });
+    }
     /* 關掉分頁再打開時，LINE 身分在 IndexedDB。沒先講明要持久化的話，
        有些環境會落回 session，分頁一關就沒了。 */
     const persistence = authMod.browserLocalPersistence || authMod.indexedDBLocalPersistence;
@@ -1449,6 +1468,9 @@ async function connectOnce() {
     await ensureSignedIn(auth, authMod, existing);
 
     const db = dbMod.getDatabase(app);
+    if (LOCAL_PREVIEW && typeof dbMod.connectDatabaseEmulator === "function") {
+      dbMod.connectDatabaseEmulator(db, "127.0.0.1", LOCAL_PREVIEW.dbPort);
+    }
     /* Storage 的 ref / getBytes 跟 Database 的同名，**不可以**攤平進同一層 ——
        攤平的話 f.ref 會被後蓋掉，資料庫那邊整個壞掉而且很難查。
        所以整包放在 f.st 底下，用 f.st.ref(...) 呼叫。 */
@@ -1731,7 +1753,11 @@ const Acl = {
     const p = new URLSearchParams(sq);
     const code = p.get("code"), state = p.get("state"), err = p.get("error");
     const onFail = () => toast("LINE 登入未完成，請在原本的 Safari 分頁重新輸入房號再試");
-    if (!state || (!code && !err)) { onFail(); return true; }
+    if (!state || (!code && !err)) {
+      if (p.get("emudb") === "1") return false;
+      onFail();
+      return true;
+    }
     let stash = null;
     try { stash = sessionStorage.getItem(ACL_STASH); } catch (_) {}
     let shared = null;
@@ -5262,6 +5288,9 @@ async function enterChat() {
     if (myGen !== S.gen) return;
     Droop.sync(snap.val() || {}, nowServer());
   }));
+
+  /* 動物分組跟這間房同步。總開關 sc-pets 仍只影響這台裝置看不看得到。 */
+  bindPetGroupSync(f, S.roomId, S.clientId, S.subs);
 
   /* 球雨：左上角「在線上」連點 3 下。只同步開始時間和提早結束，球的物理各端自己算。 */
   if (!window.BallRain) { try { await import("./rain.js"); } catch (_) {} }
@@ -12511,30 +12540,45 @@ function bindAdmin() {
   });
 }
 
-/* 標題列的動物開關。選擇只留在這台裝置，房間裡的其他人看不到。 */
+/* 動物分組寫進 rooms/<房>/pets。第一包快照不播跑走，之後的切換才播。
+   齒輪裡的趣味特效仍是這台裝置自己的總開關。 */
+function bindPetGroupSync(f, roomId, clientId, bag) {
+  const base = `rooms/${roomId}`;
+  let seen = false;
+  const paint = (val, animate) => {
+    const g = petGroupsFromSnap(val);
+    const cats = $("zooCats"), pals = $("zooPals"), bird = $("zooBird");
+    if (cats) cats.checked = g.cats;
+    if (pals) pals.checked = g.quokka;
+    if (bird) bird.checked = g.rooster;
+    const detail = { cats: g.cats, quokka: g.quokka, rooster: g.rooster, animate: !!animate };
+    window.__petGroupState = detail;
+    window.dispatchEvent(new CustomEvent("sc-pet-groups", { detail }));
+  };
+  const unsub = f.onValue(f.ref(f.db, `${base}/pets`), (snap) => {
+    const animate = seen;
+    seen = true;
+    paint(snap.val(), animate);
+  });
+  S.petGroupsWrite = (kind, on) => {
+    if (kind !== "cats" && kind !== "quokka" && kind !== "rooster") return;
+    f.set(f.ref(f.db, `${base}/pets/${kind}`), {
+      on: !!on,
+      t: f.serverTimestamp(),
+      by: String(clientId || "").slice(0, 64),
+    }).catch(() => {});
+  };
+  if (bag) bag.push(unsub);
+  window.__petSyncReady = roomId;
+  return unsub;
+}
+
+/* 標題列的動物開關。勾選跟房間同步；總開關關掉時不能改，勾選狀態留著。 */
 function bindZoo() {
   const btn = $("btnZoo"), panel = $("zooPanel");
   if (!btn || !panel || btn.dataset.bound) return;
   btn.dataset.bound = "1";
-  const KEY = "sc-pet-groups";
-  const read = () => {
-    try {
-      const v = JSON.parse(localStorage.getItem(KEY) || "{}");
-      if (!v || typeof v !== "object") return { cats: true, pals: true, bird: true };
-      return { cats: v.cats !== false, pals: v.pals !== false, bird: v.bird !== false };
-    } catch (_) { return { cats: true, pals: true, bird: true }; }
-  };
   const boxes = { cats: $("zooCats"), pals: $("zooPals"), bird: $("zooBird") };
-  const publish = (g) => {
-    try { localStorage.setItem(KEY, JSON.stringify(g)); } catch (_) {}
-    window.dispatchEvent(new CustomEvent("sc-pet-groups", { detail: g }));
-  };
-  const g0 = read();
-  if (boxes.cats) boxes.cats.checked = g0.cats;
-  if (boxes.pals) boxes.pals.checked = g0.pals;
-  if (boxes.bird) boxes.bird.checked = g0.bird;
-  /* 齒輪裡的「聊天室貓咪與趣味特效」是總開關。關掉時各組不能改，
-     但勾選狀態留著，總開關打開後照各自的選擇回來。 */
   const masterOn = () => {
     try { return localStorage.getItem("sc-pets") !== "off"; } catch (_) { return true; }
   };
@@ -12556,12 +12600,9 @@ function bindZoo() {
     if (!masterOn()) return;
     const t = e.target;
     if (!t) return;
-    const g = read();
-    if (t.id === "zooCats") g.cats = !!t.checked;
-    else if (t.id === "zooPals") g.pals = !!t.checked;
-    else if (t.id === "zooBird") g.bird = !!t.checked;
-    else return;
-    publish(g);
+    const kind = t.id === "zooCats" ? "cats" : t.id === "zooPals" ? "quokka" : t.id === "zooBird" ? "rooster" : "";
+    if (!kind || !S.petGroupsWrite) return;
+    S.petGroupsWrite(kind, !!t.checked);
   });
   document.addEventListener("pointerdown", (e) => {
     if (panel.hidden) return;
@@ -12570,6 +12611,14 @@ function bindZoo() {
   }, true);
 }
 bindZoo();
+
+/* 本機模擬器預覽：?emudb=1&emuauth=1&petroom=<32 hex> 讓兩個視窗訂閱同一間房。 */
+function maybePreviewPets() {
+  const room = LOCAL_PREVIEW && LOCAL_PREVIEW.room;
+  if (!room || !/^[a-f0-9]{32}$/.test(room)) return;
+  connect().then((f) => bindPetGroupSync(f, room, myClientId(), null)).catch((err) => console.warn(err));
+}
+maybePreviewPets();
 
 import("./petmenu.js").catch(() => {}).then(() => import("./room-pets.js")).then((mod) => {
   try { mod.mountRoomPets(); }
