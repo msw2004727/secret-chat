@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-import { loveAskPhase, LOVE_ASK_MS } from '../bubble-fx.js';
+import { loveAskPhase, loveAskSeconds, LOVE_ASK_MS } from '../bubble-fx.js';
 
 assert.equal(LOVE_ASK_MS, 60000);
 const now = 1_000_000;
@@ -14,6 +14,11 @@ assert.equal(loveAskPhase({ ...ask, answer: 'o' }, 'cara', now), 'hearts');
 assert.equal(loveAskPhase({ ...ask, t: now - 60001 }, 'bob', now), 'off');
 assert.equal(loveAskPhase({ ...ask, answer: 'x' }, 'bob', now), 'recipient');
 assert.equal(loveAskPhase(null, 'bob', now), 'off');
+assert.equal(loveAskSeconds(400), 1);
+assert.equal(loveAskSeconds(0), 1);
+assert.equal(loveAskSeconds(1499), 1);
+assert.equal(loveAskSeconds(1500), 2);
+assert.equal(loveAskSeconds(12800), 13);
 
 const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url), 'utf8'));
 const node = rules.rules.rooms.$roomId.loveAsk;
@@ -22,6 +27,8 @@ assert.match(node['.validate'], /!newData\.exists\(\)/);
 assert.match(node['.validate'], /hasChildren\(\['id','by','t'\]\)/);
 assert.match(node.t['.validate'], /now \+ 60000/);
 assert.match(node.answer['.validate'], /=== 'o'/);
+assert.match(node.ms['.validate'], /newData.isNumber\(\)/);
+assert.match(node.ms['.validate'], /<= 120000/);
 const ctx = {
   now,
   newData: {
@@ -47,7 +54,9 @@ assert.equal((html.match(/敬請期待/g) || []).length, 2);
 assert.match(html.slice(loveBtn, loveBtn + 400), /愛我嗎\?/);
 assert.match(html, /id="loveCard"/);
 assert.match(html, /你愛我嗎？/);
-assert.match(html, /他說他愛你!!!!/);
+assert.match(app, /他" \+ loveAskSeconds\(ms\) \+ "秒說他愛你啦!!!/);
+assert.match(app, /answer: "o", ms: wait/);
+assert.doesNotMatch(html, /他說他愛你!!!!/);
 assert.match(html, /id="loveCapsule"/);
 assert.match(html, /等待回答…/);
 assert.doesNotMatch(html, /waltz|華爾滋/);

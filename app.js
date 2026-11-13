@@ -11,7 +11,7 @@
 
 import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat-performance.js";
 import { Droop, petGroupsFromSnap } from "./droop.js";
-import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS, loveAskPhase, LOVE_ASK_MS } from "./bubble-fx.js";
+import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS, loveAskPhase, loveAskSeconds, LOVE_ASK_MS } from "./bubble-fx.js";
 attachBubbleFx(Droop);
 
 const CFG = window.CONFIG;
@@ -22,7 +22,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.60";
+const APP_VERSION = "v61.61";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5336,11 +5336,12 @@ async function enterChat() {
     showLoveCapsule();
     set(loveAskRef, { id, by: S.clientId, t: serverTimestamp() }).catch(() => hideLoveCapsule());
   };
-  S.answerLoveAsk = async (id) => {
+  S.answerLoveAsk = async (id, ms) => {
     const snap = await get(loveAskRef);
     const rec = snap.val();
     if (!rec || rec.id !== id || rec.answer === "o") return;
-    await update(loveAskRef, { answer: "o" });
+    const wait = Math.max(0, Math.min(120000, Math.round(Number(ms) || 0)));
+    await update(loveAskRef, { answer: "o", ms: wait });
   };
   S.subs.push(onValue(loveAskRef, (snap) => {
     if (myGen !== S.gen) return;
@@ -12782,12 +12783,13 @@ function answerFakeCallTap() {
 
 /* 愛我嗎。發出的人看右上角「等待回答…」；其他人看卡片。
    O 固定。X 每次被碰到就繞著卡片果凍滑開，不蓋到 O 或題字。
-   按 O 之後兩邊愛心鋪滿再淡出；發出的人正中多一行「他說他愛你!!!!」。 */
+   按 O 之後兩邊愛心鋪滿再淡出；發出的人正中看到對方花了幾秒。 */
 const LOVE_SHADES = ["#ffe4ec", "#ffd0dc", "#ffb3c7", "#ff8fab", "#ff6b8a", "#ff4d6d", "#ff2d55", "#f31248", "#e11d48", "#be123c", "#9f1239", "#fb7185"];
 let loveTimer = 0;
 let loveWasCaller = false;
 let loveWatch = null;
 let lovePlayed = null;
+let loveShownAt = 0;
 let loveRun = 0;
 let loveDodgeLock = 0;
 let loveXPos = null;
@@ -12870,6 +12872,7 @@ function resetLoveAskUi() {
   loveWasCaller = false;
   loveWatch = null;
   lovePlayed = null;
+  loveShownAt = 0;
   stopLoveHearts();
   hideLoveCard();
   placeLoveXHome();
@@ -13085,7 +13088,7 @@ function loveHeartField(w, h) {
   }
   return out;
 }
-function playLoveHearts(withText) {
+function playLoveHearts(withText, ms) {
   const hearts = $("loveHearts");
   const big = $("loveBig");
   if (!hearts) return;
@@ -13095,6 +13098,7 @@ function playLoveHearts(withText) {
   hearts.classList.remove("fading");
   hearts.style.opacity = "1";
   if (big) {
+    if (withText) big.textContent = "他" + loveAskSeconds(ms) + "秒說他愛你啦!!!";
     big.classList.toggle("show", !!withText);
     big.classList.remove("fading");
   }
@@ -13171,6 +13175,7 @@ function applyLoveAsk(rec, now) {
     return;
   }
   if (phase === "recipient") {
+    if (loveWatch !== id) loveShownAt = performance.now();
     loveWatch = id;
     if (loveWasCaller) fadeLoveCapsule();
     else hideLoveCapsule();
@@ -13188,7 +13193,7 @@ function applyLoveAsk(rec, now) {
     loveWasCaller = false;
     if (loveWatch === id && lovePlayed !== id) {
       lovePlayed = id;
-      playLoveHearts(phase === "loved");
+      playLoveHearts(phase === "loved", rec && rec.ms);
     }
     return;
   }
@@ -13202,9 +13207,10 @@ function applyLoveAsk(rec, now) {
 function answerLoveYes() {
   const rec = S.loveAsk;
   if (!rec || !rec.id || rec.by === S.clientId || rec.answer === "o") return;
+  const ms = loveShownAt ? Math.max(0, performance.now() - loveShownAt) : 0;
   lovePlayed = rec.id;
   loveWatch = rec.id;
-  if (S.answerLoveAsk) S.answerLoveAsk(rec.id).catch(() => {});
+  if (S.answerLoveAsk) S.answerLoveAsk(rec.id, ms).catch(() => {});
   playLoveHearts(false);
 }
 
