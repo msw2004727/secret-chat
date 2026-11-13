@@ -14,11 +14,11 @@ assert.equal(loveAskPhase({ ...ask, answer: 'o' }, 'cara', now), 'hearts');
 assert.equal(loveAskPhase({ ...ask, t: now - 60001 }, 'bob', now), 'off');
 assert.equal(loveAskPhase({ ...ask, answer: 'x' }, 'bob', now), 'recipient');
 assert.equal(loveAskPhase(null, 'bob', now), 'off');
-assert.equal(loveAskSeconds(400), 1);
-assert.equal(loveAskSeconds(0), 1);
-assert.equal(loveAskSeconds(1499), 1);
-assert.equal(loveAskSeconds(1500), 2);
-assert.equal(loveAskSeconds(12800), 13);
+assert.equal(loveAskSeconds(3470), "3.47");
+assert.equal(loveAskSeconds(400), "0.40");
+assert.equal(loveAskSeconds(0), "0.00");
+assert.equal(loveAskSeconds(1500), "1.50");
+assert.equal(loveAskSeconds(12800), "12.80");
 
 const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url), 'utf8'));
 const node = rules.rules.rooms.$roomId.loveAsk;
