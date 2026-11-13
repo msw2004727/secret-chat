@@ -18,8 +18,9 @@ export function attachQuokka(api) {
   api.layer.appendChild(wrap);
   wrap.hidden = true;
 
-  const q = { x: 0, dir: -1, moving: false, until: 0, walkT0: 0, placed: false };
+  const q = { x: 0, dir: -1, moving: false, until: 0, walkT0: 0, placed: false, exitDir: 0 };
   let hold = null;
+  let march = null;
   let bitmaps = [];
   let gw = 54, gh = 78;
   let lastNow = 0;
@@ -69,6 +70,27 @@ export function attachQuokka(api) {
     if (!api.enabled()) { wrap.hidden = true; return; }
     const dt = lastNow ? Math.min(0.05, Math.max(0, (now - lastNow) / 1000)) : 0;
     lastNow = now;
+    if (march && march.done) { wrap.hidden = true; return; }
+    if (march) {
+      q.moving = true;
+      q.dir = march.dir;
+      if (!q.walkT0) q.walkT0 = now;
+      q.x += march.dir * 150 * dt;
+      const w = width();
+      if (march.mode === "out" && (q.x < -w - 8 || q.x > api.areaW() + 8)) {
+        march.done = true;
+        wrap.hidden = true;
+        return;
+      }
+      if (march.mode === "in" && ((march.dir > 0 && q.x >= march.dest) || (march.dir < 0 && q.x <= march.dest))) {
+        q.x = march.dest;
+        q.moving = false;
+        q.until = now + 700;
+        march = null;
+      }
+      paint(now);
+      return;
+    }
     if (!hold) {
       if (now >= q.until) {
         if (Math.random() < 0.35) {
@@ -92,10 +114,29 @@ export function attachQuokka(api) {
     paint(now);
   }
 
+  function beginMarch(mode, dir) {
+    const travel = dir < 0 ? -1 : 1;
+    const w = width();
+    q.placed = true;
+    if (mode === "in") q.x = travel > 0 ? -w - 12 : api.areaW() + 12;
+    q.dir = travel;
+    q.exitDir = mode === "out" ? travel : (q.exitDir || -travel);
+    q.moving = true;
+    q.walkT0 = performance.now();
+    wrap.hidden = false;
+    march = {
+      mode, dir: travel, done: false,
+      dest: travel > 0 ? Math.max(8, api.areaW() * 0.62) : Math.max(8, api.areaW() * 0.34),
+    };
+  }
+
   return {
     step,
     shift() {},
-    hide() { wrap.hidden = true; },
+    hide() { march = null; wrap.hidden = true; },
+    march: beginMarch,
+    marchDone() { return !march || !!march.done; },
+    settle(on) { march = null; wrap.hidden = !on; },
     demo(opts) { hold = opts || null; if (hold && hold.moving) q.walkT0 = performance.now(); },
     get q() { return q; },
   };

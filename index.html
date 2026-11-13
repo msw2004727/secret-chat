@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.51">
+<meta name="sc-shell" content="v61.52">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -318,6 +318,23 @@
               d="M5.4 7.2H3.2M5.4 12H3.2M5.4 16.8H3.2"/>
       </svg>
     </button>
+
+    <!-- 動物分組跟房間同步。拿棍子的那隻正式名稱是 QUOKKA。 -->
+    <div class="c-zoo" id="zooSlot">
+      <button class="c-icon" id="btnZoo" type="button" aria-label="動物" aria-expanded="false" aria-controls="zooPanel" title="動物">
+        <svg class="c-zoo-chev" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.5 8.2 12 13.2 17.5 8.2"/>
+          <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.5 13.2 12 18.2 17.5 13.2"/>
+        </svg>
+      </button>
+      <div class="c-zoo-panel" id="zooPanel" hidden>
+        <label class="c-zoo-row"><span>貓咪 ×2</span><span class="c-sw"><input type="checkbox" id="zooCats" checked><span class="c-sw-t"></span></span></label>
+        <label class="c-zoo-row"><span>bobo + QUOKKA</span><span class="c-sw"><input type="checkbox" id="zooPals" checked><span class="c-sw-t"></span></span></label>
+        <label class="c-zoo-row"><span>雞</span><span class="c-sw"><input type="checkbox" id="zooBird" checked><span class="c-sw-t"></span></span></label>
+        <div class="c-zoo-row is-soon" aria-disabled="true"><span>敬請期待</span><span class="c-sw" aria-hidden="true"><span class="c-sw-t"></span></span></div>
+        <div class="c-zoo-row is-soon" aria-disabled="true"><span>敬請期待</span><span class="c-sw" aria-hidden="true"><span class="c-sw-t"></span></span></div>
+      </div>
+    </div>
 
     <button class="c-icon" id="btnSettings" aria-label="設定" title="設定">
       <svg viewBox="0 0 24 24" width="21" height="21">

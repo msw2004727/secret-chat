@@ -217,6 +217,23 @@
             }
           }
         },
+        "pets": {
+          "$kind": {
+            ".validate": "!newData.exists() || (($kind === 'cats' || $kind === 'quokka' || $kind === 'rooster') && newData.hasChildren(['on','t','by']))",
+            "on": {
+              ".validate": "newData.isBoolean()"
+            },
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+            },
+            "by": {
+              ".validate": "newData.isString() && newData.val().length <= 64"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
         "rain": {
           ".validate": "!newData.exists() || newData.hasChildren(['t','by'])",
           "t": {

@@ -1,6 +1,6 @@
 /* 黑羽土雞公雞。只在這台瀏覽器裡跑，跟貓共用 #cats 這一層，不上傳。
-   預設跟著「聊天室貓咪與趣味特效」：那顆開關開著雞就在，關掉雞也收掉。
-   現在沒有分貓種的開關，所以雞不另外做一顆。 */
+   齒輪裡的趣味特效關掉，這台裝置就看不到雞。
+   房間分組 rooms/<房>/pets/rooster 關掉時，雞會先走出去。 */
 import { Rooster } from "./rooster.js";
 
 export function attachRooster(api) {
@@ -262,6 +262,33 @@ export function attachRooster(api) {
       if (rooster.blink > 0) { rooster.blink = 0; rooster.blinkUntil = now + rand(1800, 4200); }
       else { rooster.blink = 1; rooster.blinkUntil = now + 120; }
     }
+    if (march && march.done) { wrap.hidden = true; return; }
+    if (march && !rooster.flight) {
+      rooster.roam = false;
+      rooster.perch = null;
+      rooster.action = "walk";
+      rooster.dir = march.dir;
+      rooster.feetY = floorY();
+      rooster.x += march.dir * 150 * dt;
+      rooster.local = (rooster.local + dt / 0.32) % 1;
+      const w = RW * S();
+      if (march.mode === "out" && (rooster.x < -w - 8 || rooster.x > areaW() + 8)) {
+        march.done = true;
+        wrap.hidden = true;
+        return;
+      }
+      if (march.mode === "in" && ((march.dir > 0 && rooster.x >= march.dest) || (march.dir < 0 && rooster.x <= march.dest))) {
+        rooster.x = march.dest;
+        march = null;
+        rooster.action = "idle";
+        rooster.roam = true;
+        rooster.nextThink = now + 500;
+      }
+      const pose = Rooster.makePose("walk", rooster.local, { time: now, dir: rooster.dir, blink: rooster.blink });
+      lastPose = pose;
+      paint(pose, now);
+      return;
+    }
     if (rooster.flight) {
       const f = rooster.flight;
       const t = clamp((now - f.t0) / f.dur, 0, 1);
@@ -349,6 +376,25 @@ export function attachRooster(api) {
   });
 
   let placed = false;
+  let march = null;
+  function beginMarch(mode, dir) {
+    const travel = dir < 0 ? -1 : 1;
+    const w = RW * S();
+    rooster.flight = null;
+    rooster.perch = null;
+    placed = true;
+    if (mode === "in") rooster.x = travel > 0 ? -w - 12 : areaW() + 12;
+    rooster.dir = travel;
+    rooster.exitDir = mode === "out" ? travel : (rooster.exitDir || -travel);
+    rooster.action = "walk";
+    rooster.roam = false;
+    rooster.feetY = floorY();
+    wrap.hidden = false;
+    march = {
+      mode, dir: travel, done: false,
+      dest: travel > 0 ? Math.max(8, areaW() * 0.42) : Math.max(8, areaW() * 0.62),
+    };
+  }
   const place = () => {
     if (placed || areaW() < 40) return;
     rooster.x = Math.min(maxX(), areaW() * 0.46);
@@ -356,7 +402,10 @@ export function attachRooster(api) {
   };
   return {
     step, shift, jumpOntoBubble, hopDown, setAction,
-    hide() { wrap.hidden = true; },
+    hide() { march = null; wrap.hidden = true; },
+    march: beginMarch,
+    marchDone() { return !march || !!march.done; },
+    settle(on) { march = null; rooster.flight = null; wrap.hidden = !on; },
     get rooster() { return rooster; },
   };
 }

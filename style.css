@@ -1344,6 +1344,41 @@ html[data-theme="dark"] .row.you .lp-card { background: rgba(255,255,255,.06); }
 }
 .c-icon:hover { background: var(--bg-soft); color: var(--txt); }
 .c-icon:active { transform: scale(.92); background: var(--bg-soft); }
+
+/* 標題列的動物開關（v61.52）。面板掛在齒輪左邊那顆雙箭頭上，
+   淺色深色都吃同一組變數。關掉的那一組只在這台裝置消失。 */
+.c-zoo { position: relative; flex: 0 0 auto; }
+.c-zoo-chev { display: block; transition: transform .16s ease; }
+#btnZoo[aria-expanded="true"] .c-zoo-chev { transform: rotate(180deg); }
+.c-zoo-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 6;
+  width: min(220px, calc(100vw - 20px));
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--txt);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 28px rgba(0,0,0,.16);
+}
+html[data-theme="dark"] .c-zoo-panel { box-shadow: 0 12px 28px rgba(0,0,0,.5); }
+.c-zoo-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px;
+  min-height: 40px;
+  padding: 4px 8px;
+  font-size: 15px; line-height: 1.2;
+  white-space: nowrap;
+}
+.c-zoo-row.is-soon { opacity: .42; pointer-events: none; user-select: none; }
+/* 總開關關掉：各組維持原本的開或關，只是變灰、按不了。 */
+.c-zoo-panel.is-locked .c-zoo-row:not(.is-soon) { opacity: .42; pointer-events: none; }
+#cats.cats-off .claw-mark,
+#cats.cats-off .poop-pile,
+#cats.cats-off .cat-bonk,
+.cat-say-layer.cats-off { visibility: hidden; }
 .c-danger:hover { color: var(--danger); }
 .c-hold {
   position: absolute; inset: auto 0 0 0; height: 100%;

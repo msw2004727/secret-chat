@@ -404,7 +404,7 @@ export function mountRoomPets() {
           c.hangCv.height = c.hangFront.height = Math.round(HANG_H * RES * catK(c));
           c.hangKey = null;
         }
-        c.x = clamp(c.x, Math.min(minX(), wallX(-1)), Math.max(maxX(), wallX(1)));
+        if (!(c.act && (c.act.exit || c.act.enter))) c.x = clamp(c.x, Math.min(minX(), wallX(-1)), Math.max(maxX(), wallX(1)));
         c.cur = null;
       }
       fightEl.style.width = FW * S + "px";
@@ -2213,6 +2213,16 @@ export function mountRoomPets() {
       if (a.type === "walk" || a.type === "run") {
         const step = a.speed * dt;
         const d = a.tx - cat.x;
+        if (a.exit || a.enter) {
+          if (Math.abs(d) <= step) {
+            cat.x = a.tx;
+            a.done = true;
+            if (a.enter) finish(cat, now);
+            return;
+          }
+          cat.x += Math.sign(d) * step;
+          return;
+        }
         if (a.done || Math.abs(d) <= step) { cat.x = a.tx; finish(cat, now); return; }
         cat.x += Math.sign(d) * step;
       } else if (a.type === "flee") {
@@ -3651,6 +3661,108 @@ export function mountRoomPets() {
       enabled: () => petsOn !== false,
     });
     window.__quokka = quokkaApi;
+    /* 房間分組：cats、quokka（Bobo 與 QUOKKA 同一組）、rooster。
+       總開關 sc-pets 關掉時這台裝置全部不顯示，分組狀態仍留在房間裡。
+       現場切換才跑進跑出；晚進房或總開關重新打開只對齊目前狀態。 */
+    let groups = { cats: true, quokka: true, rooster: true };
+    let phase = { cats: "shown", quokka: "shown", rooster: "shown" };
+    function motionOk() {
+      try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (_) { return true; }
+    }
+    function quietCats(now) {
+      try { if (soc) endSoc(now); } catch (_) {}
+      try { for (const j of jellies.slice()) resetJelly(j); } catch (_) {}
+      for (const c of cats) {
+        try {
+          if (c.act && c.act.type === "bite") abortBite(c, now);
+          else if (c.act && c.act.type === "hang") stopBite(c, now);
+        } catch (_) {}
+        c.queue = []; c.y = 0; c._hangOn = false; c.jx = 0;
+        if (c.hangFront) c.hangFront.style.display = "none";
+        if (c.hangCv) c.hangCv.style.display = "none";
+        try { if (c.talking) hideTalk(c, now); } catch (_) {}
+        try { hideBubble(c, now); } catch (_) {}
+        try { start(c, { type: "sit", dur: rand(1500, 2600) }, now); } catch (_) {}
+        c.el.hidden = true;
+      }
+      if (ball.carrier) {
+        try { dropBall(ball.carrier, now); }
+        catch (_) { ball.state = "loose"; ball.carrier = null; }
+      }
+      try { clearPetFx(); } catch (_) {}
+      try { if (frontCv) frontCv.style.display = "none"; } catch (_) {}
+      try { if (fightEl) fightEl.style.display = "none"; } catch (_) {}
+      layer.classList.add("cats-off");
+      sayLayer.classList.add("cats-off");
+    }
+    function showCats() {
+      for (const c of cats) { c.el.hidden = false; c.hidden = false; c.el.style.visibility = ""; }
+      layer.classList.remove("cats-off");
+      sayLayer.classList.remove("cats-off");
+    }
+    function catWidth(c) { return W * catS(c); }
+    function startCatLeave(now) {
+      quietCats(now);
+      showCats();
+      for (const c of cats) {
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        c.exitDir = dir;
+        const tx = dir > 0 ? areaW + catWidth(c) + 16 : -catWidth(c) - 16;
+        start(c, { type: "run", tx, speed: 260, exit: true, dur: 1e9 }, now);
+      }
+    }
+    function startCatEnter(now) {
+      showCats();
+      for (const c of cats) {
+        const back = -(c.exitDir || (Math.random() < 0.5 ? -1 : 1));
+        const w = catWidth(c);
+        c.x = back > 0 ? -w - 12 : areaW + 12;
+        c.y = 0;
+        c.queue = [];
+        const tx = c.name === "gray" ? Math.max(12, areaW * 0.16) : Math.max(12, areaW * 0.58);
+        start(c, { type: "run", tx, speed: 240, enter: true, dur: 1e9 }, now);
+      }
+    }
+    function settleFloor(key, on) {
+      const apis = key === "quokka" ? [boboApi, quokkaApi] : [roosterApi];
+      for (const api of apis) if (api && api.settle) api.settle(on);
+    }
+    function startFloorLeave(key) {
+      const dir = () => Math.random() < 0.5 ? -1 : 1;
+      if (key === "quokka") {
+        if (boboApi) boboApi.march("out", dir());
+        if (quokkaApi) quokkaApi.march("out", dir());
+      } else if (roosterApi) roosterApi.march("out", dir());
+    }
+    function startFloorEnter(key) {
+      const back = (api, field) => {
+        const prev = api && api[field] && api[field].exitDir;
+        return -(prev || (Math.random() < 0.5 ? -1 : 1));
+      };
+      if (key === "quokka") {
+        if (boboApi) boboApi.march("in", back(boboApi, "bobo"));
+        if (quokkaApi) quokkaApi.march("in", back(quokkaApi, "q"));
+      } else if (roosterApi) roosterApi.march("in", back(roosterApi, "rooster"));
+    }
+    function snapGroup(key, now) {
+      const on = groups[key] !== false;
+      phase[key] = on ? "shown" : "gone";
+      if (key === "cats") { if (on) showCats(); else quietCats(now); }
+      else settleFloor(key, on);
+    }
+    function applyGroups(next, animate, now) {
+      const live = !!animate && petsOn !== false && motionOk();
+      for (const key of ["cats", "quokka", "rooster"]) {
+        const on = next[key] !== false;
+        const was = groups[key] !== false;
+        groups[key] = on;
+        if (!live || was === on) { if (!live) snapGroup(key, now); continue; }
+        phase[key] = on ? "entering" : "leaving";
+        if (key === "cats") { if (on) startCatEnter(now); else startCatLeave(now); }
+        else if (on) startFloorEnter(key);
+        else startFloorLeave(key);
+      }
+    }
     let last = performance.now();
     let overlapped = false;
     let rafId = 0;
@@ -3668,17 +3780,31 @@ export function mountRoomPets() {
       const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
       last = now;
       geom();
-      if (roosterApi) roosterApi.step(now);
-      if (boboApi) boboApi.step(now);
-      if (quokkaApi) quokkaApi.step(now);
+      const floorStep = (key, apis) => {
+        if (phase[key] === "leaving" || phase[key] === "entering") {
+          for (const api of apis) if (api) api.step(now);
+          if (apis.every((api) => !api || api.marchDone())) {
+            phase[key] = groups[key] ? "shown" : "gone";
+            if (!groups[key]) for (const api of apis) if (api) api.hide();
+          }
+        } else if (groups[key]) {
+          for (const api of apis) if (api) api.step(now);
+        } else {
+          for (const api of apis) if (api) api.hide();
+        }
+      };
+      floorStep("rooster", [roosterApi]);
+      floorStep("quokka", [boboApi, quokkaApi]);
       const shapes = bubbleShapes();
-      if (!soc && now > nextSocialAt) {
+      const catsOn = phase.cats === "shown" || phase.cats === "entering";
+      if (phase.cats === "shown" && !soc && now > nextSocialAt) {
         if (canJoin(cats[0], now) && canJoin(cats[1], now)) startSocial(now);
         else nextSocialAt = now + 400;
       }
       ballPhysics(dt, now, shapes);
+      if (catsOn) {
       for (const c of cats) {
-        if (!inSoc(c) && !(c.act && (c.act.type === "funny" || c.act.type === "poop"))) ballThink(c, now, false);
+        if (!inSoc(c) && !(c.act && (c.act.type === "funny" || c.act.type === "poop" || c.act.enter))) ballThink(c, now, false);
         /* 保險：同一個動作卡太久就換下一個（僵住和便便有自己的看門狗） */
         const a = c.act;
         if (a && !inSoc(c) && a.type !== "sleep" && a.type !== "funny" && a.type !== "poop" && !a.tapped && now - a.t0 > 22000) { c.queue = []; finish(c, now); }
@@ -3701,7 +3827,18 @@ export function mountRoomPets() {
       try { poopPilesStep(now); } catch (_) { clearPoops(); }
       try { petFxStep(now); } catch (_) { clearPetFx(); }
       renderFront();
-      biteSchedule(now);
+      if (!cats.some((c) => c.act && c.act.enter)) biteSchedule(now);
+      if (phase.cats === "entering" && cats.every((c) => !(c.act && c.act.enter))) phase.cats = "shown";
+      } else if (phase.cats === "leaving") {
+        for (const c of cats) {
+          try { update(c, now, dt); render(c, now); }
+          catch (err) { petSafeReset(c, now, err); }
+        }
+        if (cats.every((c) => c.act && c.act.exit && c.act.done)) {
+          quietCats(now);
+          phase.cats = "gone";
+        }
+      }
       renderBall(now);
       drawShade(now, dt, shapes);
       } catch (err) {
@@ -3802,10 +3939,18 @@ export function mountRoomPets() {
       nextBiteAt = Math.max(nextBiteAt, n + rand(6000, 12000));
       for (const c of cats) c.nextClawAt = Math.max(c.nextClawAt || 0, n + rand(10000, 25000));
       for (const c of cats) c.nextPoopAt = Math.max(c.nextPoopAt || 0, n + rand(POOP_FIRST[0], POOP_FIRST[1]));
+      applyGroups(groups, false, n);
       wake();
     }
     window.addEventListener("sc-pets", (e) => { if (e.detail && e.detail.on) petsEnable(); else petsDisable(); });
+    const takeGroups = (d) => applyGroups({
+      cats: !d || d.cats !== false,
+      quokka: !d || d.quokka !== false,
+      rooster: !d || d.rooster !== false,
+    }, !!(d && d.animate), performance.now());
+    window.addEventListener("sc-pet-groups", (e) => takeGroups(e.detail || {}));
     try { if (localStorage.getItem("sc-pets") === "off") petsOn = false; } catch (_) {}
+    if (window.__petGroupState) takeGroups({ ...window.__petGroupState, animate: false });
     if (petsOn === false) petsDisable(); else wake();
     /* 測試用：window.__cats 可以直接觸發互動 */
     window.__cats = { cats, ball, get enabled() { return petsOn !== false; }, setEnabled: (on) => { if (on) petsEnable(); else petsDisable(); }, bonk: (i) => { const c = cats[i || 0]; c.bonkCd = 0; return bonk(c, performance.now()); }, get S() { return S; }, get floorY() { return floorY; },
