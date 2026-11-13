@@ -20,7 +20,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.51";
+const APP_VERSION = "v61.52";
 // 停用植物與思念／友誼的 UI、訂閱、計時器及寫入；雲端既有資料保留。
 const ROOM_EXTRAS_ENABLED = false;
 
@@ -12510,6 +12510,66 @@ function bindAdmin() {
     toast("按住 2 秒才會清空");
   });
 }
+
+/* 標題列的動物開關。選擇只留在這台裝置，房間裡的其他人看不到。 */
+function bindZoo() {
+  const btn = $("btnZoo"), panel = $("zooPanel");
+  if (!btn || !panel || btn.dataset.bound) return;
+  btn.dataset.bound = "1";
+  const KEY = "sc-pet-groups";
+  const read = () => {
+    try {
+      const v = JSON.parse(localStorage.getItem(KEY) || "{}");
+      if (!v || typeof v !== "object") return { cats: true, pals: true, bird: true };
+      return { cats: v.cats !== false, pals: v.pals !== false, bird: v.bird !== false };
+    } catch (_) { return { cats: true, pals: true, bird: true }; }
+  };
+  const boxes = { cats: $("zooCats"), pals: $("zooPals"), bird: $("zooBird") };
+  const publish = (g) => {
+    try { localStorage.setItem(KEY, JSON.stringify(g)); } catch (_) {}
+    window.dispatchEvent(new CustomEvent("sc-pet-groups", { detail: g }));
+  };
+  const g0 = read();
+  if (boxes.cats) boxes.cats.checked = g0.cats;
+  if (boxes.pals) boxes.pals.checked = g0.pals;
+  if (boxes.bird) boxes.bird.checked = g0.bird;
+  /* 齒輪裡的「聊天室貓咪與趣味特效」是總開關。關掉時各組不能改，
+     但勾選狀態留著，總開關打開後照各自的選擇回來。 */
+  const masterOn = () => {
+    try { return localStorage.getItem("sc-pets") !== "off"; } catch (_) { return true; }
+  };
+  const paintMaster = () => {
+    const on = masterOn();
+    panel.classList.toggle("is-locked", !on);
+    for (const box of [boxes.cats, boxes.pals, boxes.bird]) {
+      if (box) box.disabled = !on;
+    }
+  };
+  paintMaster();
+  window.addEventListener("sc-pets", paintMaster);
+  const setOpen = (on) => {
+    panel.hidden = !on;
+    btn.setAttribute("aria-expanded", on ? "true" : "false");
+  };
+  btn.addEventListener("click", () => setOpen(panel.hidden));
+  panel.addEventListener("change", (e) => {
+    if (!masterOn()) return;
+    const t = e.target;
+    if (!t) return;
+    const g = read();
+    if (t.id === "zooCats") g.cats = !!t.checked;
+    else if (t.id === "zooPals") g.pals = !!t.checked;
+    else if (t.id === "zooBird") g.bird = !!t.checked;
+    else return;
+    publish(g);
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (panel.hidden) return;
+    if (e.target && e.target.closest && e.target.closest("#zooSlot")) return;
+    setOpen(false);
+  }, true);
+}
+bindZoo();
 
 import("./petmenu.js").catch(() => {}).then(() => import("./room-pets.js")).then((mod) => {
   try { mod.mountRoomPets(); }

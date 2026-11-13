@@ -219,4 +219,26 @@ assert.match(pets, /lines\.filter\(\(t\) => t !== cat\.lastTalk\)/);
 assert.match(pets, /const TALK_MS = 3000/);
 assert.doesNotMatch(pets, /小麥我愛妳/);
 
+assert.match(html, /id="btnZoo"[\s\S]*id="btnSettings"/);
+assert.match(html, /貓咪 ×2/);
+assert.match(html, /bobo \+ 棕熊/);
+assert.match(html, /id="zooBird"/);
+assert.equal((html.match(/敬請期待/g) || []).length, 2);
+assert.match(css, /\.c-zoo-row\.is-soon \{[^}]*pointer-events: none;/);
+assert.match(css, /#btnZoo\[aria-expanded="true"\] \.c-zoo-chev \{[^}]*rotate\(180deg\)/);
+assert.match(app, /sc-pet-groups/);
+assert.match(pets, /sc-pet-groups/);
+assert.match(pets, /groups\.cats && !soc/);
+assert.match(pets, /groups\.bird && roosterApi\) roosterApi\.step/);
+assert.match(pets, /groups\.pals && boboApi\) boboApi\.step/);
+assert.match(pets, /groups\.pals && quokkaApi\) quokkaApi\.step/);
+const zoo = app.slice(app.indexOf("function bindZoo"), app.indexOf("\nbindZoo();"));
+assert.doesNotMatch(zoo, /firebase|database|rooms\//);
+assert.match(zoo, /localStorage\.setItem\(KEY/);
+assert.match(zoo, /addEventListener\("sc-pets", paintMaster\)/);
+assert.match(zoo, /box\.disabled = !on/);
+assert.match(css, /\.c-zoo-panel\.is-locked \.c-zoo-row:not\(\.is-soon\) \{[^}]*pointer-events: none;/);
+assert.match(html, /id="setPets"/);
+assert.match(html, /聊天室貓咪與趣味特效/);
+
 console.log('PASS: message bubbles stay 18/6 rounded rects; cat mood bubble is a 30px circle; pets stay local and behind bubbles.');

@@ -3651,6 +3651,54 @@ export function mountRoomPets() {
       enabled: () => petsOn !== false,
     });
     window.__quokka = quokkaApi;
+    /* 這一台裝置自己的動物開關。貓咪＝灰貓＋藍黑貓；雞＝土雞；
+       pals＝Bobo＋拿棍子的袋鼠（沒有棕熊，袋鼠是最接近的棕色動物）。
+       只記在 localStorage，不寫進房間。總開關 sc-pets 關掉時全部都不出現。 */
+    function readPetGroups() {
+      try {
+        const v = JSON.parse(localStorage.getItem("sc-pet-groups") || "{}");
+        if (!v || typeof v !== "object") return { cats: true, pals: true, bird: true };
+        return { cats: v.cats !== false, pals: v.pals !== false, bird: v.bird !== false };
+      } catch (_) { return { cats: true, pals: true, bird: true }; }
+    }
+    let groups = readPetGroups();
+    function quietCats(now) {
+      try { if (soc) endSoc(now); } catch (_) {}
+      try { for (const j of jellies.slice()) resetJelly(j); } catch (_) {}
+      for (const c of cats) {
+        try {
+          if (c.act && c.act.type === "bite") abortBite(c, now);
+          else if (c.act && c.act.type === "hang") stopBite(c, now);
+        } catch (_) {}
+        c.queue = []; c.y = 0; c._hangOn = false; c.jx = 0;
+        if (c.hangFront) c.hangFront.style.display = "none";
+        if (c.hangCv) c.hangCv.style.display = "none";
+        try { if (c.talking) hideTalk(c, now); } catch (_) {}
+        try { hideBubble(c, now); } catch (_) {}
+        try { start(c, { type: "sit", dur: rand(1500, 2600) }, now); } catch (_) {}
+        c.el.hidden = true;
+      }
+      if (ball.carrier) {
+        try { dropBall(ball.carrier, now); }
+        catch (_) { ball.state = "loose"; ball.carrier = null; }
+      }
+      try { clearPetFx(); } catch (_) {}
+      try { if (frontCv) frontCv.style.display = "none"; } catch (_) {}
+      try { if (fightEl) fightEl.style.display = "none"; } catch (_) {}
+      layer.classList.add("cats-off");
+      sayLayer.classList.add("cats-off");
+    }
+    function showCats() {
+      for (const c of cats) c.el.hidden = false;
+      layer.classList.remove("cats-off");
+      sayLayer.classList.remove("cats-off");
+    }
+    function syncGroups(now) {
+      if (petsOn === false) return;
+      if (groups.cats) showCats(); else quietCats(now);
+      if (!groups.pals) { if (boboApi) boboApi.hide(); if (quokkaApi) quokkaApi.hide(); }
+      if (!groups.bird && roosterApi) roosterApi.hide();
+    }
     let last = performance.now();
     let overlapped = false;
     let rafId = 0;
@@ -3668,15 +3716,19 @@ export function mountRoomPets() {
       const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
       last = now;
       geom();
-      if (roosterApi) roosterApi.step(now);
-      if (boboApi) boboApi.step(now);
-      if (quokkaApi) quokkaApi.step(now);
+      if (groups.bird && roosterApi) roosterApi.step(now);
+      else if (roosterApi) roosterApi.hide();
+      if (groups.pals && boboApi) boboApi.step(now);
+      else if (boboApi) boboApi.hide();
+      if (groups.pals && quokkaApi) quokkaApi.step(now);
+      else if (quokkaApi) quokkaApi.hide();
       const shapes = bubbleShapes();
-      if (!soc && now > nextSocialAt) {
+      if (groups.cats && !soc && now > nextSocialAt) {
         if (canJoin(cats[0], now) && canJoin(cats[1], now)) startSocial(now);
         else nextSocialAt = now + 400;
       }
       ballPhysics(dt, now, shapes);
+      if (groups.cats) {
       for (const c of cats) {
         if (!inSoc(c) && !(c.act && (c.act.type === "funny" || c.act.type === "poop"))) ballThink(c, now, false);
         /* 保險：同一個動作卡太久就換下一個（僵住和便便有自己的看門狗） */
@@ -3702,6 +3754,7 @@ export function mountRoomPets() {
       try { petFxStep(now); } catch (_) { clearPetFx(); }
       renderFront();
       biteSchedule(now);
+      }
       renderBall(now);
       drawShade(now, dt, shapes);
       } catch (err) {
@@ -3802,11 +3855,17 @@ export function mountRoomPets() {
       nextBiteAt = Math.max(nextBiteAt, n + rand(6000, 12000));
       for (const c of cats) c.nextClawAt = Math.max(c.nextClawAt || 0, n + rand(10000, 25000));
       for (const c of cats) c.nextPoopAt = Math.max(c.nextPoopAt || 0, n + rand(POOP_FIRST[0], POOP_FIRST[1]));
+      syncGroups(n);
       wake();
     }
     window.addEventListener("sc-pets", (e) => { if (e.detail && e.detail.on) petsEnable(); else petsDisable(); });
+    window.addEventListener("sc-pet-groups", (e) => {
+      const d = e.detail || {};
+      groups = { cats: d.cats !== false, pals: d.pals !== false, bird: d.bird !== false };
+      if (petsOn !== false) syncGroups(performance.now());
+    });
     try { if (localStorage.getItem("sc-pets") === "off") petsOn = false; } catch (_) {}
-    if (petsOn === false) petsDisable(); else wake();
+    if (petsOn === false) petsDisable(); else { syncGroups(performance.now()); wake(); }
     /* 測試用：window.__cats 可以直接觸發互動 */
     window.__cats = { cats, ball, get enabled() { return petsOn !== false; }, setEnabled: (on) => { if (on) petsEnable(); else petsDisable(); }, bonk: (i) => { const c = cats[i || 0]; c.bonkCd = 0; return bonk(c, performance.now()); }, get S() { return S; }, get floorY() { return floorY; },
       talk: (name, force) => { const c = typeof name === "number" ? cats[name] : cats.find((x) => x.name === name); return showTalk(c, performance.now(), force !== false); },
