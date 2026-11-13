@@ -3,7 +3,7 @@
    軟掉／斷掉／復原同時寫進既有的 dr，連點手勢才不會跟環形選單各講各的。
    堅挺是軟掉的反方向（往上捲），dr 沒有這個形狀，只放在 bubbleFx。
    環形選單：8 顆直徑 48px 的圓鈕，繞著按壓點、半徑 81px 排滿 360°。 */
-import { Droop, droopRecordKind } from "./droop.js";
+import { Droop, droopRecordKind, DROOP_CLIMB_FRESH_MS } from "./droop.js";
 
 export const BUBBLE_RING = { COUNT: 8, DIAMETER: 48, RADIUS: 81 };
 export const BUBBLE_FX_STATES = ["stiff", "soft", "break", "normal"];
@@ -52,6 +52,23 @@ export function bubbleRingShift(x, y, radius, diameter, bounds) {
 }
 
 /* 從正上方開始，順時針排滿一圈。座標是鈕的左上角，原點在圓心。 */
+/* 堅挺寫進房間後，全房正在看的人各播一次黑貓爬灰貓。太舊的不重播。 */
+export function stiffClimbIds(val, now, seen, freshMs = DROOP_CLIMB_FRESH_MS) {
+  const ids = [];
+  if (!val || typeof val !== "object" || !Number.isFinite(+now)) return ids;
+  const have = seen || new Set();
+  for (const key of Object.keys(val)) {
+    const rec = val[key];
+    if (!rec || rec.state !== "stiff") continue;
+    const t = Number(rec.t);
+    if (!Number.isFinite(t) || Math.abs(+now - t) > freshMs) continue;
+    const id = key + ":" + t;
+    if (have.has(id)) continue;
+    ids.push(id);
+  }
+  return ids;
+}
+
 export function bubbleRingPoints(count, radius, diameter) {
   const n = Number(count) || 0;
   const r = Number(radius) || 0;
@@ -77,9 +94,20 @@ function rowFor(key) {
 
 export const BubbleFx = {
   last: null,
+  climbSeen: null,
   sync(val) {
     this.last = val && typeof val === "object" ? val : {};
     this.paintAll();
+    this.notifyStiffClimb();
+  },
+  notifyStiffClimb() {
+    if (typeof window === "undefined") return;
+    if (!this.climbSeen) this.climbSeen = new Set();
+    const now = Droop.now();
+    for (const id of stiffClimbIds(this.last, now, this.climbSeen)) {
+      this.climbSeen.add(id);
+      try { window.dispatchEvent(new CustomEvent("sc-droop-climb", { detail: { id } })); } catch (_) {}
+    }
   },
   paintAll() {
     if (petsHidden()) return;

@@ -1,6 +1,6 @@
 /* 泡泡的軟掉、斷掉、挺回與堅挺只由長按環形選單寫進資料庫，再由這裡畫出來。
    點一下、連點兩下、連點三下都不會改變形狀。
-   軟掉會讓黑貓去爬灰貓。斷掉（by 以 fall: 開頭）掉出畫面，五秒後以普通形狀淡回，空位留著。 */
+   黑貓爬灰貓改由堅挺觸發（bubbleFx），軟掉不再叫牠們爬。斷掉（by 以 fall: 開頭）掉出畫面，五秒後以普通形狀淡回，空位留著。 */
 export const DROOP = {
   SOFT_ANGLE_DEG: 60,
   SOFTNESS: 1,
@@ -30,7 +30,7 @@ export const DROOP = {
 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
-/* 軟掉寫進房間後，全房正在看的人各播一次黑貓爬背。
+/* 舊的軟掉爬背判斷還留著給測試。現在真正播爬背的是 bubbleFx 的堅挺。
    太舊的紀錄是進房時就在的，不重播。同一筆 t 只算一次。 */
 export const DROOP_CLIMB_FRESH_MS = 12000;
 export function droopClimbIds(val, now, seen, freshMs = DROOP_CLIMB_FRESH_MS) {
@@ -417,7 +417,7 @@ export const Droop = {
     this.kick();
   },
   applySoft(row, bub, t) { this.applyCurve(row, bub, t, 1); },
-  /* 堅挺：跟軟掉同一條彎，角度改成往上。不發 bub-droop，貓不會因此去爬。 */
+  /* 堅挺：跟軟掉同一條彎，角度改成往上。爬背由 bubbleFx 通知，這裡不發 bub-droop。 */
   applyStiff(row, t) {
     const bub = row && row.querySelector(".bub");
     if (!bub || row.classList.contains("shattering") || row.classList.contains("gone")) return;
@@ -570,15 +570,6 @@ export const Droop = {
       /* 只有 bubbleFx、沒有 dr 的堅挺／軟掉／斷掉要留著，換一筆別的 dr 不該把畫布清掉。 */
       if (typeof this.fxKeep === "function" && this.fxKeep(row.dataset.k)) continue;
       this.clear(row);
-    }
-    /* 剛被某人打開的軟掉：通知這台的貓去爬。舊資料進房時 t 已經超過新鮮時間，不會播。
-       畫面上已經被較新的 bubbleFx 換成別的形狀時，不要再為這筆舊的軟掉爬一次。 */
-    if (!this.climbSeen) this.climbSeen = new Set();
-    for (const id of droopClimbIds(this.last, now, this.climbSeen)) {
-      const key = id.slice(0, id.lastIndexOf(":"));
-      if (key && typeof this.fxOwns === "function" && this.last[key] && this.fxOwns(key, this.last[key])) continue;
-      this.climbSeen.add(id);
-      try { window.dispatchEvent(new CustomEvent("sc-droop-climb", { detail: { id } })); } catch (_) {}
     }
     if (typeof this.afterSync === "function") { try { this.afterSync(); } catch (_) {} }
     void now;
