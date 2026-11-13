@@ -34,11 +34,11 @@ export function loveAskPhase(rec, me, now, limit = LOVE_ASK_MS) {
   return answered ? "hearts" : "recipient";
 }
 
-/* 對方從看到卡片到按 O 的整秒。不到 1 秒也顯示 1。 */
+/* 對方從看到卡片到按 O 的秒數，固定兩位小數。兩邊用同一個值。 */
 export function loveAskSeconds(ms) {
   const n = Number(ms);
-  if (!Number.isFinite(n) || n <= 0) return 1;
-  return Math.max(1, Math.round(n / 1000));
+  const sec = Number.isFinite(n) && n > 0 ? n / 1000 : 0;
+  return sec.toFixed(2);
 }
 export const BUBBLE_FX_STATES = ["stiff", "soft", "break", "normal"];
 
