@@ -150,10 +150,11 @@ const menu = source.slice(source.indexOf('function bindMsgMenu'), source.indexOf
 assert.match(menu, /\}, 450\)/);
 assert.match(menu, /S\.delMsg\(row\.dataset\.k\)/);
 assert.doesNotMatch(menu, /Shatter/);
-const hold = source.slice(source.indexOf('/* --- 一鍵清除：長按 2 秒 --- */'), source.indexOf('/* --- 回到最新 --- */'));
+const hold = source.slice(source.indexOf('/* --- 一鍵清除：點一次露出確定，再點一次才真的清 --- */'), source.indexOf('/* --- 回到最新 --- */'));
 assert.match(hold, /await S\.wipe\(\)/);
-assert.match(hold, /toast\("按住 2 秒才會清除"\)/);
-assert.match(hold, /2000\)/);
+assert.match(hold, /wipeYes/);
+assert.match(hold, /4000/);
+assert.doesNotMatch(hold, /按住 2 秒才會清除/);
 assert.doesNotMatch(hold, /Shatter/);
 const del = source.slice(source.indexOf('S.delMsg = async (key) => {'), source.indexOf('const presence = new MessagePresence'));
 assert.doesNotMatch(del, /Shatter/);
