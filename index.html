@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.66">
+<meta name="sc-shell" content="v61.67">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -328,29 +328,21 @@
     <!-- 閒置倒數：歸零就上鎖 -->
     <div class="c-count" id="idleCount" aria-label="閒置倒數">15</div>
 
-    <!-- 設定面板：搖晃保護、未讀提示、深淺色、閒置秒數都收在這裡。
-         上方列本來擠了 6 顆按鈕，狀態文字在窄螢幕會被切掉。 -->
-    <!-- 記事本：只有私人房才有。點開要先過九宮格（跟載入舊訊息同一組密碼）。 -->
-    <button class="c-icon" id="btnNotes" aria-label="記事本" title="記事本" hidden>
-      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-        <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"
-              d="M7 3.6h10a1.6 1.6 0 0 1 1.6 1.6v13.6a1.6 1.6 0 0 1-1.6 1.6H7A1.6 1.6 0 0 1 5.4 18.8V5.2A1.6 1.6 0 0 1 7 3.6Z"/>
-        <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
-              d="M8.7 8.4h6.6M8.7 12h6.6M8.7 15.6h4"/>
-        <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
-              d="M5.4 7.2H3.2M5.4 12H3.2M5.4 16.8H3.2"/>
-      </svg>
-    </button>
-
-    <!-- 動物分組跟房間同步。拿棍子的那隻正式名稱是 QUOKKA。 -->
-    <div class="c-zoo" id="zooSlot">
-      <button class="c-icon" id="btnZoo" type="button" aria-label="動物" aria-expanded="false" aria-controls="zooPanel" title="動物">
-        <svg class="c-zoo-chev" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-          <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.5 8.2 12 13.2 17.5 8.2"/>
-          <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.5 13.2 12 18.2 17.5 13.2"/>
-        </svg>
-      </button>
-      <div class="c-zoo-panel" id="zooPanel" hidden>
+    <!-- 齒輪選單：記事本、動物、清除都收在這裡，標題列只留這一顆。
+         設定面板還是同一份，從選單裡的「設定」打開。 -->
+    <div class="c-gear" id="gearSlot">
+      <div class="c-gear-menu" id="gearMenu" hidden>
+        <button type="button" class="c-gear-item" id="gearOpenSet">設定</button>
+        <button type="button" class="c-gear-item" id="btnNotes" hidden>記事本</button>
+        <div class="c-zoo" id="zooSlot">
+          <button class="c-gear-item" id="btnZoo" type="button" aria-label="動物" aria-expanded="false" aria-controls="zooPanel">
+            <span>動物</span>
+            <svg class="c-zoo-chev" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.5 8.2 12 13.2 17.5 8.2"/>
+              <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.5 13.2 12 18.2 17.5 13.2"/>
+            </svg>
+          </button>
+          <div class="c-zoo-panel" id="zooPanel" hidden>
         <div class="c-zoo-cat">
           <div class="c-zoo-row">
             <button type="button" class="c-zoo-caret" id="zooCatMore" aria-expanded="false" aria-controls="zooCatSub" aria-label="展開貓咪選項">
@@ -379,22 +371,33 @@
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 20.4 4.6 13.2C2.4 11 2.5 7.6 4.8 5.6a4.4 4.4 0 0 1 6 .3l.2.2.2-.2a4.4 4.4 0 0 1 6-.3c2.3 2 2.4 5.4.2 7.6L12 20.4z"/></svg>
           </button>
         </div>
+          </div>
+        </div>
+        <div class="c-wipe" id="wipeRow">
+          <button type="button" class="c-gear-item c-danger" id="btnWipe">清除對話</button>
+          <button type="button" class="c-gear-item c-wipe-yes" id="wipeYes" hidden>確定清除</button>
+        </div>
+      </div>
+      <button class="c-icon" id="btnSettings" type="button" aria-label="選單" aria-expanded="false" aria-controls="gearMenu" title="選單">
+        <svg viewBox="0 0 24 24" width="21" height="21">
+          <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.7"/>
+          <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"
+                d="M19.4 13.6a7.6 7.6 0 0 0 0-3.2l1.8-1.3-1.8-3.1-2.1.8a7.6 7.6 0 0 0-2.8-1.6L14.2 2h-3.6l-.3 2.2a7.6 7.6 0 0 0-2.8 1.6l-2.1-.8-1.8 3.1 1.8 1.3a7.6 7.6 0 0 0 0 3.2l-1.8 1.3 1.8 3.1 2.1-.8a7.6 7.6 0 0 0 2.8 1.6l.3 2.2h3.6l.3-2.2a7.6 7.6 0 0 0 2.8-1.6l2.1.8 1.8-3.1-1.8-1.3Z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="c-pair-ask" id="pairAsk" hidden>
+    <div class="c-pair-ask-card" role="dialog" aria-modal="true" aria-labelledby="pairAskText">
+      <p id="pairAskText">取消綁定「麥」？</p>
+      <p class="c-pair-ask-sub">位置留著，滿 12 小時才清掉。</p>
+      <div class="c-pair-ask-row">
+        <button type="button" id="pairAskNo">取消</button>
+        <button type="button" id="pairAskYes">確定</button>
       </div>
     </div>
-
-    <button class="c-icon" id="btnSettings" aria-label="設定" title="設定">
-      <svg viewBox="0 0 24 24" width="21" height="21">
-        <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.7"/>
-        <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"
-              d="M19.4 13.6a7.6 7.6 0 0 0 0-3.2l1.8-1.3-1.8-3.1-2.1.8a7.6 7.6 0 0 0-2.8-1.6L14.2 2h-3.6l-.3 2.2a7.6 7.6 0 0 0-2.8 1.6l-2.1-.8-1.8 3.1 1.8 1.3a7.6 7.6 0 0 0 0 3.2l-1.8 1.3 1.8 3.1 2.1-.8a7.6 7.6 0 0 0 2.8 1.6l.3 2.2h3.6l.3-2.2a7.6 7.6 0 0 0 2.8-1.6l2.1.8 1.8-3.1-1.8-1.3Z"/>
-      </svg>
-    </button>
-
-    <button class="c-icon c-danger" id="btnWipe" aria-label="清除對話" title="長按 2 秒清除雙方對話">
-      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z"/></svg>
-      <span class="c-hold" id="wipeHold"></span>
-    </button>
-  </header>
+  </div>
 
   <!-- 斷線橫幅。Firebase 離線時 push() 會先寫進本機快取，訊息看起來已經送出，
        其實還沒到伺服器 —— 不明講的話關掉分頁就永久消失了。 -->

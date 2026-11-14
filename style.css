@@ -462,7 +462,14 @@ html[data-theme="dark"] .update-banner {
 /* ⚠️ 省略號要掛在「裝文字的那個元素」上。
       .c-title 是 flex 容器，text-overflow 對它的子元素不會自動生效 ——
       少了這一條，窄機上狀態文字會被切在半個字中間（不是省略號）。 */
-#peerText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 狀態文字不跟麥／辛搶空間。最長是「有人正在輸入…」，寬度固定，換字時位置不跳。 */
+#peerText {
+  flex: 0 0 auto;
+  min-width: 7em;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
 
 .c-title {
   flex: 1 1 auto; min-width: 0;
@@ -481,36 +488,47 @@ html[data-theme="dark"] .update-banner {
   transition: background .25s;
 }
 .c-dot[data-on="true"] { background: #34a853; box-shadow: 0 0 0 3px rgba(52,168,83,.16); }
-.c-pair { display: flex; align-items: center; gap: 3px; height: 54px; margin-left: 4px; flex: 0 0 auto; }
-.c-pair-slot { display: flex; align-items: center; justify-content: center; width: 36px; height: 54px; }
-.c-pair-wrap { position: relative; width: 28px; height: 28px; }
+.c-pair {
+  display: flex; align-items: center; gap: 1px; height: 54px;
+  margin-left: 2px; padding-left: 8px;
+  flex: 1 1 auto; min-width: 0;
+}
+.c-pair-slot { display: flex; align-items: center; justify-content: center; width: 26px; height: 54px; flex: 0 0 auto; }
+.c-pair-wrap { position: relative; width: 26px; height: 26px; }
 .c-pair-who {
-  width: 28px; height: 28px; padding: 0; border-radius: 50%;
+  width: 26px; height: 26px; padding: 0; border-radius: 50%;
   border: 1.5px solid rgba(255,255,255,.28);
   background: rgba(255,255,255,.04); color: rgba(232,234,237,.45);
   display: block; cursor: pointer;
-  font-size: 15px; font-weight: 600; line-height: 28px; text-align: center;
+  font-size: 13px; font-weight: 600; line-height: 26px; text-align: center;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .c-pair-who.busy { color: #f4c56a; border-color: rgba(244,197,106,.8); animation: c-pair-pulse 1s ease-in-out infinite; }
 .c-pair-who.is-m.set { color: #9ec1ff; border-color: rgba(120,168,255,.85); background: rgba(255,255,255,.08); }
 .c-pair-who.is-f.set { color: #ffb3c7; border-color: rgba(255,140,164,.9); background: rgba(255,255,255,.08); }
 .c-pair-tick {
-  position: absolute; top: 0; right: 0; z-index: 1; transform: translateY(-40%);
-  height: 10px; padding: 0 1px; border-radius: 999px;
+  position: absolute; top: 0; right: 0; z-index: 2;
+  height: 10px; max-height: 10px; padding: 0 2px;
+  transform: translateY(-72%);
+  display: inline-flex; align-items: center; justify-content: flex-end;
+  overflow: hidden; white-space: nowrap; width: max-content;
+  border-radius: 999px; pointer-events: none;
   background: #171c24; color: #d7e7ff; border: 1px solid rgba(176,206,240,.45);
-  font-size: 7px; font-weight: 700; line-height: 8px; letter-spacing: -0.04em;
-  text-align: center; white-space: nowrap; pointer-events: none;
-  font-variant-numeric: tabular-nums;
+  font: 700 7px/8px ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 7px !important; line-height: 8px !important;
+  letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
+  -webkit-text-size-adjust: none; text-size-adjust: none;
 }
+.c-pair-tick.compact { font-size: 6px !important; letter-spacing: -0.07em; }
 .c-pair-tick[hidden] { display: none !important; }
 @keyframes c-pair-pulse { 50% { transform: scale(.94); opacity: .72; } }
 .c-pair-link {
-  width: 54px; height: 54px; flex: 0 1 64px; min-width: 46px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  width: auto; height: 54px; flex: 1 1 28px; min-width: 22px; max-width: 56px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   color: rgba(232,234,237,.34);
 }
-.c-pair-link svg { width: 100%; height: 16px; display: block; overflow: visible; }
+.c-pair-link svg { width: 100%; height: 12px; display: block; overflow: visible; }
 .c-pair-heart { opacity: .4; }
 .c-pair-link.on { color: #d7ecff; }
 .c-pair-link.on svg { filter: drop-shadow(0 0 3px rgba(170,214,255,.95)); }
@@ -518,8 +536,8 @@ html[data-theme="dark"] .update-banner {
 .c-pair-link.on .c-pair-flow { animation: c-pair-flow 1.6s linear infinite; }
 @keyframes c-pair-flow { to { stroke-dashoffset: -22; } }
 .c-pair-dist {
-  height: 14px; max-width: 100%; padding: 0 5px; border-radius: 999px;
-  font-size: 10px; font-weight: 700; line-height: 14px;
+  height: 11px; max-width: 100%; padding: 0 3px; border-radius: 999px;
+  font-size: 8px; font-weight: 700; line-height: 11px;
   color: transparent; background: transparent;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -546,6 +564,55 @@ html[data-theme="light"] #chat .c-pair-link.on svg { filter: drop-shadow(0 0 2px
 html[data-theme="light"] #chat .c-pair-link.on .c-pair-dist {
   color: #174ea6; background: rgba(26,115,232,.10);
   box-shadow: inset 0 0 0 1px rgba(26,115,232,.22);
+}
+.c-pair-who.bound { box-shadow: 0 0 0 1px currentColor; }
+.c-pair-who.hold { transform: scale(.94); }
+.c-pair-ask {
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.45);
+}
+.c-pair-ask[hidden] { display: none !important; }
+.c-pair-ask-card {
+  width: 232px; padding: 16px 14px 12px; border-radius: 16px; text-align: center;
+  background: #171a20; color: #e8eaed; border: 1px solid #262a32;
+}
+.c-pair-ask-card p { margin: 0 0 6px; font-size: 15px; font-weight: 650; }
+.c-pair-ask-sub { color: #7d848f; font-size: 12px; font-weight: 400; margin: 0 0 12px; }
+.c-pair-ask-row { display: flex; gap: 8px; }
+.c-pair-ask-row button {
+  flex: 1; border: 0; border-radius: 999px; padding: 8px 12px;
+  background: #1c2028; color: #e8eaed; font: inherit; font-size: 14px; cursor: pointer;
+}
+#pairAskYes { background: #2b6cd4; color: #fff; }
+html[data-theme="light"] #chat .c-pair-ask-card { background: #fff; color: #16181c; border-color: #e6e8eb; }
+html[data-theme="light"] #chat .c-pair-ask-sub { color: #8a9099; }
+html[data-theme="light"] #chat .c-pair-ask-row button { background: #f4f5f7; color: #16181c; }
+html[data-theme="light"] #chat #pairAskYes { background: #1a73e8; color: #fff; }
+.c-gear { position: relative; flex: 0 0 auto; }
+.c-gear-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 30;
+  width: min(260px, calc(100vw - 16px));
+  padding: 6px; border-radius: 14px;
+  background: var(--bg); color: var(--txt); border: 1px solid var(--line);
+  box-shadow: 0 12px 28px rgba(0,0,0,.28);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.c-gear-menu[hidden] { display: none !important; }
+html[data-theme="dark"] .c-gear-menu { box-shadow: 0 12px 28px rgba(0,0,0,.5); }
+.c-gear-item {
+  appearance: none; border: 0; background: transparent; color: inherit;
+  font: inherit; font-size: 15px; text-align: left;
+  min-height: 40px; padding: 8px 10px; border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+}
+.c-gear-item:active { background: var(--bg-soft); }
+.c-wipe-yes { color: var(--danger); font-weight: 700; justify-content: center; }
+.c-gear-menu .c-zoo { width: 100%; }
+.c-gear-menu .c-zoo-panel {
+  position: static; width: auto; top: auto; right: auto;
+  margin: 0; padding: 0 0 4px 4px;
+  border: 0; box-shadow: none; background: transparent;
 }
 
 /* ── 隱身常駐提示（v56）──

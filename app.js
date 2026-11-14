@@ -23,7 +23,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.66";
+const APP_VERSION = "v61.67";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -2580,6 +2580,7 @@ function bindHeartNum() {
 
 function bindNotes() {
   $("btnNotes")?.addEventListener("click", () => {
+    S.closeGear?.();
     if (!S.password) { toast("還在連線中，請稍候一下"); return; }
     if (S.notesUnlocked) { Notes.open(); return; }
     NotePad.reset();
@@ -4886,6 +4887,9 @@ function applyRoomMode() {
   // 一鍵清除：多人房整顆藏起來（不是 disabled —— 看得到按不下去更讓人困惑）
   const wipe = $("btnWipe");
   if (wipe) wipe.hidden = open;
+  const wipeRow = $("wipeRow");
+  if (wipeRow) wipeRow.hidden = open;
+  if (open) S.disarmWipe?.();
 
   /* 記事本：v26 起兩種房型都有。
      ⚠️ 多人房是「一群人共用一本」，誰都能改能刪 —— 所以記事會顯示作者暱稱，
@@ -8976,32 +8980,56 @@ function bindChatUI() {
     toast(`已加入 ${files.length} 張貼圖`);
   });
 
-  /* --- 一鍵清除：長按 2 秒 --- */
-  const wipeBtn = $("btnWipe"), hold = $("wipeHold");
-  let holdTimer = null, wipeFired = false;
-  const startHold = (e) => {
-    e.preventDefault();
-    wipeFired = false;
-    hold.classList.add("run");
-    holdTimer = setTimeout(async () => {
-      cancelHold();
-      wipeFired = true;                  // 放手時的 click 不要蓋掉成功提示
-      if (!S.wipe) { toast("還在連線中，請稍候一下"); return; }
-      try { await S.wipe(); } catch (err) { console.error(err); toast("清除失敗"); }
-    }, 2000);
+  /* --- 一鍵清除：點一次露出確定，再點一次才真的清 --- */
+  const wipeBtn = $("btnWipe"), wipeYes = $("wipeYes");
+  let wipeTimer = 0;
+  const disarmWipe = () => {
+    clearTimeout(wipeTimer); wipeTimer = 0;
+    if (wipeBtn) wipeBtn.hidden = false;
+    if (wipeYes) wipeYes.hidden = true;
   };
-  const cancelHold = () => {
-    clearTimeout(holdTimer); holdTimer = null;
-    hold.classList.remove("run");
-    hold.style.transform = "";
+  const closeGearMenu = () => {
+    const menu = $("gearMenu");
+    if (menu) menu.hidden = true;
+    $("btnSettings")?.setAttribute("aria-expanded", "false");
+    const zoo = $("zooPanel");
+    if (zoo) zoo.hidden = true;
+    $("btnZoo")?.setAttribute("aria-expanded", "false");
+    disarmWipe();
   };
-  wipeBtn.addEventListener("pointerdown", startHold);
-  ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => wipeBtn.addEventListener(ev, cancelHold));
-  wipeBtn.addEventListener("click", (e) => {
+  S.disarmWipe = disarmWipe;
+  S.closeGear = closeGearMenu;
+  S.toggleGear = () => {
+    const menu = $("gearMenu");
+    if (!menu) return;
+    if (menu.hidden) {
+      menu.hidden = false;
+      $("btnSettings")?.setAttribute("aria-expanded", "true");
+    } else closeGearMenu();
+  };
+  wipeBtn?.addEventListener("click", (e) => {
     e.preventDefault();
-    if (wipeFired) { wipeFired = false; return; }
-    toast("按住 2 秒才會清除");
+    e.stopPropagation();
+    if (wipeYes) wipeYes.hidden = false;
+    wipeBtn.hidden = true;
+    clearTimeout(wipeTimer);
+    wipeTimer = setTimeout(disarmWipe, 4000);
   });
+  wipeYes?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    disarmWipe();
+    closeGearMenu();
+    if (!S.wipe) { toast("還在連線中，請稍候一下"); return; }
+    try { await S.wipe(); } catch (err) { console.error(err); toast("清除失敗"); }
+  });
+  document.addEventListener("pointerdown", (e) => {
+    const menu = $("gearMenu");
+    if (wipeYes && !wipeYes.hidden && !(e.target && e.target.closest && e.target.closest("#wipeYes"))) disarmWipe();
+    if (!menu || menu.hidden) return;
+    if (e.target && e.target.closest && e.target.closest("#gearSlot")) return;
+    closeGearMenu();
+  }, true);
 
   /* --- 回到最新 --- */
   $("btnJump").addEventListener("click", () => {
@@ -9524,7 +9552,13 @@ function bindSettings() {
     Accent.set(b.dataset.k);
     paintAccentPicker();
   });
-  $("btnSettings").addEventListener("click", () => {
+  $("gearOpenSet")?.addEventListener("click", () => {
+    S.closeGear?.();
+    openPanel();
+  });
+  $("btnSettings").addEventListener("click", (e) => {
+    e.stopPropagation();
+    if ($("gearMenu")) { S.toggleGear?.(); return; }
     if (panel.hidden) openPanel(); else panel.hidden = true;
   });
   $("btnCloseSettings").addEventListener("click", () => { panel.hidden = true; });
@@ -10054,6 +10088,7 @@ function leaveChat() {
   resetFakeCallUi();
   resetLoveAskUi();
   resetPairUi();
+  S.closeGear?.();
   closeRxPicker();
   $("btnJump").hidden = true;
   S.pending.clear(); S.failed.clear();
@@ -13311,13 +13346,18 @@ function paintPair() {
   const mark = (id, on) => { const el = $(id); if (el) el.classList.toggle("set", !!on); };
   mark("pairM", pairFix.m);
   mark("pairF", pairFix.f);
+  const bound = pairSide();
+  $("pairM")?.classList.toggle("bound", bound === "m");
+  $("pairF")?.classList.toggle("bound", bound === "f");
   const showTick = (id, fix) => {
     const el = $(id);
     if (!el) return;
-    if (!fix) { el.hidden = true; el.textContent = ""; return; }
+    if (!fix) { el.hidden = true; el.textContent = ""; el.classList.remove("compact"); return; }
     const age = pairLocAgeSec(fix.t, now);
+    const label = pairLocClock(age == null ? 0 : age);
     el.hidden = false;
-    el.textContent = pairLocClock(age == null ? 0 : age);
+    el.textContent = label;
+    el.classList.toggle("compact", label.length > 2);
   };
   showTick("pairMTick", pairFix.m);
   showTick("pairFTick", pairFix.f);
@@ -13333,8 +13373,10 @@ function resetPairUi() {
   pairFix = { m: null, f: null };
   for (const id of ["pairM", "pairF"]) {
     const el = $(id);
-    if (el) el.classList.remove("set", "busy");
+    if (el) el.classList.remove("set", "busy", "bound");
   }
+  const ask = $("pairAsk");
+  if (ask) ask.hidden = true;
   paintPair();
 }
 async function readPairFix(slot, rec, now) {
@@ -13393,8 +13435,52 @@ async function tapPair(side) {
     btn.classList.remove("busy");
   }
 }
-$("pairM")?.addEventListener("click", () => tapPair("m"));
-$("pairF")?.addEventListener("click", () => tapPair("f"));
+function unbindPair() {
+  try { localStorage.removeItem(pairSideKey()); } catch (_) {}
+  const ask = $("pairAsk");
+  if (ask) ask.hidden = true;
+  paintPair();
+  toast("已取消綁定。位置還在，滿 12 小時才會清掉");
+}
+function longPair(side) {
+  const bound = pairSide();
+  if (!bound) { toast("這台還沒綁定"); return; }
+  if (bound !== side) {
+    toast(bound === "m" ? "長按只能取消這台綁的「麥」" : "長按只能取消這台綁的「辛」");
+    return;
+  }
+  const ask = $("pairAsk");
+  const text = $("pairAskText");
+  if (!ask || !text) return;
+  text.textContent = "取消綁定「" + (side === "m" ? "麥" : "辛") + "」？";
+  ask.hidden = false;
+}
+function bindPairHold(id, side) {
+  const btn = $(id);
+  if (!btn) return;
+  let timer = 0;
+  let suppress = false;
+  btn.addEventListener("pointerdown", (e) => {
+    if (e.button != null && e.button !== 0) return;
+    suppress = false;
+    clearTimeout(timer);
+    try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+    btn.classList.add("hold");
+    timer = setTimeout(() => { suppress = true; btn.classList.remove("hold"); longPair(side); }, 600);
+  });
+  const disarm = () => { clearTimeout(timer); btn.classList.remove("hold"); };
+  btn.addEventListener("pointerup", disarm);
+  btn.addEventListener("pointercancel", disarm);
+  btn.addEventListener("contextmenu", (e) => e.preventDefault());
+  btn.addEventListener("click", (e) => {
+    if (suppress) { suppress = false; e.preventDefault(); e.stopPropagation(); return; }
+    tapPair(side);
+  });
+}
+bindPairHold("pairM", "m");
+bindPairHold("pairF", "f");
+$("pairAskNo")?.addEventListener("click", () => { const ask = $("pairAsk"); if (ask) ask.hidden = true; });
+$("pairAskYes")?.addEventListener("click", () => unbindPair());
 
 /* 標題列的動物開關。勾選跟房間同步；總開關關掉時不能改，勾選狀態留著。 */
 function bindZoo() {
