@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.69">
+<meta name="sc-shell" content="v61.70">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -469,6 +469,7 @@
   <div class="c-callcap c-lovecap" id="loveCapsule" aria-hidden="true"><i></i>等待回答…</div>
 
   <div class="c-scroll" id="scroller">
+    <div class="c-pond" id="pond" aria-hidden="true"><canvas id="pondCanvas"></canvas></div>
     <!-- 往上翻的狀態列：捲到頂會自動載入，這裡同時提供一個一定按得到的按鈕，
          免得自動載入沒觸發時，畫面看起來就像「舊訊息不見了」 -->
     <div class="c-loadmore" id="loadMore" hidden>

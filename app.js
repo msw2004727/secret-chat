@@ -13,6 +13,7 @@ import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat
 import { Droop, petGroupsFromSnap } from "./droop.js";
 import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS, loveAskPhase, loveAskSeconds, loveAskBothAcked } from "./bubble-fx.js";
 import { pairLocAgeSec, pairLocClock, pairLocDistance, PAIR_LOC_STALE_MS } from "./pair-loc.js";
+import { mountPondShark } from "./pond-shark.js";
 attachBubbleFx(Droop);
 
 const CFG = window.CONFIG;
@@ -23,7 +24,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.69";
+const APP_VERSION = "v61.70";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5076,6 +5077,7 @@ async function enterChat() {
 
   // 先綁好介面再連線 —— 這樣連線期間輸入框就是活的，不會有「打了字送不出去」的空窗
   if (!S.uiBound) { bindChatUI(); if (ROOM_EXTRAS_ENABLED) bindPlant(); S.uiBound = true; }
+  S.pond?.start();
   $("peerText").textContent = "連線中";
   $("msgInput").focus();
   renderStickerGrid();
@@ -9096,6 +9098,13 @@ function bindChatUI() {
   });
 
   bindMsgMenu();
+  /* 鯊魚在訊息後面。丟飼料那一下不算緊急退出，不然連點兩下餵魚會被彈回首頁。 */
+  S.pond = mountPondShark($("scroller"), {
+    suppressTap: suppressNextTap,
+    releaseTap: () => { tapSuppressed = false; },
+    isMenuOpen: () => { const m = $("msgMenu"); return !!(m && !m.hidden); },
+    isChatOpen: () => { const c = $("chat"); return !!(c && !c.hidden); },
+  });
   bindSettings();
   bindNotes();
   bindHeart();
@@ -10089,6 +10098,7 @@ function leaveChat() {
   resetLoveAskUi();
   resetPairUi();
   S.closeGear?.();
+  S.pond?.stop();
   closeRxPicker();
   $("btnJump").hidden = true;
   S.pending.clear(); S.failed.clear();

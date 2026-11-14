@@ -2642,7 +2642,16 @@ html[data-theme="light"] #chat .c-plantbg { opacity: .11; }
    ⚠️⚠️ 但**這一條單獨不夠**：它只在 `.c-scroll` 沒有自成堆疊脈絡時有效，
       而手機上它會自成脈絡（見 `.c-scroll` 那段的長註解）。
       真正擋住植物的是 `.c-scroll` 自己的 `z-index: 1`，這一條是內層的第二道。 */
-.c-scroll > *:not(.c-plantbg) { position: relative; z-index: 1; }
+.c-scroll > *:not(.c-plantbg):not(.c-pond) { position: relative; z-index: 1; }
+/* 鯊魚貼在看得到的訊息區上，不跟著內容捲走，也不吃點擊。 */
+.c-pond {
+  position: sticky; top: 0; left: 0; height: 0; z-index: 0;
+  pointer-events: none; overflow: visible;
+}
+.c-pond canvas {
+  position: absolute; left: 0; top: 0;
+  pointer-events: none; display: block;
+}
 
 /* ── 成長計量條（同時是叫出扇形選單的那顆按鈕）──
    ⚠️ 高度要壓到最低。320×568 上「標題列 54 ＋ 這一條 ＋ 斷線提示 ＋ 公告 ＋ 輸入列 65」
