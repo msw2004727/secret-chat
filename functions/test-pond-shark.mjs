@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { createPond, stepPond, halfW, spine, PACE } from '../pond-shark.js';
+import { createPond, stepPond, halfW, spine, PACE, RACE } from '../pond-shark.js';
 
 assert.ok(halfW(2) < halfW(12), 'front of the shark is narrower than the middle');
 const pond = createPond(400, 700);
@@ -69,6 +69,31 @@ for (let i = 0; i < 500 && !back; i++) {
   if (out.x > 30 && out.x < leave.w - 30 && out.y > 30 && out.y < leave.h - 30) back = true;
 }
 assert.ok(back, 'a fish that left comes back in an arc');
+const race = createPond(500, 500);
+race.fish[0].x = 340; race.fish[0].y = 340; race.fish[0].a = 0; race.fish[0].turn = 0;
+race.fish[1].x = 360; race.fish[1].y = 300; race.fish[1].a = 0.2; race.fish[1].turn = 0;
+race.foods.push({ x: 24, y: 24, age: 0 });
+const beforeRace = race.fish.map((f) => f.sp);
+stepPond(race, 0.05);
+assert.equal(race.foods.length, 1, 'a far pellet is not removed while they speed up');
+for (let i = 0; i < race.fish.length; i++) {
+  assert.ok(race.fish[i].sp > beforeRace[i] && race.fish[i].sp < cruise * 1.7, 'speed ramps, it does not jump');
+}
+for (let i = 0; i < 10; i++) stepPond(race, 0.05);
+assert.equal(RACE, 2.5);
+for (const f of race.fish) {
+  assert.ok(f.sp > cruise * 2.15 && f.sp < cruise * 2.65, 'both fish reach about 2.5x, got ' + f.sp.toFixed(2));
+  assert.ok(Math.abs(f.beat / (3.6 * PACE) - f.sp / cruise) < 0.08, 'tail beat scales with speed');
+}
+race.foods.length = 0;
+for (let i = 0; i < 16; i++) stepPond(race, 0.05);
+for (const f of race.fish) assert.ok(Math.abs(f.sp - cruise) < cruise * 0.2, 'speed eases back after the food is gone');
+const turned = untilEaten((p) => {
+  p.fish[0].x = 80; p.fish[0].y = 220; p.fish[0].a = -Math.PI / 2; p.fish[0].turn = 0;
+  p.fish[1].x = 30; p.fish[1].y = 30; p.fish[1].a = Math.PI;
+  p.foods.push({ x: 220, y: 220, age: 0 });
+}, 8);
+assert.equal(turned.left, 0, 'a fish still reaches the pellet at race speed');
 const arc = createPond(900, 900);
 const leader = arc.fish[0];
 leader.x = 450; leader.y = 450; leader.a = 0; leader.turn = 0; leader.t = 0; leader.trail = [];
