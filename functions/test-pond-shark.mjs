@@ -25,6 +25,8 @@ const src = fs.readFileSync(new URL('../pond-shark.js', import.meta.url), 'utf8'
 const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+assert.match(src, /marginLeft = \(-padL\)/);
+assert.match(src, /marginRight = \(-padR\)/);
 assert.match(src, /visibilitychange/);
 assert.match(src, /prefers-reduced-motion: reduce/);
 assert.match(src, /#0a0c0d/);

@@ -103,12 +103,23 @@ export function mountPondShark(scroller, hooks) {
   const still = reducedMotion();
 
   function measure() {
+    const cs = getComputedStyle(scroller);
+    const padL = parseFloat(cs.paddingLeft) || 0;
+    const padR = parseFloat(cs.paddingRight) || 0;
+    const padT = parseFloat(cs.paddingTop) || 0;
+    /* clientWidth 含左右內距。畫布從內容區左邊畫那麼寬會凸出去，捲動區就能左右滑。
+       負的左右外距把它拉回內距裡，佔用的排版寬度仍等於內容區。 */
     const w = scroller.clientWidth || 1;
     const h = scroller.clientHeight || 1;
+    host.style.marginLeft = (-padL) + "px";
+    host.style.marginRight = (-padR) + "px";
+    host.style.width = w + "px";
     const dpr = Math.min(1.5, window.devicePixelRatio || 1);
     cv.width = Math.max(1, Math.round(w * dpr));
     cv.height = Math.max(1, Math.round(h * dpr));
-    cv.style.width = w + "px";
+    cv.style.left = "0";
+    cv.style.top = (-padT) + "px";
+    cv.style.width = "100%";
     cv.style.height = h + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     pond.resize(w, h);

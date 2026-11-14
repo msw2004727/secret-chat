@@ -10,7 +10,10 @@
 
 html {
   height: 100%;
-  touch-action: pan-x pan-y;
+  width: 100%;
+  overflow: hidden;
+  /* 只留上下滑。左右滑和雙指／雙擊放大都不交給瀏覽器。 */
+  touch-action: pan-y;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
@@ -29,7 +32,7 @@ body {
   font-family: arial, "Helvetica Neue", Helvetica, "PingFang TC", "Noto Sans TC", sans-serif;
   background: #fff;
   color: #202124;
-  touch-action: pan-x pan-y;          /* 保留滑動，不啟用雙擊或雙指縮放。 */
+  touch-action: pan-y;
 }
 
 /* 高度用「實際看得到的高度」，鍵盤彈出時自動縮短，輸入列就會停在鍵盤正上方。
@@ -1737,8 +1740,11 @@ html[data-theme="dark"] .c-zoo-panel { box-shadow: 0 12px 28px rgba(0,0,0,.5); }
    *
    *  ⚠️ 不要改成給植物 `z-index: -1` —— 那會讓它掉到 `#chat` 的底色後面，直接看不見。 */
   z-index: 1;
+  /* overflow-y 不是 visible 時，沒寫 overflow-x 會被算成 auto，多 1px 就能左右滑。 */
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   padding: 12px 12px 6px;
 }

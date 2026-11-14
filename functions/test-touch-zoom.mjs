@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+const css=fs.readFileSync(new URL('../style.css',import.meta.url),'utf8');
 const events=new Map();
 vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1],{
   document:{addEventListener(type,handler,options){events.set(type,{handler,options})}},
@@ -21,4 +22,10 @@ assert.equal(dispatch('dblclick',{target:{closest:()=>null}}),false);
 for(const type of ['touchmove','gesturestart','gesturechange','dblclick'])assert.equal(events.get(type).options.passive,false);
 assert.equal(events.has('click'),false);
 assert.equal(events.has('touchend'),false);
+assert.match(html, /maximum-scale=1,user-scalable=no/);
+assert.match(css, /html \{[^}]*touch-action: pan-y;/);
+assert.doesNotMatch(css.match(/html \{[^}]*\}/)[0], /pan-x/);
+assert.match(css, /body \{[^}]*touch-action: pan-y;/);
+assert.match(css, /\.c-scroll \{[\s\S]*?overflow-x: hidden;/);
+assert.match(css, /\.c-text \{[^}]*font-size: 16px/);
 console.log('PASS: pinch and logo double-tap defaults blocked before app load; single-finger scrolling, ordinary double-clicks and click/touchend login events preserved.');
