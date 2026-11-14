@@ -94,6 +94,23 @@ const turned = untilEaten((p) => {
   p.foods.push({ x: 220, y: 220, age: 0 });
 }, 8);
 assert.equal(turned.left, 0, 'a fish still reaches the pellet at race speed');
+const noslow = createPond(520, 520);
+const hungry = noslow.fish[0];
+hungry.x = 200; hungry.y = 180; hungry.a = 0; hungry.turn = 0; hungry.sp = cruise * RACE;
+noslow.fish[1].x = 40; noslow.fish[1].y = 40; noslow.fish[1].a = Math.PI; noslow.fish[1].sp = cruise * RACE;
+noslow.foods.push({ x: 200, y: 300, age: 0 });
+let held = 0;
+let guard = 0;
+while (noslow.foods.length && guard < 80) {
+  stepPond(noslow, 0.05);
+  guard++;
+  if (noslow.foods.length) {
+    assert.ok(hungry.sp > cruise * 7.1, 'full race speed until the mouth hits, got ' + hungry.sp.toFixed(1));
+    held++;
+  }
+}
+assert.ok(held > 0, 'the off-angle approach lasts long enough to prove there is no brake');
+assert.equal(noslow.foods.length, 0, 'the mouth still reaches the pellet at full race speed');
 const arc = createPond(900, 900);
 const leader = arc.fish[0];
 leader.x = 450; leader.y = 450; leader.a = 0; leader.turn = 0; leader.t = 0; leader.trail = [];
