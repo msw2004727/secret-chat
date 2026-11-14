@@ -12,8 +12,9 @@ const L = 38, S = 5.2, STEP = 0.35;
 export const PACE = 0.75;
 const CRUISE = 2.0 * S * 4.5 * PACE;
 const CRUISE_BEAT = 3.6 * PACE;
-const CHASE_BEAT = 4.6 * PACE;
 const EAT_R = 7 * S;
+const BODY = L * S;
+const MIN_RADIUS = 2.5 * BODY;
 
 export function halfW(i) {
   const k = i / L;
@@ -22,8 +23,49 @@ export function halfW(i) {
   return Math.max(0.6, 4.6 * Math.pow(1 - (k - 0.35) / 0.65, 1.4));
 }
 
+function seedTrail(f) {
+  f.trail = [];
+  for (let i = 0; i <= L + 3; i++) {
+    f.trail.push({ x: f.x - Math.cos(f.a) * i * S, y: f.y - Math.sin(f.a) * i * S });
+  }
+}
 function makeFish(x, y, a) {
-  return { x, y, a, t: 0, turn: 0, gulp: 0, sp: CRUISE, beat: CRUISE_BEAT, chase: 0, tgt: null };
+  const f = { x, y, a, t: 0, turn: 0, gulp: 0, sp: CRUISE, beat: CRUISE_BEAT, chase: 0, tgt: null, trail: [] };
+  seedTrail(f);
+  return f;
+}
+function pushTrail(f) {
+  const last = f.trail[0];
+  if (last && Math.hypot(f.x - last.x, f.y - last.y) < 0.35) return;
+  if (last && Math.hypot(f.x - last.x, f.y - last.y) > 40) seedTrail(f);
+  f.trail.unshift({ x: f.x, y: f.y });
+  let len = 0;
+  const max = (L + 4) * S;
+  for (let i = 1; i < f.trail.length; i++) {
+    len += Math.hypot(f.trail[i].x - f.trail[i - 1].x, f.trail[i].y - f.trail[i - 1].y);
+    if (len > max) { f.trail.length = i + 1; break; }
+  }
+}
+function pointAlong(f, dist) {
+  if (!f.trail || !f.trail.length) return { x: f.x - Math.cos(f.a) * dist, y: f.y - Math.sin(f.a) * dist };
+  let remain = dist;
+  let px = f.x, py = f.y;
+  for (let i = 0; i < f.trail.length; i++) {
+    const nx = f.trail[i].x, ny = f.trail[i].y;
+    const seg = Math.hypot(nx - px, ny - py);
+    if (seg < 1e-4) continue;
+    if (remain <= seg) {
+      const t = remain / seg;
+      return { x: px + (nx - px) * t, y: py + (ny - py) * t };
+    }
+    remain -= seg;
+    px = nx; py = ny;
+  }
+  const tail = f.trail[f.trail.length - 1];
+  const prev = f.trail[Math.max(0, f.trail.length - 2)];
+  let dx = prev.x - tail.x, dy = prev.y - tail.y;
+  const dl = Math.hypot(dx, dy) || 1;
+  return { x: tail.x + (dx / dl) * remain, y: tail.y + (dy / dl) * remain };
 }
 
 export function createPond(width, height) {
@@ -51,13 +93,20 @@ export function createPond(width, height) {
   return pond;
 }
 
+/* 頭在 f.x,f.y。身體是頭走過的軌跡，所以轉彎是同一條弧，不是繞身體中心硬轉。
+   尾巴仍有一點左右擺，前段幾乎不動。 */
 export function spine(f, i) {
+  const dist = i * S;
+  const p = pointAlong(f, dist);
+  if (i < 1) return [f.x, f.y];
+  const ahead = pointAlong(f, Math.max(0, dist - 3));
+  const tx = ahead.x - p.x, ty = ahead.y - p.y;
+  const tl = Math.hypot(tx, ty) || 1;
   const k = i / L;
   const r = Math.max(0, (k - 0.32) / 0.68);
-  const amp = Math.pow(r, 1.6) * 6.2 - (k < 0.32 ? 0.35 * (1 - k / 0.32) : 0);
-  const sw = Math.sin(f.t - k * 5.5) * amp + f.turn * Math.pow(k, 1.5) * 26;
-  const ca = Math.cos(f.a), sa = Math.sin(f.a);
-  return [f.x + (-ca * (i - 8) - sa * sw) * S, f.y + (-sa * (i - 8) + ca * sw) * S];
+  const amp = Math.pow(r, 1.6) * 5.2;
+  const sw = Math.sin((f.t || 0) - k * 5.5) * amp;
+  return [p.x + (-ty / tl) * sw, p.y + (tx / tl) * sw];
 }
 
 function eatFood(foods, tgt, fish) {
@@ -69,50 +118,51 @@ function eatFood(foods, tgt, fish) {
   fish.tgt = null;
 }
 
-/* 轉向是慢慢加，不把角度直接掰過去。靠近又沒對準就放慢，轉彎半徑才收得進來。
-   先用嘴碰到的那隻吃掉。繞太久就讓最近的那隻吃掉，避免一直兜圈。 */
+function steer(f, ang, dt) {
+  const omegaMax = Math.max(0.04, f.sp / MIN_RADIUS);
+  const want = Math.max(-omegaMax, Math.min(omegaMax, ang * 0.55));
+  f.turn += (want - f.turn) * dt * 1.35;
+  f.turn = Math.max(-omegaMax, Math.min(omegaMax, f.turn));
+}
+
+/* 頭往前游，角速度慢慢加減，轉彎半徑至少大約兩個半身長。
+   先用嘴碰到的那隻吃掉。繞太久就讓最近的那隻吃掉。 */
 export function stepPond(pond, dt) {
   const foods = pond.foods;
   for (const fd of foods) fd.age += dt;
   for (const f of pond.fish) {
-    const [hx, hy] = spine(f, 0);
+    const hx = f.x, hy = f.y;
     let tgt = null, best = 1e9;
     for (const fd of foods) {
       const dist = Math.hypot(fd.x - hx, fd.y - hy);
       if (dist < best) { best = dist; tgt = fd; }
     }
-    let sp = CRUISE, beat = CRUISE_BEAT;
+    let sp = CRUISE;
     if (tgt) {
       if (f.tgt !== tgt) { f.tgt = tgt; f.chase = 0; }
       f.chase += dt;
       const ta = Math.atan2(tgt.y - hy, tgt.x - hx);
       const ang = Math.atan2(Math.sin(ta - f.a), Math.cos(ta - f.a));
       const align = Math.max(0, Math.cos(ang));
-      const near = best < 110;
-      const tight = near ? 0.22 + 0.78 * align : 1;
-      sp = CRUISE * 1.5 * (0.55 + 0.45 * align) * tight;
-      beat = CHASE_BEAT;
-      const maxTurn = near ? 1.7 : 0.8;
-      const want = Math.max(-maxTurn, Math.min(maxTurn, ang * 1.35));
-      f.turn += (want - f.turn) * dt * (near ? 2.1 : 0.9);
+      sp = CRUISE * (1 + 0.25 * align);
+      steer(f, ang, dt);
       const circling = f.chase > 6 && best < 160;
       const forgotten = tgt.age > 10;
       if (best < EAT_R || circling || forgotten) eatFood(foods, tgt, f);
     } else {
       f.tgt = null;
       f.chase = 0;
-      f.turn += (Math.random() - 0.5) * dt * 0.35;
-      f.turn *= 0.985;
-      const m = 24 * S;
+      const m = MIN_RADIUS * 0.55;
       if (f.x < m || f.x > pond.w - m || f.y < m || f.y > pond.h - m) {
-        const ta = Math.atan2(pond.h / 2 - f.y, pond.w / 2 - f.x);
+        const ta = Math.atan2(pond.h / 2 - hy, pond.w / 2 - hx);
         const ang = Math.atan2(Math.sin(ta - f.a), Math.cos(ta - f.a));
-        f.turn += ang * dt * 0.6;
+        steer(f, ang, dt);
+      } else {
+        steer(f, (Math.random() - 0.5) * 0.15, dt);
       }
     }
-    f.turn = Math.max(-1.7, Math.min(1.7, f.turn));
     f.sp += (sp - f.sp) * dt * 0.8;
-    f.beat += (beat - f.beat) * dt * 0.8;
+    f.beat += (CRUISE_BEAT * (f.sp / CRUISE) - f.beat) * dt * 0.8;
     f.a += f.turn * dt;
     f.t += dt * f.beat;
     f.gulp = Math.max(0, f.gulp - dt);
@@ -120,6 +170,16 @@ export function stepPond(pond, dt) {
     f.y += Math.sin(f.a) * f.sp * dt;
     f.x = Math.max(6, Math.min(pond.w - 6, f.x));
     f.y = Math.max(6, Math.min(pond.h - 6, f.y));
+    pushTrail(f);
+  }
+  for (let i = foods.length - 1; i >= 0; i--) {
+    if (foods[i].age <= 10) continue;
+    let who = pond.fish[0], best = 1e9;
+    for (const f of pond.fish) {
+      const d = Math.hypot(foods[i].x - f.x, foods[i].y - f.y);
+      if (d < best) { best = d; who = f; }
+    }
+    eatFood(foods, foods[i], who);
   }
 }
 
