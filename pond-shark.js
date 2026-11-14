@@ -12,8 +12,8 @@ const L = 38, S = 5.2, STEP = 0.35;
 export const PACE = 0.75;
 const CRUISE = 2.0 * S * 4.5 * PACE;
 const CRUISE_BEAT = 3.6 * PACE;
-/* 有飼料時兩隻一起搶。大約半秒加到巡航的兩倍半，吃完再用同樣的時間緩回來。 */
-export const RACE = 2.5;
+/* 有飼料時兩隻一起搶。大約半秒加到巡航的 7.5 倍，吃完再用同樣的時間緩回來。 */
+export const RACE = 7.5;
 const SPEED_EASE = 4.2;
 const EAT_R = 7 * S;
 const BODY = L * S;
@@ -121,10 +121,10 @@ function eatFood(foods, tgt, fish) {
   fish.tgt = null;
 }
 
-function steer(f, ang, dt, radius) {
+function steer(f, ang, dt, radius, gain = 1.35) {
   const omegaMax = Math.max(0.05, f.sp / radius);
   const want = Math.max(-omegaMax, Math.min(omegaMax, ang * 0.7));
-  f.turn += (want - f.turn) * dt * 1.35;
+  f.turn += (want - f.turn) * Math.min(1, dt * gain);
   f.turn = Math.max(-omegaMax, Math.min(omegaMax, f.turn));
 }
 
@@ -162,20 +162,22 @@ export function stepPond(pond, dt) {
       const ta = Math.atan2(tgt.y + (dy / dl) * lead - hy, tgt.x + (dx / dl) * lead - hx);
       const ang = Math.atan2(Math.sin(ta - f.a), Math.cos(ta - f.a));
       const align = Math.max(0, Math.cos(ang));
-      const close = best < 180 && Math.abs(ang) > 0.4;
-      const very = best < 78 && Math.abs(ang) > 0.32;
+      const miss = Math.abs(ang);
+      const close = best < 260 && miss > 0.35;
+      const very = best < 130 && miss > 0.28;
       if (very) {
-        sp = CRUISE * (0.58 + 0.32 * align);
+        sp = CRUISE * (0.55 + 0.28 * align);
         urgent = true;
       } else if (close) {
-        sp = CRUISE * RACE * (0.5 + 0.4 * align);
+        sp = CRUISE * (1.1 + 0.65 * align);
+        urgent = miss > 0.9;
       } else {
         sp = CRUISE * RACE;
       }
-      const radius = very ? Math.max(36, best * 0.36)
-        : close ? Math.max(48, best * 0.4)
-        : Math.min(MIN_RADIUS, Math.max(BODY * 1.15, best * 0.85));
-      steer(f, ang, dt, radius);
+      const radius = very ? Math.max(28, best * 0.26)
+        : close ? Math.max(42, best * 0.3)
+        : Math.min(BODY * 1.5, Math.max(70, best * 0.38));
+      steer(f, ang, dt, radius, very ? 12 : 8);
       if (best < EAT_R) eatFood(foods, tgt, f);
     } else if (comeHome) {
       f.tgt = null;
