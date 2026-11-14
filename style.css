@@ -1303,8 +1303,8 @@ html[data-theme="dark"] #chat .c-ann-drop:active { background: rgba(239, 83, 80,
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
-  background: #2b6cd4;
-  border-color: #1f5bb8;
+  background: #6d28d9;
+  border-color: #5b21b6;
   box-shadow: none;
   animation: ring-pop .2s ease-out both;
   animation-delay: calc(var(--i, 0) * 18ms);
@@ -1315,7 +1315,7 @@ html[data-theme="dark"] #chat .c-ann-drop:active { background: rgba(239, 83, 80,
 .c-ring-btn.c-mm-danger { color: #ffb4b4; background: #3a2426; border-color: #6b3033; }
 .c-ring-btn.c-mm-ann { color: #fff8e8; background: #8a5a12; border-color: #6e470e; }
 .c-ring-btn:active { filter: brightness(.92); }
-html[data-theme="light"] #chat .c-ring-btn { color: #fff; background: #1a73e8; border-color: #1558b0; }
+html[data-theme="light"] #chat .c-ring-btn { color: #fff; background: #5b21b6; border-color: #4c1d95; }
 html[data-theme="light"] #chat .c-ring-green { color: #fff; background: #137333; border-color: #0d5926; }
 html[data-theme="light"] #chat .c-ring-neutral { color: #16181c; background: #eef0f3; border-color: #cfd3d8; }
 html[data-theme="light"] #chat .c-ring-btn.c-mm-danger { color: #b3261e; background: #fce8e6; border-color: #f3c1bc; }
