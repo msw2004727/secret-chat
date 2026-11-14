@@ -77,12 +77,12 @@ const beforeRace = race.fish.map((f) => f.sp);
 stepPond(race, 0.05);
 assert.equal(race.foods.length, 1, 'a far pellet is not removed while they speed up');
 for (let i = 0; i < race.fish.length; i++) {
-  assert.ok(race.fish[i].sp > beforeRace[i] && race.fish[i].sp < cruise * 1.7, 'speed ramps, it does not jump');
+  assert.ok(race.fish[i].sp > beforeRace[i] && race.fish[i].sp < cruise * 3.2, 'speed ramps, it does not jump');
 }
 for (let i = 0; i < 10; i++) stepPond(race, 0.05);
-assert.equal(RACE, 2.5);
+assert.equal(RACE, 7.5);
 for (const f of race.fish) {
-  assert.ok(f.sp > cruise * 2.15 && f.sp < cruise * 2.65, 'both fish reach about 2.5x, got ' + f.sp.toFixed(2));
+  assert.ok(f.sp > cruise * 6.3 && f.sp < cruise * 7.6, 'both fish reach about 7.5x, got ' + f.sp.toFixed(2));
   assert.ok(Math.abs(f.beat / (3.6 * PACE) - f.sp / cruise) < 0.08, 'tail beat scales with speed');
 }
 race.foods.length = 0;
