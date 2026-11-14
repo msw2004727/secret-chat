@@ -2,10 +2,10 @@
    寫進 rooms/<房>/bubbleFx/<訊息鍵> {state,t,by}，進房與重整都靠這份紀錄畫回來。
    軟掉／斷掉／復原同時寫進既有的 dr，連點手勢才不會跟環形選單各講各的。
    堅挺是軟掉的反方向（往上捲），dr 沒有這個形狀，只放在 bubbleFx。
-   環形選單：8 顆直徑 48px 的圓鈕，繞著按壓點、半徑 81px 排滿 360°。 */
+   環形選單：8 顆直徑 48px 的圓鈕，繞著按壓點、半徑 96px 排滿 360°。 */
 import { Droop, droopRecordKind, DROOP_CLIMB_FRESH_MS } from "./droop.js";
 
-export const BUBBLE_RING = { COUNT: 8, DIAMETER: 48, RADIUS: 81 };
+export const BUBBLE_RING = { COUNT: 8, DIAMETER: 48, RADIUS: 96 };
 
 /* 假來電。60 秒沒人按就作廢。caller＝撥出的人看膠囊；recipient＝其他人看全螢幕。 */
 export const FAKE_CALL_MS = 60000;

@@ -52,7 +52,7 @@ assert.equal(bubbleFxNormalize('stiff'), 'stiff');
 assert.equal(bubbleFxNormalize('fall'), null);
 assert.equal(BUBBLE_RING.COUNT, 8);
 assert.equal(BUBBLE_RING.DIAMETER, 48);
-assert.equal(BUBBLE_RING.RADIUS, 81);
+assert.equal(BUBBLE_RING.RADIUS, 96);
 
 const soft = { on: true, t: 100, by: 'dev' };
 const fxSoft = { state: 'soft', t: 100, by: 'dev' };
@@ -79,6 +79,14 @@ for (const p of pts) {
 const far = bubbleRingShift(9999, 9999, BUBBLE_RING.RADIUS, BUBBLE_RING.DIAMETER, bounds);
 assert.ok(far.x + BUBBLE_RING.RADIUS + BUBBLE_RING.DIAMETER / 2 <= bounds.right + 0.05);
 assert.ok(far.y + BUBBLE_RING.RADIUS + BUBBLE_RING.DIAMETER / 2 <= bounds.bottom + 0.05);
+const phone = { left: 8, top: 62, right: 352, bottom: 640 };
+const edge = bubbleRingShift(0, 0, BUBBLE_RING.RADIUS, BUBBLE_RING.DIAMETER, phone);
+for (const p of pts) {
+  assert.ok(edge.x + p.x >= phone.left - 0.05);
+  assert.ok(edge.y + p.y >= phone.top - 0.05);
+  assert.ok(edge.x + p.x + BUBBLE_RING.DIAMETER <= phone.right + 0.05);
+  assert.ok(edge.y + p.y + BUBBLE_RING.DIAMETER <= phone.bottom + 0.05);
+}
 
 const theta = DROOP.SOFT_ANGLE_DEG * Math.PI / 180;
 const down = droopSoftPose(180, theta);
@@ -97,9 +105,9 @@ const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
 const droop = fs.readFileSync(new URL('../droop.js', import.meta.url), 'utf8');
-assert.match(app, /const APP_VERSION = "v61\.67"/);
-assert.match(html, /content="v61\.67"/);
-assert.match(sw, /const VERSION = "sc-v61\.67"/);
+assert.match(app, /const APP_VERSION = "v61\.68"/);
+assert.match(html, /content="v61\.68"/);
+assert.match(sw, /const VERSION = "sc-v61\.68"/);
 assert.match(html, /灰貓懷孕/);
 assert.match(html, /召喚幼貓/);
 assert.match(app, /kind === "fall" \? \("fall:" \+ S\.clientId\)/);
@@ -110,9 +118,12 @@ for (const label of ['堅挺', '軟掉', '斷掉', '復原', '回覆', '複製',
 }
 assert.match(css, /\.c-ring-btn\s*\{[^}]*width:\s*48px/);
 assert.match(css, /\.c-ring-btn\s*\{[^}]*height:\s*48px/);
-assert.match(css, /\.c-ring-btn\s*\{[^}]*backdrop-filter:\s*blur\(16px\)/);
-assert.match(css, /\.c-ring-btn\.c-mm-danger\s*\{[^}]*color:\s*#ff4d4f/);
-assert.match(css, /\.c-ring-btn\.c-mm-ann\s*\{[^}]*color:\s*#fff/);
+assert.doesNotMatch(css, /\.c-ring-btn\s*\{[^}]*backdrop-filter/);
+assert.doesNotMatch(css, /\.c-ring-btn\s*\{[^}]*radial-gradient/);
+assert.match(css, /\.c-ring-btn\s*\{[^}]*background:\s*#2b6cd4/);
+assert.match(css, /html\[data-theme="light"\] #chat \.c-ring-btn \{[^}]*background:\s*#1a73e8/);
+assert.match(css, /\.c-ring-btn\.c-mm-danger\s*\{[^}]*background:\s*#3a2426/);
+assert.match(css, /\.c-ring-btn\.c-mm-ann\s*\{[^}]*background:\s*#8a5a12/);
 assert.match(droop, /mode: up \? "stiff" : "soft"/);
 assert.match(droop, /st\.sign < 0 \? -1 : 1/);
 assert.doesNotMatch(droop, /droopTapAction\(mode, n\)/);
