@@ -477,6 +477,47 @@
             ".validate": false
           }
         },
+        "pairLoc": {
+          "m": {
+            ".validate": "!newData.exists() || newData.hasChildren(['t','iv','c','by'])",
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+            },
+            "iv": {
+              ".validate": "newData.isString() && newData.val().length <= 32"
+            },
+            "c": {
+              ".validate": "newData.isString() && newData.val().length <= 400"
+            },
+            "by": {
+              ".validate": "newData.isString() && newData.val().length <= 64"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "f": {
+            ".validate": "!newData.exists() || newData.hasChildren(['t','iv','c','by'])",
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+            },
+            "iv": {
+              ".validate": "newData.isString() && newData.val().length <= 32"
+            },
+            "c": {
+              ".validate": "newData.isString() && newData.val().length <= 400"
+            },
+            "by": {
+              ".validate": "newData.isString() && newData.val().length <= 64"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
         "loveAsk": {
           ".validate": "!newData.exists() || newData.hasChildren(['id','by','t'])",
           "id": {

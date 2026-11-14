@@ -12,6 +12,7 @@
 import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat-performance.js";
 import { Droop, petGroupsFromSnap } from "./droop.js";
 import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS, loveAskPhase, loveAskSeconds, loveAskBothAcked } from "./bubble-fx.js";
+import { pairLocAgeSec, pairLocClock, pairLocDistance, PAIR_LOC_STALE_MS } from "./pair-loc.js";
 attachBubbleFx(Droop);
 
 const CFG = window.CONFIG;
@@ -22,7 +23,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.65";
+const APP_VERSION = "v61.66";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5361,6 +5362,25 @@ async function enterChat() {
     if (myGen !== S.gen) return;
     applyLoveAsk(snap.val(), nowServer());
   }));
+  /* 麥／辛位置。用房間金鑰加密，跟首頁 loc/ 無關。超過 12 小時就刪。 */
+  const pairRef = ref(db, `${base}/pairLoc`);
+  S.savePairLoc = async (side, lat, lng, acc) => {
+    if (side !== "m" && side !== "f") return;
+    if (pairSide() !== side || !S.key) return;
+    const sealed = await seal(S.key, { lat, lng, acc });
+    await set(ref(db, `${base}/pairLoc/${side}`), {
+      t: serverTimestamp(), iv: sealed.iv, c: sealed.c, by: S.clientId,
+    });
+  };
+  S.dropPairLoc = (side) => {
+    if (side !== "m" && side !== "f") return Promise.resolve();
+    return remove(ref(db, `${base}/pairLoc/${side}`));
+  };
+  S.subs.push(onValue(pairRef, (snap) => {
+    if (myGen !== S.gen) return;
+    applyPairLoc(snap.val(), nowServer()).catch(() => {});
+  }));
+  if (!pairTimer) pairTimer = setInterval(() => { if (S.roomId) paintPair(); }, 1000);
 
   /* 動物分組跟這間房同步。總開關 sc-pets 仍只影響這台裝置看不看得到。 */
   bindPetGroupSync(f, S.roomId, S.clientId, S.subs);
@@ -5795,6 +5815,7 @@ async function enterChat() {
       remove(ref(db, `${base}/bubbleFx`)),
       remove(ref(db, `${base}/fakeCall`)),
       remove(ref(db, `${base}/loveAsk`)),
+      remove(ref(db, `${base}/pairLoc`)),
       remove(ref(db, `${base}/rain`)),
       remove(ref(db, `${base}/meta/last`)),
       /* 啟用時思念隨對話歸零；停用時不寫入或刪除既有計數。 */
@@ -10032,6 +10053,7 @@ function leaveChat() {
   $("msgMenu").hidden = true;
   resetFakeCallUi();
   resetLoveAskUi();
+  resetPairUi();
   closeRxPicker();
   $("btnJump").hidden = true;
   S.pending.clear(); S.failed.clear();
@@ -10069,6 +10091,8 @@ function leaveChat() {
   S.ackLoveAsk = null;
   S.clearLoveAsk = null;
   S.loveAsk = null;
+  S.savePairLoc = null;
+  S.dropPairLoc = null;
   BubbleFx.last = null;
   Droop.clearAll();
   try { const rain = window.BallRain; if (rain) { rain.write = null; rain.writeEnd = null; rain.stop(); } } catch (_) {}
@@ -12391,6 +12415,7 @@ async function admWipe(i) {
       remove(ref(db, `${base}/bubbleFx`)),
       remove(ref(db, `${base}/fakeCall`)),
       remove(ref(db, `${base}/loveAsk`)),
+      remove(ref(db, `${base}/pairLoc`)),
       remove(ref(db, `${base}/rain`)),
       remove(ref(db, `${base}/meta/last`)),
       // 清空對話保留 nt（記事本），停用中的思念計數也不變動。
@@ -13258,6 +13283,118 @@ function confirmLove() {
   stopLoveHearts();
   if (id && S.ackLoveAsk) S.ackLoveAsk(id).catch(() => {});
 }
+
+/* 麥／辛。第一下把這台綁到那一側，之後只更新自己的加密位置。 */
+let pairFix = { m: null, f: null };
+let pairTimer = 0;
+function pairSideKey() { return "sc-pair-side:" + (S.roomId || ""); }
+function pairSide() {
+  try {
+    const v = localStorage.getItem(pairSideKey());
+    return v === "m" || v === "f" ? v : "";
+  } catch (_) { return ""; }
+}
+function bindPairSide(side) {
+  try { localStorage.setItem(pairSideKey(), side); } catch (_) {}
+}
+function paintPair() {
+  const now = nowServer();
+  for (const side of ["m", "f"]) {
+    const fix = pairFix[side];
+    if (!fix) continue;
+    const age = pairLocAgeSec(fix.t, now);
+    if (age !== null && age >= PAIR_LOC_STALE_MS / 1000) {
+      pairFix[side] = null;
+      if (S.dropPairLoc) S.dropPairLoc(side).catch(() => {});
+    }
+  }
+  const mark = (id, on) => { const el = $(id); if (el) el.classList.toggle("set", !!on); };
+  mark("pairM", pairFix.m);
+  mark("pairF", pairFix.f);
+  const showTick = (id, fix) => {
+    const el = $(id);
+    if (!el) return;
+    if (!fix) { el.hidden = true; el.textContent = ""; return; }
+    const age = pairLocAgeSec(fix.t, now);
+    el.hidden = false;
+    el.textContent = pairLocClock(age == null ? 0 : age);
+  };
+  showTick("pairMTick", pairFix.m);
+  showTick("pairFTick", pairFix.f);
+  const link = $("pairLink");
+  const dist = $("pairDist");
+  const both = !!(pairFix.m && pairFix.f);
+  if (link) link.classList.toggle("on", both);
+  if (dist) dist.textContent = both ? pairLocDistance(pairFix.m, pairFix.f) : "";
+}
+function resetPairUi() {
+  clearInterval(pairTimer);
+  pairTimer = 0;
+  pairFix = { m: null, f: null };
+  for (const id of ["pairM", "pairF"]) {
+    const el = $(id);
+    if (el) el.classList.remove("set", "busy");
+  }
+  paintPair();
+}
+async function readPairFix(slot, rec, now) {
+  if (!rec || typeof rec !== "object") return null;
+  const t = Number(rec.t);
+  if (!Number.isFinite(t)) return null;
+  const age = pairLocAgeSec(t, now);
+  if (age !== null && age >= PAIR_LOC_STALE_MS / 1000) {
+    if (S.dropPairLoc) S.dropPairLoc(slot).catch(() => {});
+    return null;
+  }
+  if (age !== null && age < -120) return null;
+  if (!S.key || typeof rec.iv !== "string" || typeof rec.c !== "string") return null;
+  try {
+    const body = await unseal(S.key, rec);
+    const lat = Number(body && body.lat);
+    const lng = Number(body && body.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng, t };
+  } catch (_) { return null; }
+}
+async function applyPairLoc(val, now) {
+  const rec = val && typeof val === "object" ? val : {};
+  pairFix.m = await readPairFix("m", rec.m, now);
+  pairFix.f = await readPairFix("f", rec.f, now);
+  paintPair();
+}
+function pairGeoError(err) {
+  if (err && err.code === 1) return "這台手機沒有開定位，無法更新";
+  return "現在抓不到位置，請稍後再試";
+}
+async function tapPair(side) {
+  if (!S.roomId || !S.key || !S.savePairLoc) { toast("還在連線中，請稍候一下"); return; }
+  const bound = pairSide();
+  if (bound && bound !== side) {
+    toast(bound === "m" ? "這台已綁在麥" : "這台已綁在辛");
+    return;
+  }
+  if (!bound) bindPairSide(side);
+  const btn = $(side === "m" ? "pairM" : "pairF");
+  if (!btn || btn.classList.contains("busy")) return;
+  btn.classList.add("busy");
+  try {
+    const pos = await new Promise((res, rej) => {
+      if (!navigator.geolocation) return rej(Object.assign(new Error("no-geo"), { code: 2 }));
+      navigator.geolocation.getCurrentPosition(res, rej, {
+        enableHighAccuracy: true, timeout: 10000, maximumAge: 0,
+      });
+    });
+    if (pairSide() !== side || !S.roomId || !S.savePairLoc) return;
+    const { latitude, longitude, accuracy } = pos.coords;
+    await S.savePairLoc(side, +latitude.toFixed(6), +longitude.toFixed(6), Math.round(accuracy || 0));
+  } catch (err) {
+    toast(pairGeoError(err));
+  } finally {
+    btn.classList.remove("busy");
+  }
+}
+$("pairM")?.addEventListener("click", () => tapPair("m"));
+$("pairF")?.addEventListener("click", () => tapPair("f"));
 
 /* 標題列的動物開關。勾選跟房間同步；總開關關掉時不能改，勾選狀態留著。 */
 function bindZoo() {

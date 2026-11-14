@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.65">
+<meta name="sc-shell" content="v61.66">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -260,6 +260,29 @@
     <div class="c-title">
       <span class="c-dot" id="peerDot" data-on="false"></span>
       <span id="peerText">不在線</span>
+      <div class="c-pair" id="pairLoc">
+        <span class="c-pair-slot">
+          <span class="c-pair-wrap">
+            <button type="button" class="c-pair-who is-m" id="pairM" aria-label="麥的位置">麥</button>
+            <span class="c-pair-tick" id="pairMTick" hidden></span>
+          </span>
+        </span>
+        <div class="c-pair-link" id="pairLink" aria-hidden="true">
+          <svg viewBox="0 0 64 16" aria-hidden="true">
+            <path class="c-pair-flow" d="M8 8h16M40 8h16" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-dasharray="2.5 2.2"/>
+            <path d="M8 8l3.6-2.6M8 8l3.6 2.6" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M56 8l-3.6-2.6M56 8l-3.6 2.6" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="c-pair-heart" fill="currentColor" d="M32 11.5c-1.5-1.2-3.5-2.7-3.5-4.2a1.85 1.85 0 0 1 3.5-1 1.85 1.85 0 0 1 3.5 1c0 1.5-2 3-3.5 4.2z"/>
+          </svg>
+          <span class="c-pair-dist" id="pairDist"></span>
+        </div>
+        <span class="c-pair-slot">
+          <span class="c-pair-wrap">
+            <button type="button" class="c-pair-who is-f" id="pairF" aria-label="辛的位置">辛</button>
+            <span class="c-pair-tick" id="pairFTick" hidden></span>
+          </span>
+        </span>
+      </div>
     </div>
 
     <!-- 思念：只有私人房才有。按一下 +1，粉色愛心從按鈕周圍往上飄。
