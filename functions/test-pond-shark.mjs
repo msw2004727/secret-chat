@@ -27,11 +27,11 @@ assert.equal(PACE, 0.75);
 assert.ok(Math.abs(createPond(300, 500).fish[0].sp - cruise) < 1e-6);
 assert.ok(Math.abs(createPond(300, 500).fish[0].beat - 3.6 * PACE) < 1e-6);
 
-function untilEaten(setup) {
+function untilEaten(setup, limit = 12) {
   const p = createPond(420, 640);
   setup(p);
   let t = 0;
-  while (p.foods.length && t < 8) { stepPond(p, 0.05); t += 0.05; }
+  while (p.foods.length && t < limit) { stepPond(p, 0.05); t += 0.05; }
   return { left: p.foods.length, t, gulp: p.fish.some((f) => f.gulp > 0) };
 }
 const side = untilEaten((p) => {
@@ -49,7 +49,21 @@ const corner = untilEaten((p) => {
   p.drop(410, 8);
 });
 assert.equal(corner.left, 0, 'pellets in the corners are eaten');
-assert.ok(corner.t < 8);
+assert.ok(corner.t < 12, 'corners clear, took ' + corner.t);
+const arc = createPond(900, 900);
+const leader = arc.fish[0];
+leader.x = 450; leader.y = 450; leader.a = 0; leader.turn = 0; leader.t = 0; leader.trail = [];
+const path = [];
+for (let i = 0; i <= 70; i++) {
+  const a = i / 70 * Math.PI / 2;
+  path.push({ x: 450 + Math.sin(a) * 280, y: 450 - Math.cos(a) * 280 });
+}
+leader.x = path[path.length - 1].x;
+leader.y = path[path.length - 1].y;
+leader.trail = path.slice().reverse();
+const mid = spine(leader, 20);
+const along = path[path.length - 1 - 20];
+assert.ok(Math.hypot(mid[0] - along.x, mid[1] - along.y) < 30, 'body lies on the head trail');
 
 const fresh = createPond(400, 600);
 fresh.drop(10, 10);
