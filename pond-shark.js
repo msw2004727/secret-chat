@@ -118,48 +118,60 @@ function eatFood(foods, tgt, fish) {
   fish.tgt = null;
 }
 
-function steer(f, ang, dt) {
-  const omegaMax = Math.max(0.04, f.sp / MIN_RADIUS);
-  const want = Math.max(-omegaMax, Math.min(omegaMax, ang * 0.55));
+function steer(f, ang, dt, radius) {
+  const omegaMax = Math.max(0.05, f.sp / radius);
+  const want = Math.max(-omegaMax, Math.min(omegaMax, ang * 0.7));
   f.turn += (want - f.turn) * dt * 1.35;
   f.turn = Math.max(-omegaMax, Math.min(omegaMax, f.turn));
 }
 
-/* 頭往前游，角速度慢慢加減，轉彎半徑至少大約兩個半身長。
-   先用嘴碰到的那隻吃掉。繞太久就讓最近的那隻吃掉。 */
+function outsideDist(f, pond) {
+  const dx = f.x < 0 ? -f.x : f.x > pond.w ? f.x - pond.w : 0;
+  const dy = f.y < 0 ? -f.y : f.y > pond.h ? f.y - pond.h : 0;
+  return Math.hypot(dx, dy);
+}
+
+/* 頭往前游。畫面內用大弧；游出約一個多身長後再以弧線游回來。
+   飼料只有嘴碰到才消失。靠近又沒對準就稍慢、弧線收一點，從飼料後方穿過去。 */
 export function stepPond(pond, dt) {
   const foods = pond.foods;
   for (const fd of foods) fd.age += dt;
+  const bothOut = pond.fish.every((g) => outsideDist(g, pond) > 0);
   for (const f of pond.fish) {
     const hx = f.x, hy = f.y;
+    const out = outsideDist(f, pond);
+    f.outT = out > 0 ? (f.outT || 0) + dt : 0;
     let tgt = null, best = 1e9;
     for (const fd of foods) {
       const dist = Math.hypot(fd.x - hx, fd.y - hy);
       if (dist < best) { best = dist; tgt = fd; }
     }
     let sp = CRUISE;
+    const comeHome = !tgt && (out > 0.9 * BODY || f.outT > 2.5 || bothOut);
     if (tgt) {
       if (f.tgt !== tgt) { f.tgt = tgt; f.chase = 0; }
       f.chase += dt;
-      const ta = Math.atan2(tgt.y - hy, tgt.x - hx);
+      const dx = tgt.x - hx, dy = tgt.y - hy;
+      const dl = Math.hypot(dx, dy) || 1;
+      const lead = Math.min(42, best * 0.3);
+      const ta = Math.atan2(tgt.y + (dy / dl) * lead - hy, tgt.x + (dx / dl) * lead - hx);
       const ang = Math.atan2(Math.sin(ta - f.a), Math.cos(ta - f.a));
       const align = Math.max(0, Math.cos(ang));
-      sp = CRUISE * (1 + 0.25 * align);
-      steer(f, ang, dt);
-      const circling = f.chase > 6 && best < 160;
-      const forgotten = tgt.age > 10;
-      if (best < EAT_R || circling || forgotten) eatFood(foods, tgt, f);
+      const close = best < 180 && Math.abs(ang) > 0.4;
+      sp = CRUISE * (close ? 0.55 + 0.45 * align : 1 + 0.2 * align);
+      const radius = close ? Math.max(52, best * 0.42) : Math.min(MIN_RADIUS, Math.max(BODY * 1.15, best * 0.85));
+      steer(f, ang, dt, radius);
+      if (best < EAT_R) eatFood(foods, tgt, f);
+    } else if (comeHome) {
+      f.tgt = null;
+      f.chase = 0;
+      const ta = Math.atan2(pond.h / 2 - hy, pond.w / 2 - hx);
+      const ang = Math.atan2(Math.sin(ta - f.a), Math.cos(ta - f.a));
+      steer(f, ang, dt, f.outT > 2.5 || bothOut ? BODY * 0.72 : BODY * 1.35);
     } else {
       f.tgt = null;
       f.chase = 0;
-      const m = MIN_RADIUS * 0.55;
-      if (f.x < m || f.x > pond.w - m || f.y < m || f.y > pond.h - m) {
-        const ta = Math.atan2(pond.h / 2 - hy, pond.w / 2 - hx);
-        const ang = Math.atan2(Math.sin(ta - f.a), Math.cos(ta - f.a));
-        steer(f, ang, dt);
-      } else {
-        steer(f, (Math.random() - 0.5) * 0.15, dt);
-      }
+      steer(f, (Math.random() - 0.5) * 0.15, dt, MIN_RADIUS);
     }
     f.sp += (sp - f.sp) * dt * 0.8;
     f.beat += (CRUISE_BEAT * (f.sp / CRUISE) - f.beat) * dt * 0.8;
@@ -168,18 +180,7 @@ export function stepPond(pond, dt) {
     f.gulp = Math.max(0, f.gulp - dt);
     f.x += Math.cos(f.a) * f.sp * dt;
     f.y += Math.sin(f.a) * f.sp * dt;
-    f.x = Math.max(6, Math.min(pond.w - 6, f.x));
-    f.y = Math.max(6, Math.min(pond.h - 6, f.y));
     pushTrail(f);
-  }
-  for (let i = foods.length - 1; i >= 0; i--) {
-    if (foods[i].age <= 10) continue;
-    let who = pond.fish[0], best = 1e9;
-    for (const f of pond.fish) {
-      const d = Math.hypot(foods[i].x - f.x, foods[i].y - f.y);
-      if (d < best) { best = d; who = f; }
-    }
-    eatFood(foods, foods[i], who);
   }
 }
 

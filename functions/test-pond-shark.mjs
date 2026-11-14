@@ -47,9 +47,28 @@ const corner = untilEaten((p) => {
   p.fish[1].x = 200; p.fish[1].y = 80; p.fish[1].a = 0;
   p.drop(4, 630);
   p.drop(410, 8);
-});
+}, 16);
 assert.equal(corner.left, 0, 'pellets in the corners are eaten');
-assert.ok(corner.t < 12, 'corners clear, took ' + corner.t);
+assert.ok(corner.t < 16, 'corners clear by swimming there, took ' + corner.t);
+const aged = createPond(400, 400);
+aged.fish[0].x = 200; aged.fish[0].y = 200; aged.fish[0].a = 0;
+aged.fish[1].x = 220; aged.fish[1].y = 200; aged.fish[1].a = 0;
+aged.foods.push({ x: 30, y: 30, age: 30 });
+stepPond(aged, 0.05);
+assert.equal(aged.foods.length, 1, 'old pellets stay until a mouth touches them');
+const leave = createPond(360, 500);
+const out = leave.fish[0];
+out.x = 12; out.y = 250; out.a = Math.PI; out.turn = 0; out.sp = cruise;
+leave.fish[1].x = 180; leave.fish[1].y = 250; leave.fish[1].a = 0;
+leave.foods.length = 0;
+for (let i = 0; i < 50; i++) stepPond(leave, 0.05);
+assert.ok(out.x < 0, 'a fish can swim fully off the screen');
+let back = false;
+for (let i = 0; i < 500 && !back; i++) {
+  stepPond(leave, 0.05);
+  if (out.x > 30 && out.x < leave.w - 30 && out.y > 30 && out.y < leave.h - 30) back = true;
+}
+assert.ok(back, 'a fish that left comes back in an arc');
 const arc = createPond(900, 900);
 const leader = arc.fish[0];
 leader.x = 450; leader.y = 450; leader.a = 0; leader.turn = 0; leader.t = 0; leader.trail = [];

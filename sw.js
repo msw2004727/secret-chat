@@ -9,7 +9,7 @@
  *     攔了會讓即時訂閱出問題，而且沒有任何好處。
  * ============================================================ */
 
-const VERSION = "sc-v61.73";
+const VERSION = "sc-v61.74";
 // The build fills this with content-addressed assets only. HTML/config aliases,
 // callbacks and application requests keep the network-first path below.
 const IMMUTABLE = new Set([]);
