@@ -4,10 +4,16 @@
 const CW = 6, CH = 9;
 const RAMP = " .,:;-=+*x#%@";
 const THEMES = {
-  dark: { bg: "#0a0c0d", food: "#6b604c", fish: ["#3c4548", "#45403a"] },
-  light: { bg: "#ffffff", food: "#bfae8c", fish: ["#c3cacc", "#cdc6bc"] },
+  dark: { bg: "#0a0c0d", food: "#6b604c", fish: ["#3d5160", "#5a4450"] },
+  light: { bg: "#ffffff", food: "#bfae8c", fish: ["#b7cfe0", "#e3c2ce"] },
 };
 const L = 38, S = 5.2, STEP = 0.35;
+/* 比現在慢一成又四分。擺尾頻率跟前進一起縮，波形才不會跟位移脫節。 */
+export const PACE = 0.75;
+const CRUISE = 2.0 * S * 4.5 * PACE;
+const CRUISE_BEAT = 3.6 * PACE;
+const CHASE_BEAT = 4.6 * PACE;
+const EAT_R = 7 * S;
 
 export function halfW(i) {
   const k = i / L;
@@ -17,7 +23,7 @@ export function halfW(i) {
 }
 
 function makeFish(x, y, a) {
-  return { x, y, a, t: 0, turn: 0, gulp: 0, sp: 2.0 * S * 4.5, beat: 3.6 };
+  return { x, y, a, t: 0, turn: 0, gulp: 0, sp: CRUISE, beat: CRUISE_BEAT, chase: 0, tgt: null };
 }
 
 export function createPond(width, height) {
@@ -29,7 +35,18 @@ export function createPond(width, height) {
   };
   pond.fish = [makeFish(pond.w * 0.35, pond.h * 0.32, 0.4), makeFish(pond.w * 0.62, pond.h * 0.7, 3.4)];
   pond.resize = (w, h) => { pond.w = Math.max(1, w); pond.h = Math.max(1, h); };
-  pond.drop = (x, y) => { pond.foods.push({ x, y, age: 0 }); };
+  pond.reset = () => {
+    pond.foods.length = 0;
+    pond.fish = [makeFish(pond.w * 0.35, pond.h * 0.32, 0.4), makeFish(pond.w * 0.62, pond.h * 0.7, 3.4)];
+  };
+  pond.drop = (x, y) => {
+    const m = 8;
+    pond.foods.push({
+      x: Math.max(m, Math.min(pond.w - m, x)),
+      y: Math.max(m, Math.min(pond.h - m, y)),
+      age: 0,
+    });
+  };
   pond.step = (dt) => stepPond(pond, dt);
   return pond;
 }
@@ -43,7 +60,17 @@ export function spine(f, i) {
   return [f.x + (-ca * (i - 8) - sa * sw) * S, f.y + (-sa * (i - 8) + ca * sw) * S];
 }
 
-/* 轉向是慢慢加，不把角度直接掰過去。先碰到飼料的那隻吃掉。 */
+function eatFood(foods, tgt, fish) {
+  const i = foods.indexOf(tgt);
+  if (i < 0) return;
+  foods.splice(i, 1);
+  fish.gulp = 0.4;
+  fish.chase = 0;
+  fish.tgt = null;
+}
+
+/* 轉向是慢慢加，不把角度直接掰過去。靠近又沒對準就放慢，轉彎半徑才收得進來。
+   先用嘴碰到的那隻吃掉。繞太久就讓最近的那隻吃掉，避免一直兜圈。 */
 export function stepPond(pond, dt) {
   const foods = pond.foods;
   for (const fd of foods) fd.age += dt;
@@ -51,28 +78,39 @@ export function stepPond(pond, dt) {
     const [hx, hy] = spine(f, 0);
     let tgt = null, best = 1e9;
     for (const fd of foods) {
-      const d = Math.hypot(fd.x - hx, fd.y - hy);
-      if (d < best) { best = d; tgt = fd; }
+      const dist = Math.hypot(fd.x - hx, fd.y - hy);
+      if (dist < best) { best = dist; tgt = fd; }
     }
-    let sp = 2.0 * S * 4.5, beat = 3.6;
+    let sp = CRUISE, beat = CRUISE_BEAT;
     if (tgt) {
-      const ta = Math.atan2(tgt.y - f.y, tgt.x - f.x);
-      const d = Math.atan2(Math.sin(ta - f.a), Math.cos(ta - f.a));
-      f.turn += (Math.max(-0.8, Math.min(0.8, d * 1.2)) - f.turn) * dt * 0.9;
-      sp *= 1.5 * (0.55 + 0.45 * Math.max(0, Math.cos(d)));
-      beat = 4.6;
-      if (best < 3 * S) { foods.splice(foods.indexOf(tgt), 1); f.gulp = 0.4; }
+      if (f.tgt !== tgt) { f.tgt = tgt; f.chase = 0; }
+      f.chase += dt;
+      const ta = Math.atan2(tgt.y - hy, tgt.x - hx);
+      const ang = Math.atan2(Math.sin(ta - f.a), Math.cos(ta - f.a));
+      const align = Math.max(0, Math.cos(ang));
+      const near = best < 110;
+      const tight = near ? 0.22 + 0.78 * align : 1;
+      sp = CRUISE * 1.5 * (0.55 + 0.45 * align) * tight;
+      beat = CHASE_BEAT;
+      const maxTurn = near ? 1.7 : 0.8;
+      const want = Math.max(-maxTurn, Math.min(maxTurn, ang * 1.35));
+      f.turn += (want - f.turn) * dt * (near ? 2.1 : 0.9);
+      const circling = f.chase > 6 && best < 160;
+      const forgotten = tgt.age > 10;
+      if (best < EAT_R || circling || forgotten) eatFood(foods, tgt, f);
     } else {
+      f.tgt = null;
+      f.chase = 0;
       f.turn += (Math.random() - 0.5) * dt * 0.35;
       f.turn *= 0.985;
       const m = 24 * S;
       if (f.x < m || f.x > pond.w - m || f.y < m || f.y > pond.h - m) {
         const ta = Math.atan2(pond.h / 2 - f.y, pond.w / 2 - f.x);
-        const d = Math.atan2(Math.sin(ta - f.a), Math.cos(ta - f.a));
-        f.turn += d * dt * 0.6;
+        const ang = Math.atan2(Math.sin(ta - f.a), Math.cos(ta - f.a));
+        f.turn += ang * dt * 0.6;
       }
     }
-    f.turn = Math.max(-0.8, Math.min(0.8, f.turn));
+    f.turn = Math.max(-1.7, Math.min(1.7, f.turn));
     f.sp += (sp - f.sp) * dt * 0.8;
     f.beat += (beat - f.beat) * dt * 0.8;
     f.a += f.turn * dt;
@@ -80,6 +118,8 @@ export function stepPond(pond, dt) {
     f.gulp = Math.max(0, f.gulp - dt);
     f.x += Math.cos(f.a) * f.sp * dt;
     f.y += Math.sin(f.a) * f.sp * dt;
+    f.x = Math.max(6, Math.min(pond.w - 6, f.x));
+    f.y = Math.max(6, Math.min(pond.h - 6, f.y));
   }
 }
 
@@ -256,5 +296,9 @@ export function mountPondShark(scroller, hooks) {
   watch.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   if (typeof ResizeObserver === "function") new ResizeObserver(() => { if (running || still) { measure(); draw(); } }).observe(scroller);
 
-  return { start, stop, drop: pond.drop };
+  function reset() {
+    pond.reset();
+    if (running || still) draw();
+  }
+  return { start, stop, reset, drop: pond.drop };
 }
