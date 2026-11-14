@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { createPond, stepPond, halfW, spine } from '../pond-shark.js';
+import { createPond, stepPond, halfW, spine, PACE } from '../pond-shark.js';
 
 assert.ok(halfW(2) < halfW(12), 'front of the shark is narrower than the middle');
 const pond = createPond(400, 700);
@@ -20,6 +20,45 @@ near.foods.push({ x: hx, y: hy, age: 0 });
 stepPond(near, 0.05);
 assert.equal(near.foods.length, 0, 'the fish that arrives first eats the food');
 assert.ok(near.fish[0].gulp > 0);
+assert.equal(near.fish[1].gulp, 0);
+
+const cruise = 2.0 * 5.2 * 4.5 * PACE;
+assert.equal(PACE, 0.75);
+assert.ok(Math.abs(createPond(300, 500).fish[0].sp - cruise) < 1e-6);
+assert.ok(Math.abs(createPond(300, 500).fish[0].beat - 3.6 * PACE) < 1e-6);
+
+function untilEaten(setup) {
+  const p = createPond(420, 640);
+  setup(p);
+  let t = 0;
+  while (p.foods.length && t < 8) { stepPond(p, 0.05); t += 0.05; }
+  return { left: p.foods.length, t, gulp: p.fish.some((f) => f.gulp > 0) };
+}
+const side = untilEaten((p) => {
+  p.fish[0].x = 180; p.fish[0].y = 300; p.fish[0].a = 0; p.fish[0].turn = 0; p.fish[0].t = 0;
+  p.fish[1].x = 40; p.fish[1].y = 40; p.fish[1].a = 0;
+  p.foods.push({ x: 210, y: 300, age: 0 });
+});
+assert.equal(side.left, 0, 'a fish passing beside the pellet still eats it');
+assert.ok(side.t < 6, 'side approach finishes within a few seconds, took ' + side.t);
+
+const corner = untilEaten((p) => {
+  p.fish[0].x = 200; p.fish[0].y = 320; p.fish[0].a = Math.PI; p.fish[0].turn = 0; p.fish[0].t = 0;
+  p.fish[1].x = 200; p.fish[1].y = 80; p.fish[1].a = 0;
+  p.drop(4, 630);
+  p.drop(410, 8);
+});
+assert.equal(corner.left, 0, 'pellets in the corners are eaten');
+assert.ok(corner.t < 8);
+
+const fresh = createPond(400, 600);
+fresh.drop(10, 10);
+fresh.fish[0].a = 2;
+fresh.reset();
+assert.equal(fresh.foods.length, 0);
+assert.ok(Math.abs(fresh.fish[0].a - 0.4) < 1e-9);
+assert.equal(fresh.fish[0].turn, 0);
+assert.ok(Math.abs(fresh.fish[0].sp - cruise) < 1e-6);
 
 const src = fs.readFileSync(new URL('../pond-shark.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
@@ -31,6 +70,11 @@ assert.match(src, /visibilitychange/);
 assert.match(src, /prefers-reduced-motion: reduce/);
 assert.match(src, /#0a0c0d/);
 assert.match(src, /#ffffff/);
+assert.match(src, /#3d5160/);
+assert.match(src, /#5a4450/);
+assert.match(src, /#b7cfe0/);
+assert.match(src, /#e3c2ce/);
+assert.match(app, /S\.pond\?\.reset\?\.\(\)/);
 assert.match(css, /\.c-pond canvas \{[^}]*pointer-events: none/);
 assert.match(css, /\.c-scroll > \*:not\(\.c-plantbg\):not\(\.c-pond\)/);
 assert.match(html, /id="pondCanvas"/);
