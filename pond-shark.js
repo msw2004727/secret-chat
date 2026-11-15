@@ -78,10 +78,12 @@ export function createPond(width, height) {
     foods: [],
     fish: [],
   };
+  pond.alive = [true, true];
   pond.fish = [makeFish(pond.w * 0.35, pond.h * 0.32, 0.4), makeFish(pond.w * 0.62, pond.h * 0.7, 3.4)];
   pond.resize = (w, h) => { pond.w = Math.max(1, w); pond.h = Math.max(1, h); };
   pond.reset = () => {
     pond.foods.length = 0;
+    pond.alive = [true, true];
     pond.fish = [makeFish(pond.w * 0.35, pond.h * 0.32, 0.4), makeFish(pond.w * 0.62, pond.h * 0.7, 3.4)];
   };
   pond.drop = (x, y) => {
@@ -92,7 +94,7 @@ export function createPond(width, height) {
       age: 0,
     });
   };
-  pond.step = (dt) => stepPond(pond, dt);
+  pond.step = (dt) => stepPond(pond, dt, pond.alive);
   return pond;
 }
 
@@ -114,11 +116,12 @@ export function spine(f, i) {
 
 function eatFood(foods, tgt, fish) {
   const i = foods.indexOf(tgt);
-  if (i < 0) return;
+  if (i < 0) return false;
   foods.splice(i, 1);
   fish.gulp = 0.4;
   fish.chase = 0;
   fish.tgt = null;
+  return true;
 }
 
 function steer(f, ang, dt, radius, gain = 1.35, follow = 0.7) {
@@ -142,14 +145,28 @@ function outsideDist(f, pond) {
   return Math.hypot(dx, dy);
 }
 
+function reposition(pond, i) {
+  const f = pond.fish[i];
+  if (!f) return;
+  if (i === 0) { f.x = pond.w * 0.35; f.y = pond.h * 0.32; f.a = 0.4; }
+  else { f.x = pond.w * 0.62; f.y = pond.h * 0.7; f.a = 3.4; }
+  f.turn = 0; f.sp = CRUISE; f.beat = CRUISE_BEAT; f.chase = 0; f.tgt = null; f.gulp = 0; f.outT = 0;
+  seedTrail(f);
+}
+
 /* 頭往前游。畫面內用大弧；游出約一個多身長後再以弧線游回來。
-   有飼料就維持 7.5 倍衝到嘴碰到為止，不先減速；靠近時把弧線收緊。吃完才緩回巡航。 */
-export function stepPond(pond, dt) {
+   有飼料就維持 7.5 倍衝到嘴碰到為止，不先減速；靠近時把弧線收緊。吃完才緩回巡航。
+   alive[i] === false 的魚已經死了：停在原地、不畫、也不准吃。 */
+export function stepPond(pond, dt, alive) {
   const foods = pond.foods;
   for (const fd of foods) fd.age += dt;
-  const racing = foods.length > 0;
-  const bothOut = pond.fish.every((g) => outsideDist(g, pond) > 0);
-  for (const f of pond.fish) {
+  const living = [];
+  for (let i = 0; i < pond.fish.length; i++) if (!alive || alive[i] !== false) living.push(pond.fish[i]);
+  const racing = foods.length > 0 && living.length > 0;
+  const bothOut = living.length > 0 && living.every((g) => outsideDist(g, pond) > 0);
+  const eaten = [];
+  pond.fish.forEach((f, id) => {
+    if (alive && alive[id] === false) return;
     const hx = f.x, hy = f.y;
     const out = outsideDist(f, pond);
     f.outT = out > 0 ? (f.outT || 0) + dt : 0;
@@ -202,9 +219,10 @@ export function stepPond(pond, dt) {
     const x0 = f.x, y0 = f.y;
     f.x += Math.cos(f.a) * f.sp * dt;
     f.y += Math.sin(f.a) * f.sp * dt;
-    if (tgt && distToSeg(tgt.x, tgt.y, x0, y0, f.x, f.y) < EAT_R) eatFood(foods, tgt, f);
+    if (tgt && distToSeg(tgt.x, tgt.y, x0, y0, f.x, f.y) < EAT_R && eatFood(foods, tgt, f)) eaten.push(id);
     pushTrail(f);
-  }
+  });
+  return eaten;
 }
 
 function reducedMotion() {
@@ -293,12 +311,13 @@ export function mountPondShark(scroller, hooks) {
   function draw() {
     const T = THEMES[themeName()];
     buf.fill(0);
-    pond.fish.forEach((f, i) => raster(f, i));
+    pond.fish.forEach((f, i) => { if (!pond.alive || pond.alive[i] !== false) raster(f, i); });
     ctx.fillStyle = T.bg;
     ctx.fillRect(0, 0, pond.w, pond.h);
     ctx.font = (CH + 1) + "px ui-monospace, Menlo, Consolas, monospace";
     ctx.textBaseline = "top";
     for (let id = 0; id < pond.fish.length; id++) {
+      if (pond.alive && pond.alive[id] === false) continue;
       ctx.fillStyle = T.fish[id];
       for (let cy = 0; cy < rows; cy++) for (let cx = 0; cx < cols; cx++) {
         const i = cy * cols + cx;
@@ -320,7 +339,8 @@ export function mountPondShark(scroller, hooks) {
     if (document.hidden) return;
     const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016);
     last = now;
-    pond.step(dt);
+    const eaten = pond.step(dt) || [];
+    if (hooks && hooks.onEat) for (const id of eaten) hooks.onEat(id);
     drawAcc += dt;
     if (drawAcc >= 0.08) { drawAcc = 0; draw(); }
     raf = requestAnimationFrame(frame);
@@ -384,5 +404,12 @@ export function mountPondShark(scroller, hooks) {
     pond.reset();
     if (running || still) draw();
   }
-  return { start, stop, reset, drop: pond.drop };
+  function setAlive(flags) {
+    const next = [!flags || flags[0] !== false, !flags || flags[1] !== false];
+    const prev = pond.alive || [true, true];
+    for (let i = 0; i < 2; i++) if (prev[i] === false && next[i]) reposition(pond, i);
+    pond.alive = next;
+    if (running || still) draw();
+  }
+  return { start, stop, reset, drop: pond.drop, setAlive };
 }

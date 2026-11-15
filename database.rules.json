@@ -539,6 +539,43 @@
             ".validate": false
           }
         },
+        "pondHunger": {
+          ".read": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+          ".write": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+          "b": {
+            ".validate": "!newData.exists() || newData.hasChildren(['sat','t','deadUntil'])",
+            "sat": {
+              ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100)"
+            },
+            "t": {
+              ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0 && newData.val() >= now - 21720000 && newData.val() <= now + 120000)"
+            },
+            "deadUntil": {
+              ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && (newData.val() == 0 || (newData.val() >= now - 120000 && newData.val() <= now + 21720000)))"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "p": {
+            ".validate": "!newData.exists() || newData.hasChildren(['sat','t','deadUntil'])",
+            "sat": {
+              ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100)"
+            },
+            "t": {
+              ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0 && newData.val() >= now - 21720000 && newData.val() <= now + 120000)"
+            },
+            "deadUntil": {
+              ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && (newData.val() == 0 || (newData.val() >= now - 120000 && newData.val() <= now + 21720000)))"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
         "loveAsk": {
           ".validate": "!newData.exists() || newData.hasChildren(['id','by','t'])",
           "id": {

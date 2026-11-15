@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.79">
+<meta name="sc-shell" content="v61.80">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -387,6 +387,38 @@
       </button>
     </div>
   </header>
+
+  <!-- 魚的飢餓度。浮在標題列下方，不佔高度、不吃點擊。藍左粉右，以畫面中線對稱。 -->
+  <div class="c-hunger" id="pondHunger">
+    <div class="c-hmeter is-blue" data-fish="b">
+      <div class="c-htube">
+        <div class="c-hliquid"></div>
+        <i class="c-htick t20"></i>
+        <i class="c-htick t80"></i>
+        <div class="c-hshine"></div>
+      </div>
+      <div class="c-hunder">
+        <span class="w20" data-p="飢餓">飢餓</span>
+        <span class="w50" data-p="普通">普通</span>
+        <span class="w80" data-p="吃飽">吃飽</span>
+      </div>
+      <div class="c-hdead"></div>
+    </div>
+    <div class="c-hmeter is-pink" data-fish="p">
+      <div class="c-htube">
+        <div class="c-hliquid"></div>
+        <i class="c-htick t20"></i>
+        <i class="c-htick t80"></i>
+        <div class="c-hshine"></div>
+      </div>
+      <div class="c-hunder">
+        <span class="w20" data-p="飢餓">飢餓</span>
+        <span class="w50" data-p="普通">普通</span>
+        <span class="w80" data-p="吃飽">吃飽</span>
+      </div>
+      <div class="c-hdead"></div>
+    </div>
+  </div>
 
   <div class="c-pair-ask" id="pairAsk" hidden>
     <div class="c-pair-ask-card" role="dialog" aria-modal="true" aria-labelledby="pairAskText">
