@@ -167,6 +167,6 @@ assert.match(src, /runTransaction/);
 assert.match(src, /\.info\/serverTimeOffset/);
 assert.match(src, /pondHunger\/\$\{key\}/);
 assert.doesNotMatch(src, /localStorage|死亡次數|setInterval\(/);
-assert.equal(app.match(/const APP_VERSION = "([^"]+)"/)[1], "v61.80");
+assert.equal(app.match(/const APP_VERSION = "([^"]+)"/)[1], "v61.81");
 
 console.log('PASS: pond hunger is shared, timed from the server, and drawn under the header.');

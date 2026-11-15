@@ -465,12 +465,13 @@ html[data-theme="dark"] .update-banner {
 /* ⚠️ 省略號要掛在「裝文字的那個元素」上。
       .c-title 是 flex 容器，text-overflow 對它的子元素不會自動生效 ——
       少了這一條，窄機上狀態文字會被切在半個字中間（不是省略號）。 */
-/* 狀態文字不跟麥／辛搶空間。最長是「有人正在輸入…」，寬度固定，換字時位置不跳。 */
+/* 狀態從左邊起算。麥／辛改以整列置中之後，窄螢幕放不下最長的
+   「有人正在輸入…」時，在碰到中間那組之前改成省略號，不蓋上去。 */
 #peerText {
-  flex: 0 0 auto;
-  min-width: 7em;
-  overflow: visible;
-  text-overflow: clip;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -491,10 +492,44 @@ html[data-theme="dark"] .update-banner {
   transition: background .25s;
 }
 .c-dot[data-on="true"] { background: #34a853; box-shadow: 0 0 0 3px rgba(52,168,83,.16); }
+/* 麥／距離／辛以標題列（整個視窗）的中線置中。
+   左右兩組用絕對定位釘在原處，這組不再吃它們中間剩下的空間。
+   窄螢幕時整組最寬收到兩邊各留約 98px，中間連線跟著縮，避免蓋住返回鍵、狀態、倒數或齒輪。 */
+.c-bar-side {
+  position: absolute;
+  top: env(safe-area-inset-top);
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  z-index: 3;
+}
+.c-bar-side.is-left {
+  left: 6px;
+  right: calc(50% + 62px);
+  overflow: hidden;
+  justify-content: flex-start;
+}
+.c-bar-side.is-right {
+  right: 6px;
+  justify-content: flex-end;
+}
 .c-pair {
-  display: flex; align-items: center; gap: 1px; height: 54px;
-  margin-left: 2px; padding-left: 8px;
-  flex: 1 1 auto; min-width: 0;
+  position: absolute;
+  left: 50%;
+  top: env(safe-area-inset-top);
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  height: 54px;
+  margin: 0;
+  padding: 0;
+  width: max-content;
+  max-width: min(112px, calc(100% - 196px));
+  min-width: 0;
 }
 .c-pair-slot { display: flex; align-items: center; justify-content: center; width: 26px; height: 54px; flex: 0 0 auto; }
 .c-pair-wrap { position: relative; width: 26px; height: 26px; }
@@ -527,7 +562,7 @@ html[data-theme="dark"] .update-banner {
 .c-pair-tick[hidden] { display: none !important; }
 @keyframes c-pair-pulse { 50% { transform: scale(.94); opacity: .72; } }
 .c-pair-link {
-  width: auto; height: 54px; flex: 1 1 28px; min-width: 22px; max-width: 56px;
+  width: auto; height: 54px; flex: 1 1 28px; min-width: 8px; max-width: 56px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   color: rgba(232,234,237,.34);
 }
