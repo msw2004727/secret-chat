@@ -24,7 +24,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.78";
+const APP_VERSION = "v61.79";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -3315,13 +3315,16 @@ async function locWrapKey(pw) {
 /* 偽裝頁：投一封信（不需要任何密碼）。
    ⚠️ 每一筆都用「一次性金鑰對」，用完即丟。這是匿名性的一部分，不是裝飾 ——
       同一個人按十次，十筆密文彼此看不出關聯。 */
-async function locSeal(lat, lng, acc) {
+async function locSeal(lat, lng, acc, extra) {
+  const body = { lat, lng, acc };
+  if (extra && (extra.side === "m" || extra.side === "f")) body.side = extra.side;
+  if (extra && typeof extra.room === "string" && extra.room) body.room = extra.room.slice(0, 64);
   const pub = await crypto.subtle.importKey("raw", locB64d(String(CFG.locPub).trim()), LOC_EC, false, []);
   const eph = await crypto.subtle.generateKey(LOC_EC, true, ["deriveBits"]);
   const key = await locShared(eph.privateKey, pub);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const c = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key,
-    new TextEncoder().encode(JSON.stringify({ lat, lng, acc })));
+    new TextEncoder().encode(JSON.stringify(body)));
   return { ek: locB64(await crypto.subtle.exportKey("raw", eph.publicKey)), iv: locB64(iv), c: locB64(c) };
 }
 /* 儀表板：把私鑰解開（進儀表板時做一次，之後重用）*/
@@ -3648,7 +3651,7 @@ const LocAdm = {
       this.err = "config.js 的 locPriv 還是空的 —— 請跑一次金鑰工具，把兩行都貼進去";
     }
     this.paint();
-    if (this.priv) this.load();
+    if (this.priv) { this.load(); LocRoom.load(); }
   },
 
   keepMs() { return (Number(CFG.locKeepDays) || 7) * 86400000; },
@@ -3946,6 +3949,234 @@ const LocAdm = {
     if (hint) { hint.textContent = ""; hint.hidden = true; }
     const wipeRow = $("locWipeRow");
     if (wipeRow) wipeRow.hidden = true;
+    LocRoom.reset();
+  },
+};
+
+/* 聊天室麥／辛每次成功更新，另外留下的儀表板紀錄。路徑只有管理員讀得到。 */
+const LocRoom = {
+  rows: [],
+  total: null,
+  busy: false,
+  reachedTop: false,
+  expanded: false,
+
+  sideName(side) {
+    if (side === "m" || side === "麥") return "麥";
+    if (side === "f" || side === "辛") return "辛";
+    return "—";
+  },
+
+  roomLabel(id) {
+    const hit = (Adm.rooms || []).find((r) => r.roomId === id);
+    if (hit && hit.name && hit.name !== "（不在名單上）") return hit.name + " · " + id;
+    return id || "—";
+  },
+
+  async load() {
+    if (this.busy || !LocAdm.priv) return;
+    this.busy = true;
+    try {
+      const f = await connect();
+      const { db, ref, get, query, orderByKey, limitToLast } = f;
+      const snap = await withTimeout(
+        get(query(ref(db, "locroom"), orderByKey(), limitToLast(LOC_PAGE))), LOC_TIMEOUT_MS);
+      const raw = [];
+      snap.forEach((c) => { raw.push({ k: c.key, ...(c.val() || {}) }); });
+      this.rows = await this.decode(raw);
+      this.reachedTop = raw.length < LOC_PAGE;
+      this.count();
+      this.prune();
+    } catch (_) {
+    } finally {
+      this.busy = false;
+      this.paint();
+    }
+  },
+
+  async loadOlder() {
+    if (this.busy || !LocAdm.priv || !this.rows.length) return;
+    this.busy = true;
+    this.paint();
+    try {
+      const f = await connect();
+      const { db, ref, get, query, orderByKey, limitToLast, endBefore } = f;
+      const oldest = this.rows[this.rows.length - 1].k;
+      const snap = await withTimeout(
+        get(query(ref(db, "locroom"), orderByKey(), endBefore(oldest), limitToLast(LOC_PAGE))),
+        LOC_TIMEOUT_MS);
+      const raw = [];
+      snap.forEach((c) => { raw.push({ k: c.key, ...(c.val() || {}) }); });
+      if (raw.length) this.rows = this.rows.concat(await this.decode(raw));
+      if (raw.length < LOC_PAGE) {
+        const key = this.rows.length ? this.rows[this.rows.length - 1].k : oldest;
+        const chk = await withTimeout(
+          get(query(ref(db, "locroom"), orderByKey(), endBefore(key), limitToLast(1))), LOC_TIMEOUT_MS);
+        let n = 0; chk.forEach(() => { n++; });
+        this.reachedTop = n === 0;
+      }
+    } catch (_) {
+      this.reachedTop = false;
+    } finally {
+      this.busy = false;
+      this.paint();
+    }
+  },
+
+  async decode(raw) {
+    const out = [];
+    for (const r of raw) {
+      const row = { k: r.k, t: Number(r.t) || 0 };
+      try {
+        const v = await locOpen(LocAdm.priv, r);
+        row.lat = v.lat; row.lng = v.lng; row.acc = Number(v.acc) || 0;
+        row.side = v.side; row.room = typeof v.room === "string" ? v.room : "";
+      } catch (_) { row.bad = true; }
+      out.push(row);
+    }
+    out.sort((a, b) => (a.k < b.k ? 1 : -1));
+    return out;
+  },
+
+  async count() {
+    try {
+      const { auth } = await connect();
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`${CFG.firebase.databaseURL}/locroom.json?shallow=true`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const keys = await res.json();
+      this.total = keys ? Object.keys(keys).length : 0;
+    } catch (_) { this.total = null; }
+  },
+
+  async prune() {
+    try {
+      const f = await connect();
+      const { db, ref, get, query, orderByKey, limitToFirst, remove } = f;
+      const offset = await serverOffset(f);
+      const cutoff = Date.now() + offset - LocAdm.keepMs();
+      const snap = await withTimeout(
+        get(query(ref(db, "locroom"), orderByKey(), limitToFirst(LOC_PRUNE))), LOC_TIMEOUT_MS);
+      const doomed = [];
+      snap.forEach((c) => {
+        const t = Number((c.val() || {}).t) || 0;
+        if (t && t < cutoff) doomed.push(c.key);
+      });
+      if (!doomed.length) return;
+      await Promise.all(doomed.map((k) => remove(ref(db, `locroom/${k}`)).catch(() => {})));
+      this.rows = this.rows.filter((r) => !doomed.includes(r.k));
+      this.count();
+    } catch (_) {}
+  },
+
+  paint() {
+    const list = $("locRoomList");
+    const more = $("locRoomMore");
+    if (!list) return;
+    const on = !!LocAdm.priv;
+    list.hidden = !on;
+    if (more) {
+      more.hidden = !on || this.reachedTop;
+      more.disabled = this.busy;
+      more.textContent = this.busy ? "查詢中…" : "載入更早的";
+    }
+    const cnt = $("locRoomCount");
+    if (cnt) {
+      cnt.textContent = on
+        ? (this.total === null ? "" : `　共 ${this.total} 筆 · 只保留 ${Number(CFG.locKeepDays) || 7} 天`)
+        : "";
+    }
+    list.replaceChildren();
+    if (!on) return;
+    if (!this.rows.length) {
+      const e = document.createElement("div");
+      e.className = "a-loc-empty";
+      e.textContent = this.busy ? "查詢中…" : "目前沒有聊天室定位";
+      list.append(e);
+      return;
+    }
+    const shown = this.rows.slice(0, this.expanded ? this.rows.length : 3);
+    shown.forEach((r, i) => list.append(...this.row(r, i === 0)));
+    if (!this.expanded && this.rows.length > 3) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "a-loc-more";
+      b.textContent = `顯示全部 ${this.rows.length} 筆`;
+      b.addEventListener("click", () => { this.expanded = true; this.paint(); });
+      list.append(b);
+      if (more) more.hidden = true;
+    }
+  },
+
+  row(r, newest) {
+    const d = new Date(r.t);
+    const row = document.createElement("div");
+    row.className = "a-loc-row" + (newest ? " new" : "");
+    const hh = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const dot = document.createElement("span"); dot.className = "a-loc-dot";
+    const when = document.createElement("span"); when.className = "a-loc-when"; when.textContent = hh;
+    const ago = document.createElement("span"); ago.className = "a-loc-ago"; ago.textContent = admAgo(r.t);
+    const side = document.createElement("span"); side.className = "a-loc-side";
+    side.textContent = r.bad ? "—" : this.sideName(r.side);
+    const room = document.createElement("span"); room.className = "a-loc-room";
+    room.textContent = r.bad ? "" : this.roomLabel(r.room);
+    const acc = document.createElement("span");
+    acc.className = "a-loc-acc";
+    if (r.bad) { acc.textContent = "解不開"; acc.classList.add("far"); }
+    else {
+      acc.textContent = `±${r.acc} 公尺`;
+      if (r.acc > 100) acc.classList.add("far");
+    }
+    const chev = document.createElement("span");
+    chev.className = "a-loc-chev";
+    chev.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' +
+      '<path fill="currentColor" d="M9.3 6.7 14.6 12l-5.3 5.3 1.4 1.4L17.4 12l-6.7-6.7z"/></svg>';
+    row.append(dot, when, ago, side, room, acc, chev);
+    const det = document.createElement("div");
+    det.className = "a-loc-detail";
+    det.hidden = true;
+    if (r.bad) {
+      det.textContent = "這一筆解不開。可能是用另一組金鑰送的，或資料損毀。";
+    } else {
+      const who = document.createElement("span");
+      who.textContent = this.sideName(r.side) + " · " + (r.room || "—");
+      const xy = document.createElement("span");
+      xy.className = "a-loc-xy";
+      xy.textContent = `${r.lat}, ${r.lng}`;
+      const a = document.createElement("a");
+      a.className = "a-loc-map";
+      a.target = "_blank"; a.rel = "noopener noreferrer";
+      a.href = `https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lng}`;
+      a.textContent = "開啟地圖 ›";
+      det.append(who, xy, a);
+      if (r.acc > 100) {
+        const w = document.createElement("span");
+        w.className = "a-loc-warn";
+        w.textContent = "誤差偏大，這個點可能離實際位置有一段距離";
+        det.append(w);
+      }
+    }
+    row.addEventListener("click", () => {
+      det.hidden = !det.hidden;
+      row.classList.toggle("open", !det.hidden);
+    });
+    return [row, det];
+  },
+
+  reset() {
+    this.rows = [];
+    this.total = null;
+    this.expanded = false;
+    this.reachedTop = false;
+    this.busy = false;
+    const list = $("locRoomList");
+    if (list) list.replaceChildren();
+    const more = $("locRoomMore");
+    if (more) more.hidden = true;
+    const cnt = $("locRoomCount");
+    if (cnt) cnt.textContent = "";
   },
 };
 
@@ -5368,7 +5599,8 @@ async function enterChat() {
     if (myGen !== S.gen) return;
     applyLoveAsk(snap.val(), nowServer());
   }));
-  /* 麥／辛位置。用房間金鑰加密，跟首頁 loc/ 無關。超過 12 小時就刪。 */
+  /* 麥／辛位置。用房間金鑰加密，跟首頁 loc/ 無關。超過 12 小時就刪。
+     成功寫入後另封一筆給儀表板（locroom），用位置公鑰，跟這筆 12 小時紀錄無關。 */
   const pairRef = ref(db, `${base}/pairLoc`);
   S.savePairLoc = async (side, lat, lng, acc) => {
     if (side !== "m" && side !== "f") return;
@@ -5377,6 +5609,13 @@ async function enterChat() {
     await set(ref(db, `${base}/pairLoc/${side}`), {
       t: serverTimestamp(), iv: sealed.iv, c: sealed.c, by: S.clientId,
     });
+    if (!Loc.on() || !S.roomId) return;
+    try {
+      const log = await locSeal(lat, lng, acc, { side, room: S.roomId });
+      await push(ref(db, "locroom"), {
+        t: serverTimestamp(), ek: log.ek, iv: log.iv, c: log.c,
+      });
+    } catch (_) {}
   };
   S.dropPairLoc = (side) => {
     if (side !== "m" && side !== "f") return Promise.resolve();
@@ -12585,6 +12824,7 @@ function bindAdmin() {
   /* 位置回報：只有「載入更早的」要綁 —— 金鑰是進儀表板時用密碼自動解的，沒有貼上這一步。
      ⚠️ 用 ?. 保護：locationReport 關掉時整區是 hidden 的，但節點還在 HTML 裡。 */
   $("locMore")?.addEventListener("click", () => LocAdm.loadOlder());
+  $("locRoomMore")?.addEventListener("click", () => LocRoom.loadOlder());
 
   /* 一鍵清空要長按 2 秒 —— 跟各房的「清空」同一套防誤觸。
      ⚠️ 一定要在 pointerup / pointerleave / pointercancel 都取消，

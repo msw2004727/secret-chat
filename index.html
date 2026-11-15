@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.78">
+<meta name="sc-shell" content="v61.79">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -1294,6 +1294,11 @@
         <button type="button" class="a-wipe" id="locWipe">清空全部位置回報<span class="a-hold"></span></button>
         <span class="a-hint" id="locWipeHint">長按 2 秒才會執行</span>
       </div>
+
+      <h3 class="a-loc-sub">聊天室定位</h3>
+      <p class="a-lead">標題列點麥或辛成功更新時另外留下的紀錄。只保留 7 天，跟聊天室 12 小時清除無關。<span id="locRoomCount"></span></p>
+      <div class="a-loc-list" id="locRoomList" hidden></div>
+      <button type="button" class="a-loc-more" id="locRoomMore" hidden>載入更早的</button>
     </div>
 
     <div class="a-tools">

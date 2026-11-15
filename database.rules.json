@@ -89,6 +89,27 @@
         }
       }
     },
+    "locroom": {
+      ".read": "auth != null && root.child('admin/' + auth.uid).val() === true",
+      "$id": {
+        ".write": "auth != null && ((!data.exists() && newData.hasChildren(['t','ek','iv','c'])) || (data.exists() && !newData.exists() && root.child('admin/' + auth.uid).val() === true))",
+        "t": {
+          ".validate": "newData.val() === now"
+        },
+        "ek": {
+          ".validate": "newData.isString() && newData.val().length <= 128"
+        },
+        "iv": {
+          ".validate": "newData.isString() && newData.val().length <= 24"
+        },
+        "c": {
+          ".validate": "newData.isString() && newData.val().length <= 400"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
     "devnote": {
       "$id": {
         ".read": "auth != null && $id.length == 32",

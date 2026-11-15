@@ -944,6 +944,13 @@ html[data-room="open"][data-theme="light"] #chat .c-missed { background: rgba(17
 /* ───────── 位置回報 · 儀表板那一區 ───────── */
 .a-loc { border-top: 1px solid var(--line); padding-top: 22px; margin: 0 0 26px; }
 .a-loc h3 { font-size: 15px; margin: 0 0 6px; }
+.a-loc-sub { margin-top: 22px; }
+.a-loc-side { flex: 0 0 auto; font-weight: 600; }
+.a-loc-room {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--txt-dim); font-size: 12px;
+}
 .a-loc-list { display: flex; flex-direction: column; margin-top: 10px; }
 
 .a-loc-row {
