@@ -223,6 +223,7 @@ assert.match(pets, /const TALK_MS = 3000/);
 assert.doesNotMatch(pets, /小麥我愛妳/);
 
 assert.match(html, /id="btnZoo"[\s\S]*id="btnSettings"/);
+assert.match(html, /id="btnZoo"[^>]*aria-label="互動"[\s\S]*<span>互動<\/span>/);
 assert.match(html, /貓咪 ×2/);
 assert.match(html, /bobo \+ QUOKKA/);
 assert.match(html, /id="zooBird"/);
