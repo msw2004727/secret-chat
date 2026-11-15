@@ -62,6 +62,46 @@ assert.match(css, /\.c-pair \{[^}]*flex: 1 1 auto/);
 assert.match(css, /html\[data-theme="light"\] #chat \.c-pair-who\.is-m\.set/);
 assert.match(css, /#d6336c/);
 assert.match(app, /pairLoc\/\$\{side\}/);
+assert.match(app, /ref\(db, "locroom"\)/);
+assert.match(app, /locSeal\(lat, lng, acc, \{ side, room: S\.roomId \}\)/);
+assert.match(html, /聊天室定位/);
+assert.match(html, /id="locRoomList"/);
+assert.match(app, /開啟地圖/);
+const locroom = rules.rules.locroom;
+assert.match(locroom['.read'], /admin\/' \+ auth\.uid/);
+assert.equal(locroom.$id.$other['.validate'], false);
+assert.match(locroom.$id.c['.validate'], /length <= 400/);
+const rule = (expr, ctx) => vm.runInNewContext(expr, ctx);
+const rootOf = (admin) => ({ child: (p) => ({ val: () => admin && p === "admin/adminUid" }) });
+assert.equal(rule(locroom['.read'], { auth: { uid: "adminUid" }, root: rootOf(true) }), true);
+assert.equal(rule(locroom['.read'], { auth: { uid: "user" }, root: rootOf(false) }), false);
+assert.equal(rule(locroom['.read'], { auth: null, root: rootOf(false) }), false);
+const kids = ["t", "ek", "iv", "c"];
+assert.equal(rule(locroom.$id['.write'], {
+  auth: { uid: "user" },
+  root: rootOf(false),
+  data: { exists: () => false },
+  newData: { exists: () => true, hasChildren: (keys) => keys.every((k) => kids.includes(k)) },
+}), true);
+assert.equal(rule(locroom.$id['.write'], {
+  auth: { uid: "user" },
+  root: rootOf(false),
+  data: { exists: () => true },
+  newData: { exists: () => false, hasChildren: () => false },
+}), false);
+assert.equal(rule(locroom.$id['.write'], {
+  auth: { uid: "user" },
+  root: rootOf(false),
+  data: { exists: () => true },
+  newData: { exists: () => true, hasChildren: () => true },
+}), false);
+assert.equal(rule(locroom.$id['.write'], {
+  auth: { uid: "adminUid" },
+  root: rootOf(true),
+  data: { exists: () => true },
+  newData: { exists: () => false, hasChildren: () => false },
+}), true);
+assert.equal(rules.rules.loc['.read'], "auth != null");
 assert.match(app, /enableHighAccuracy: true/);
 assert.match(app, /這台手機沒有開定位，無法更新/);
 assert.match(app, /現在抓不到位置，請稍後再試/);
