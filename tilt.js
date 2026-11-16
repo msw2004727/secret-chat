@@ -1,15 +1,38 @@
 /* 手機左右傾斜。沒有感應器、或使用者拒絕時，角度維持 0，球跟以前一樣只受垂直重力。 */
 
 export const TILT_DEAD = 4 * Math.PI / 180;
-export const TILT_MAX = 0.42;
+export const TILT_MAX = Math.PI / 2;
 export const TILT_SMOOTH = 9;
 export const TILT_G = 1500;
 
-export function tiltInput(rad, dead = TILT_DEAD, max = TILT_MAX) {
-  if (!Number.isFinite(rad)) return 0;
-  const a = Math.abs(rad);
-  if (a < dead) return 0;
-  return Math.sign(rad) * Math.min(max, a - dead);
+/* 平放為 0，左右翻到直立為 ±90°。翻過 90° 就停在那一側的最大，不反向。 */
+export function tiltRoll(betaDeg, gammaDeg) {
+  if (!Number.isFinite(gammaDeg)) return 0;
+  const b = (Number.isFinite(betaDeg) ? betaDeg : 0) * Math.PI / 180;
+  const g = gammaDeg * Math.PI / 180;
+  const gx = Math.cos(b) * Math.sin(g);
+  const face = Math.cos(b) * Math.cos(g);
+  if (Math.abs(gx) < 1e-8 && Math.abs(face) < 1e-8) return 0;
+  return Math.atan2(gx, face);
+}
+
+export function tiltHold(prev, roll) {
+  const max = TILT_MAX;
+  if (!Number.isFinite(roll)) return 0;
+  if (Math.abs(roll) > max) {
+    const side = Number.isFinite(prev) && Math.abs(prev) > 0.15 ? Math.sign(prev) : Math.sign(roll);
+    return side * max;
+  }
+  return Math.max(-max, Math.min(max, roll));
+}
+
+export function tiltInput(roll, dead = TILT_DEAD, max = TILT_MAX) {
+  if (!Number.isFinite(roll)) return 0;
+  const a = Math.max(-max, Math.min(max, roll));
+  if (Math.abs(a) < dead) return 0;
+  const span = Math.max(1e-6, max - dead);
+  const mag = (Math.abs(a) - dead) / span * max;
+  return Math.sign(a) * Math.min(max, mag);
 }
 
 export function tiltSmooth(prev, target, dt, rate = TILT_SMOOTH) {
@@ -17,12 +40,14 @@ export function tiltSmooth(prev, target, dt, rate = TILT_SMOOTH) {
   return prev + (target - prev) * k;
 }
 
-export function tiltAccel(rad, g = TILT_G) {
-  const a = Number.isFinite(rad) ? rad : 0;
-  return { x: Math.sin(a) * g, y: Math.cos(a) * g };
+/* 只加左右加速度。垂直重力維持原本的常數，球才會一直落回地板。 */
+export function tiltAccelX(roll, g = TILT_G) {
+  const a = Number.isFinite(roll) ? roll : 0;
+  return Math.sin(a) * g;
 }
 
 let raw = 0;
+let held = 0;
 let tilt = 0;
 let users = 0;
 let listening = false;
@@ -36,7 +61,9 @@ export function tiltAngle() { return tilt; }
 
 function onOrient(e) {
   if (!e || typeof e.gamma !== "number" || Number.isNaN(e.gamma)) return;
-  raw = tiltInput(e.gamma * Math.PI / 180);
+  const beta = typeof e.beta === "number" && !Number.isNaN(e.beta) ? e.beta : 0;
+  held = tiltHold(held, tiltRoll(beta, e.gamma));
+  raw = tiltInput(held);
 }
 
 function loop(now) {
@@ -78,6 +105,7 @@ export function tiltRelease() {
   if (users === 0) {
     pause();
     raw = 0;
+    held = 0;
     tilt = 0;
   }
 }

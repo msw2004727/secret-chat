@@ -1,6 +1,6 @@
 /* 聊天室裡的兩隻擬真貓（棕色虎斑、灰貓）、螢光球、咬泡泡、吊著與談戀愛。只在這台瀏覽器裡跑，不上傳。 */
 import { Droop } from "./droop.js";
-import { tiltAngle, tiltAcquire, tiltRelease, tiltAsk, tiltAccel } from "./tilt.js";
+import { tiltAngle, tiltAcquire, tiltRelease, tiltAsk, tiltAccelX } from "./tilt.js";
 import { REAL } from "./real-cats.js";
 import { attachRooster } from "./rooster-room.js";
 import { attachBobo } from "./bobo-room.js";
@@ -568,17 +568,20 @@ export function mountRoomPets() {
     }
     function ballPhysics(dt, now, shapes) {
       if (!ball.init) { ball.init = true; ball.x = areaW * 0.5; ball.y = topY + 30; ball.vx = rand(-120, 120); ball.vy = 0; }
+      if (!Number.isFinite(ball.x) || !Number.isFinite(ball.y) || !Number.isFinite(ball.vx) || !Number.isFinite(ball.vy)) {
+        ball.x = areaW * 0.5; ball.y = topY + 30; ball.vx = 0; ball.vy = 0; ball.state = "loose"; ball.carrier = null;
+      }
       if (ball.state !== "loose") return;
       const sp = Math.hypot(ball.vx, ball.vy);
       if (sp > MAXV) { ball.vx *= MAXV / sp; ball.vy *= MAXV / sp; }
       const steps = Math.max(1, Math.min(16, Math.ceil(sp * dt / (BR * 0.6))));
       const h = dt / steps;
       const L = BR, R = areaW - BR;
+      const ax = tiltAccelX(tiltAngle());
       for (let i = 0; i < steps; i++) {
         const T = topY + BR, F = floorY - BR;
-        const acc = tiltAccel(tiltAngle());
-        ball.vx += acc.x * h;
-        ball.vy += acc.y * h;
+        ball.vx += ax * h;
+        ball.vy += 1500 * h;
         ball.x += ball.vx * h; ball.y += ball.vy * h;
         if (ball.x < L) { ball.x = L; if (ball.vx < 0) { ball.vx = -ball.vx * 0.8; bounced(now, ball.vx); } }
         if (ball.x > R) { ball.x = R; if (ball.vx > 0) { ball.vx = -ball.vx * 0.8; bounced(now, -ball.vx); } }
@@ -591,8 +594,7 @@ export function mountRoomPets() {
         collideHeads(now);
       }
       const onFloor = ball.y >= floorY - BR - 0.5;
-      const drive = Math.abs(tiltAccel(tiltAngle()).x);
-      if (onFloor && Math.abs(ball.vy) < 8 && drive < 40) { ball.vx *= Math.pow(0.4, dt); if (Math.abs(ball.vx) < 3) ball.vx = 0; }
+      if (onFloor && Math.abs(ball.vy) < 1 && Math.abs(ax) < 1) { ball.vx *= Math.pow(0.4, dt); if (Math.abs(ball.vx) < 3) ball.vx = 0; }
       ball.spin += ball.vx * dt / BR;
       /* 卡在泡泡頂端不動時，輕輕推一下讓它滾下來 */
       if (Math.hypot(ball.vx, ball.vy) < 6 && !onFloor) {
