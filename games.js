@@ -152,20 +152,50 @@ export function needsWheelPlan(g, side) {
   return false;
 }
 
-export function withOoxxPlan(g, plan) {
+export function withOoxxPlan(g, plan, now) {
   const first = personAt(plan.final, g.phase === "ready" ? g.rematchBy : g.by);
   return packOoxx({
     ...g, phase: "wheel", spin: plan.base, fin: plan.final, mode: plan.mode,
     first, turn: first, cells: EMPTY, winner: "", draw: false, ok: true,
+    t: now || g.t,
   });
 }
 
-export function withWheelPlan(g, plan) {
+export function withWheelPlan(g, plan, now) {
   const roller = g.phase === "ready" ? g.rematchBy : g.by;
   return packWheel({
     ...g, phase: "wheel", spin: plan.base, fin: plan.final, mode: plan.mode,
-    target: personAt(plan.final, roller), ok: true,
+    target: personAt(plan.final, roller), ok: true, t: now || g.t,
   });
+}
+
+export const STALE_MS = 30 * 60 * 1000;
+const LIVE = new Set(["invite", "ready", "wheel", "play", "rematch"]);
+
+export function canReplace(g, closedId, now, staleMs = STALE_MS) {
+  if (!g) return true;
+  if (g.phase === "over" || g.phase === "rebuff" || g.phase === "nope") return true;
+  if (closedId && g.id === closedId) return true;
+  if (g.t && now - g.t >= staleMs) return true;
+  return false;
+}
+
+export function enterPlay(cur) {
+  const g = viewOoxx(cur);
+  if (!g || g.phase !== "wheel" || !g.spin) return;
+  return packOoxx({ ...g, phase: "play" });
+}
+
+export function finishWheel(cur) {
+  const g = viewWheel(cur);
+  if (!g || g.phase !== "wheel" || !g.spin) return;
+  return packWheel({ ...g, phase: "over" });
+}
+
+export function forceEnd(cur, kind) {
+  const g = kind === "wheel" ? viewWheel(cur) : viewOoxx(cur);
+  if (!g || !LIVE.has(g.phase)) return;
+  return null;
 }
 
 export function applyMove(cur, side, index) {
@@ -304,6 +334,7 @@ export function mountGames(doc, opts) {
   let busy = false;
   let winsSeen = { m: 0, f: 0 };
   let arming = false;
+  let pendingKind = "ooxx";
 
   function veil(el, on) {
     if (!el) return;
@@ -317,7 +348,7 @@ export function mountGames(doc, opts) {
     el._hideTimer = setTimeout(() => { if (!el.classList.contains("is-in")) el.hidden = true; }, 360);
   }
   function hideAll() {
-    for (const id of ["gxInvite","gxWheel","gxGame","gxAsk","gxFateInvite","gxFateNope","gxFateWheel","gxRematch","gxRebuff"]) {
+    for (const id of ["gxInvite","gxWheel","gxGame","gxAsk","gxFateInvite","gxFateNope","gxFateWheel","gxRematch","gxRebuff","gxBusy"]) {
       veil($(id), false);
     }
   }
@@ -388,34 +419,41 @@ export function mountGames(doc, opts) {
       }
       return;
     }
-    if (g.phase === "wheel" || g.phase === "play" || g.phase === "over" || g.phase === "rematch" || g.phase === "rebuff" || g.phase === "ready") {
+    if (g.phase === "ready") {
+      closed.ooxx = "";
+      played.ooxx = "";
+      return;
+    }
+    if (g.phase === "wheel" || g.phase === "play" || g.phase === "over" || g.phase === "rematch" || g.phase === "rebuff") {
       const key = g.id + ":" + g.spin + ":" + g.fin + ":" + g.mode;
-      if ((g.phase === "wheel" || g.phase === "play" || g.phase === "over") && g.spin && played.ooxx !== key && g.phase === "wheel") {
+      if (g.phase === "wheel" && g.spin && played.ooxx !== key) {
+        closed.ooxx = "";
         played.ooxx = key;
+        if (Date.now() - g.t > 20000) { enterOoxxPlay(g.id); return; }
         busy = true;
         veil($("gxWheel"), true);
-        $("gxWheelText").textContent = "輪盤轉動中…";
+        resetAbort($("gxWheelAbort"));
         playSpin("ooxx", { spin: g.spin, fin: g.fin, mode: g.mode }, () => {
           busy = false;
-          if (!session || !session.ooxx || session.ooxx.id !== g.id) return;
-          const who = session.ooxx.first || personAt(session.ooxx.fin, session.ooxx.by);
-          $("gxWheelText").textContent = (who === side() ? "自己" : "對方") + "先下";
-          setTimeout(() => { if (session && session.ooxx && session.ooxx.id === g.id) render(); }, 700);
+          enterOoxxPlay(g.id);
         });
         return;
       }
-      const showBoard = g.phase === "play" || g.phase === "over" || (g.phase === "wheel" && played.ooxx === key) || g.phase === "rematch" || g.phase === "rebuff" || g.phase === "ready";
-      if (showBoard && closed.ooxx !== g.id && g.phase !== "rematch") openBoard(g, me);
-      if (g.phase === "rematch" && g.rematchBy === me && closed.ooxx !== g.id) openBoard(g, me);
-      if (g.phase === "rematch" && g.rematchBy !== me) veil($("gxRematch"), true);
-      if (g.phase === "rebuff" && g.rematchBy === me) veil($("gxRebuff"), true);
+      if (g.phase === "wheel" && g.spin && played.ooxx === key && !busy) {
+        enterOoxxPlay(g.id);
+        return;
+      }
+      if (g.phase === "rematch" && g.rematchBy !== me) { veil($("gxRematch"), true); return; }
+      if (g.phase === "rebuff" && g.rematchBy === me) { veil($("gxRebuff"), true); return; }
+      if (closed.ooxx === g.id && (g.phase === "over" || g.phase === "rebuff")) return;
+      if (g.phase === "play" || g.phase === "over" || g.phase === "rematch") openBoard(g, me);
     }
   }
 
   function openBoard(g, me) {
     veil($("gxWheel"), false);
     veil($("gxGame"), true);
-    const over = g.phase === "over" || g.phase === "rematch" || g.phase === "rebuff" || g.phase === "ready";
+    const over = g.phase === "over" || g.phase === "rematch" || g.phase === "rebuff";
     $("gxTurn").textContent = over ? "" : (g.turn === me ? "輪到自己" : "輪到對方");
     const board = $("gxBoard");
     board.classList.toggle("is-over", over && g.phase !== "play");
@@ -433,10 +471,13 @@ export function mountGames(doc, opts) {
       result.className = "c-gx-result " + kind;
       result.innerHTML = HAND[kind];
       end.hidden = false;
+      $("gxLiveEnd").hidden = true;
     } else {
       result.hidden = true;
       result.innerHTML = "";
       end.hidden = true;
+      $("gxLiveEnd").hidden = g.phase !== "play";
+      resetAbort($("gxAbort"));
     }
   }
 
@@ -449,25 +490,29 @@ export function mountGames(doc, opts) {
     if (g.phase === "nope" && g.by === me) { veil($("gxFateNope"), true); return; }
     if (g.phase === "wheel" || g.phase === "over" || g.phase === "rematch" || g.phase === "rebuff" || g.phase === "ready") {
       const key = g.id + ":" + g.spin + ":" + g.fin + ":" + g.mode;
+      if (g.phase === "ready") {
+        closed.wheel = "";
+        played.wheel = "";
+        return;
+      }
       if (g.phase === "wheel" && g.spin && played.wheel !== key) {
+        closed.wheel = "";
         played.wheel = key;
+        if (Date.now() - g.t > 20000) { finishFate(g.id); return; }
         busy = true;
         $("gxFateTopic").textContent = g.topic;
         veil($("gxFateWheel"), true);
         $("gxFateDim").hidden = true;
         $("gxFateEnd").hidden = true;
+        resetAbort($("gxFateAbort"));
         playSpin("wheel", { spin: g.spin, fin: g.fin, mode: g.mode }, () => {
           busy = false;
-          const meNow = side();
-          if (meNow) tx(session.wheelRef, (cur) => {
-            const live = viewWheel(cur);
-            if (!live || live.phase !== "wheel" || live.id !== g.id) return;
-            const roller = live.rematchBy || live.by;
-            if (roller !== meNow) return;
-            return packWheel({ ...live, phase: "over" });
-          });
-          if (session && session.wheel && session.wheel.id === g.id) render();
+          finishFate(g.id);
         });
+        return;
+      }
+      if (g.phase === "wheel" && g.spin && played.wheel === key && !busy) {
+        finishFate(g.id);
         return;
       }
       if (g.spin && (played.wheel === key || g.phase === "over" || g.phase === "rematch" || g.phase === "rebuff" || g.phase === "ready")) {
@@ -493,6 +538,8 @@ export function mountGames(doc, opts) {
     result.innerHTML = you ? HAND.you : HAND.him;
     $("gxFateText").hidden = true;
     $("gxFateEnd").hidden = g.phase === "wheel";
+    const abortRow = $("gxFateAbortRow");
+    if (abortRow) abortRow.hidden = g.phase !== "wheel";
   }
 
   function tx(node, fn) {
@@ -547,7 +594,8 @@ export function mountGames(doc, opts) {
     tx(node, (cur) => {
       const view = kind === "ooxx" ? viewOoxx(cur) : viewWheel(cur);
       if (!view || !(kind === "ooxx" ? needsOoxxPlan(view, me) : needsWheelPlan(view, me))) return;
-      return kind === "ooxx" ? withOoxxPlan(view, plan) : withWheelPlan(view, plan);
+      const now = Date.now();
+      return kind === "ooxx" ? withOoxxPlan(view, plan, now) : withWheelPlan(view, plan, now);
     }).finally(() => { arming = false; });
   }
 
@@ -557,24 +605,62 @@ export function mountGames(doc, opts) {
     return me;
   }
 
+  function enterOoxxPlay(id) {
+    if (!session) return;
+    tx(session.ooxxRef, (cur) => {
+      const live = viewOoxx(cur);
+      if (!live || live.id !== id) return;
+      return enterPlay(live);
+    });
+  }
+  function finishFate(id) {
+    if (!session) return;
+    tx(session.wheelRef, (cur) => {
+      const live = viewWheel(cur);
+      if (!live || live.id !== id) return;
+      return finishWheel(live);
+    });
+  }
   function startOoxx() {
     const me = requireSide();
     if (!me || !session) return;
-    if (session.ooxx && session.ooxx.phase !== "over" && session.ooxx.phase !== "rebuff" && session.ooxx.phase !== "nope") {
-      toast("這一局還沒結束"); return;
-    }
+    if (!canReplace(session.ooxx, closed.ooxx, Date.now())) { openBusy("ooxx"); return; }
     const rec = createOoxx(me, gid(), Date.now());
+    closed.ooxx = "";
     tx(session.ooxxRef, () => rec);
   }
   function startFate() {
     const me = requireSide();
     if (!me || !session) return;
-    if (session.wheel && session.wheel.phase !== "over" && session.wheel.phase !== "rebuff" && session.wheel.phase !== "nope") {
-      toast("這一輪還沒結束"); return;
-    }
+    if (!canReplace(session.wheel, closed.wheel, Date.now())) { openBusy("wheel"); return; }
     veil($("gxAsk"), true);
     $("gxTopic").value = "";
     $("gxTopic").focus();
+  }
+  function openBusy(kind) {
+    pendingKind = kind;
+    veil($("gxBusy"), true);
+  }
+  function resetAbort(btn) {
+    if (!btn) return;
+    btn.dataset.arm = "";
+    btn.textContent = "強制結束";
+    clearTimeout(btn._arm);
+  }
+  function armAbort(btn, kind) {
+    if (!btn) return;
+    if (btn.dataset.arm === "1") { resetAbort(btn); abort(kind); return; }
+    btn.dataset.arm = "1";
+    btn.textContent = "確定結束";
+    clearTimeout(btn._arm);
+    btn._arm = setTimeout(() => resetAbort(btn), 2500);
+  }
+  function abort(kind) {
+    if (!session) return;
+    stopSpin();
+    busy = false;
+    const node = kind === "wheel" ? session.wheelRef : session.ooxxRef;
+    tx(node, (cur) => forceEnd(cur, kind));
   }
 
   function bind() {
@@ -626,6 +712,21 @@ export function mountGames(doc, opts) {
     });
     $("gxRematchYes")?.addEventListener("click", () => replyRematch(true));
     $("gxRematchNo")?.addEventListener("click", () => replyRematch(false));
+    $("gxWheelAbort")?.addEventListener("click", () => armAbort($("gxWheelAbort"), "ooxx"));
+    $("gxAbort")?.addEventListener("click", () => armAbort($("gxAbort"), "ooxx"));
+    $("gxFateAbort")?.addEventListener("click", () => armAbort($("gxFateAbort"), "wheel"));
+    $("gxBusyEnd")?.addEventListener("click", () => { veil($("gxBusy"), false); abort(pendingKind); });
+    $("gxBusyGo")?.addEventListener("click", () => {
+      veil($("gxBusy"), false);
+      if (pendingKind === "wheel") closed.wheel = "";
+      else closed.ooxx = "";
+      const g = pendingKind === "wheel" ? session && session.wheel : session && session.ooxx;
+      if (g && g.phase === "wheel") {
+        if (pendingKind === "wheel") finishFate(g.id);
+        else enterOoxxPlay(g.id);
+      }
+      render();
+    });
     $("gxRebuffOk")?.addEventListener("click", () => {
       const me = side(); if (!session || !me) return;
       const kind = session.wheel && session.wheel.phase === "rebuff" && session.wheel.rematchBy === me ? "wheel" : "ooxx";
