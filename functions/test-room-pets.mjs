@@ -29,8 +29,10 @@ assert.equal((html.match(/id="cats"/g) || []).length, 1);
 assert.equal((html.match(/id="shatterFx"/g) || []).length, 1);
 assert.match(app, /import\("\.\/room-pets\.js"\)/);
 assert.match(css, /\.bub > canvas\.bub-shade \{[\s\S]*pointer-events: none;/);
-assert.match(css, /#cats \{[\s\S]*z-index: 0;/);
+assert.match(css, /#cats \{[\s\S]*z-index: 2;/);
 assert.match(css, /\.c-scroll \{[\s\S]*z-index: 1;/);
+assert.match(css, /\.cat-say-layer \{[\s\S]*z-index: 3;/);
+assert.match(css, /\.c-input \{[\s\S]*z-index: 8;/);
 
 assert.match(pets, /FIGHT_COOLDOWN = 45000/);
 assert.match(pets, /fight: fightOK\(now\) \? 3 : 0/);
