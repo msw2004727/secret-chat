@@ -615,7 +615,7 @@
             "mode": { ".validate": "newData.val() == 'none' || newData.val() == 'wind' || newData.val() == 'edge'" },
             "first": { ".validate": "newData.val() == '' || newData.val() == 'm' || newData.val() == 'f'" },
             "turn": { ".validate": "newData.val() == '' || newData.val() == 'm' || newData.val() == 'f'" },
-            "cells": { ".validate": "newData.isString() && newData.val().matches('^[mf.]{9}$')" },
+            "cells": { ".validate": "newData.isString() && newData.val().matches(/^[mf.]{9}$/)" },
             "winner": { ".validate": "newData.val() == '' || newData.val() == 'm' || newData.val() == 'f'" },
             "draw": { ".validate": "newData.isBoolean()" },
             "rematchBy": { ".validate": "newData.val() == '' || newData.val() == 'm' || newData.val() == 'f'" },
