@@ -227,7 +227,7 @@ assert.match(html, /id="btnZoo"[^>]*aria-label="互動"[\s\S]*<span>互動<\/spa
 assert.match(html, /貓咪 ×2/);
 assert.match(html, /bobo \+ QUOKKA/);
 assert.match(html, /id="zooBird"/);
-assert.equal((html.match(/敬請期待/g) || []).length, 2);
+assert.equal((html.match(/敬請期待/g) || []).length, 0);
 assert.match(css, /\.c-zoo-row\.is-soon \{[^}]*pointer-events: none;/);
 assert.match(css, /#btnZoo\[aria-expanded="true"\] \.c-zoo-chev \{[^}]*rotate\(180deg\)/);
 assert.match(app, /sc-pet-groups/);
