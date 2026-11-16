@@ -5,9 +5,18 @@ import {
   createOoxx, acceptInvite, needsOoxxPlan, withOoxxPlan,
   askRematch, agreeRematch, rebuffRematch, dismissRebuff,
   createWheel, withWheelPlan, canReplace, enterPlay, finishWheel, forceEnd, otherSide, wedgeLabel,
-  resultKey, revealEnded, readSeen, writeSeen, mountGames,
+  resultKey, revealEnded, readSeen, writeSeen, mountGames, sealNudge,
 } from "../games.js";
 
+assert.deepEqual(sealNudge(10, 20, 1), { x: 0, y: 0 });
+const one = sealNudge(10.4, 20.8, 1);
+assert.ok(Math.abs(one.x + 0.4) < 1e-9);
+assert.ok(Math.abs(one.y - 0.2) < 1e-9);
+const hi = sealNudge(10.3, 8.2, 2);
+assert.ok(Math.abs((10.3 + hi.x) * 2 - Math.round((10.3 + hi.x) * 2)) < 1e-9);
+assert.ok(Math.abs((8.2 + hi.y) * 2 - Math.round((8.2 + hi.y) * 2)) < 1e-9);
+const d3 = sealNudge(4.2, 9.1, 3);
+assert.ok(Math.abs((4.2 + d3.x) * 3 - Math.round((4.2 + d3.x) * 3)) < 1e-9);
 assert.equal(pointedSelf(0), true);
 assert.equal(pointedSelf(180), false);
 assert.equal(personAt(1800, "m"), "m");
@@ -169,7 +178,7 @@ const games = fs.readFileSync(new URL("../games.js", import.meta.url), "utf8");
 assert.match(games, /rooms\/\$\{roomId\}\/games\/ooxx/);
 assert.match(games, /rooms\/\$\{roomId\}\/ooxxWins/);
 assert.match(app, /mountGames/);
-assert.match(app, /const APP_VERSION = "v61\.87"/);
+assert.match(app, /const APP_VERSION = "v61\.88"/);
 assert.equal((html.match(/id="gxFateClose"/g) || []).length, 1);
 assert.equal((html.match(/id="gxClose"/g) || []).length, 1);
 assert.equal((html.match(/id="gxAgain"/g) || []).length, 1);
@@ -181,6 +190,8 @@ assert.match(html, /id="gxOther"/);
 assert.match(html, /maxlength="6"/);
 assert.match(games, /wedgeLabel/);
 assert.match(css, /\.c-seal i \{[^}]*font-weight:\s*400/);
+assert.match(css, /\.c-seal i \{[^}]*rotate\(-11deg\)/);
+assert.doesNotMatch(css, /\.c-seal i \{[^}]*will-change/);
 assert.match(css, /\.c-seal b \{[^}]*font-weight:\s*400/);
 assert.match(css, /\.c-seal em \{[^}]*font-weight:\s*400/);
 assert.match(css, /\.c-bar \{[^}]*height: calc\(54px \+ env\(safe-area-inset-top\)\)/);
