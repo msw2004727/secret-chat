@@ -118,7 +118,7 @@ import { tiltAngle, tiltAcquire, tiltRelease, tiltAsk } from "./tilt.js";
       OX[i] = X[i]; OY[i] = Y[i];
       const th = tiltAngle();
       X[i] += vx + Math.sin(th) * G;
-      Y[i] += vy + Math.cos(th) * G;
+      Y[i] += vy + G;
       s.a[i] += vx / RR[i];
     }
     const cw = D, cols = Math.max(1, Math.ceil(AW / cw)), rows = Math.max(1, Math.ceil((AH + 80) / cw)), nc = cols * rows;
