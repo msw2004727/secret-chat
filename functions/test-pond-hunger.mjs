@@ -138,35 +138,8 @@ assert.equal(gate(node.p.deadUntil['.validate'], { now, newData: val(now + 8 * 3
 assert.equal(gate(node.b.deadUntil['.validate'], { now, newData: val(-1) }), false);
 assert.equal(node.b.$other['.validate'], false);
 assert.equal(node.p.$other['.validate'], false);
-
-const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-const src = fs.readFileSync(new URL('../pond-hunger.js', import.meta.url), 'utf8');
-const block = html.slice(html.indexOf('id="pondHunger"'), html.indexOf('id="pairAsk"'));
-assert.ok(block.includes("飢餓") && block.includes("普通") && block.includes("吃飽"));
-assert.equal((block.match(/c-htick t20/g) || []).length, 2);
-assert.equal((block.match(/c-htick t80/g) || []).length, 2);
-assert.doesNotMatch(block, /t30|t60|t90|%|死亡次數|data-jump/);
-assert.match(css, /\.c-hunger \{[^}]*position: absolute/);
-assert.match(css, /\.c-hunger \{[^}]*pointer-events: none/);
-assert.match(css, /\.c-hunger \{[^}]*top: calc\(54px \+ env\(safe-area-inset-top\)\)/);
-assert.match(css, /\.c-hmeter \{[^}]*width: 30vw/);
-assert.match(css, /\.c-bar \{[^}]*height: calc\(54px \+ env\(safe-area-inset-top\)\)/);
-assert.match(css, /html\[data-theme="light"\] #chat \.c-htube/);
-assert.match(css, /html\[data-theme="light"\] #chat \.c-htick/);
-assert.match(css, /html\[data-theme="light"\] #chat \.c-hdead/);
-assert.match(css, /\.c-hunder \.w20 \{ left: 10%; \}/);
-assert.match(css, /\.c-hunder \.w50 \{ left: 50%; \}/);
-assert.match(css, /\.c-hunder \.w80 \{ left: 90%; \}/);
-assert.match(app, /mountPondHunger/);
-assert.match(app, /S\.hunger\?\.open\(f, S\.roomId/);
-assert.match(app, /S\.hunger\?\.close\(\)/);
-assert.match(app, /onEat: \(id\) => S\.hunger\?\.eat\(id\)/);
-assert.match(src, /runTransaction/);
-assert.match(src, /\.info\/serverTimeOffset/);
-assert.match(src, /pondHunger\/\$\{key\}/);
-assert.doesNotMatch(src, /localStorage|死亡次數|setInterval\(/);
-assert.equal(app.match(/const APP_VERSION = "([^"]+)"/)[1], "v61.81");
+assert.doesNotMatch(app, /mountPondHunger|pondHunger/);
+assert.match(app, /mountPondShare/);
 
-console.log('PASS: pond hunger is shared, timed from the server, and drawn under the header.');
+console.log('PASS: old pond hunger records stay valid, and the chat no longer runs them.');

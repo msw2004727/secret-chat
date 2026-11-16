@@ -1,0 +1,92 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import { createPond, stepPond, spine } from '../pond-shark.js';
+import { nextShare, viewShare, shareGradient, shareChevrons, SHARE_BLUE, SHARE_PINK } from '../pond-share.js';
+
+assert.deepEqual(viewShare(null), { pos: 50, last: null, streak: 0 });
+assert.deepEqual(nextShare(null, "p"), { pos: 51, lastEater: "p", streak: 1 });
+assert.deepEqual(nextShare({ pos: 51, lastEater: "p", streak: 1 }, "p"), { pos: 52, lastEater: "p", streak: 2 });
+assert.deepEqual(nextShare({ pos: 52, lastEater: "p", streak: 2 }, "p"), { pos: 53, lastEater: "p", streak: 3 });
+assert.deepEqual(nextShare({ pos: 53, lastEater: "p", streak: 3 }, "p"), { pos: 54, lastEater: "p", streak: 3 });
+assert.deepEqual(nextShare({ pos: 54, lastEater: "p", streak: 3 }, "b"), { pos: 53, lastEater: "b", streak: 1 });
+let cur = null;
+for (let i = 0; i < 50; i++) cur = nextShare(cur, "p");
+assert.equal(cur.pos, 100);
+assert.equal(nextShare(cur, "p").pos, 100);
+assert.equal(nextShare(cur, "p").streak, 3);
+cur = null;
+for (let i = 0; i < 50; i++) cur = nextShare(cur, "b");
+assert.equal(cur.pos, 0);
+assert.equal(nextShare(cur, "b").pos, 0);
+assert.equal(shareGradient(0), SHARE_PINK);
+assert.equal(shareGradient(100), SHARE_BLUE);
+assert.match(shareGradient(50), /#6ad4ff 0%.*50%.*#ffb3ce 100%/);
+assert.equal((shareChevrons("up", 1).match(/M/g) || []).length, 1);
+assert.equal((shareChevrons("down", 2).match(/M/g) || []).length, 2);
+assert.equal((shareChevrons("up", 9).match(/M/g) || []).length, 3);
+
+const pond = createPond(400, 400);
+pond.fish[0].x = 80; pond.fish[0].y = 80; pond.fish[0].a = 0;
+pond.fish[1].x = 90; pond.fish[1].y = 90; pond.fish[1].a = 0;
+const [hx, hy] = spine(pond.fish[0], 0);
+pond.foods.push({ x: hx, y: hy, age: 0 });
+stepPond(pond, 0.05);
+assert.equal(pond.foods.length, 0, 'both fish stay in the pond and can still eat');
+
+const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url), 'utf8'));
+const node = rules.rules.rooms.$roomId.pondShare;
+const hunger = rules.rules.rooms.$roomId.pondHunger;
+assert.ok(hunger && hunger.b && hunger.p, 'old hunger records keep their rules');
+assert.equal(node.$other['.validate'], false);
+assert.equal(node['.read'], node['.write']);
+assert.match(node['.read'], /acl\/' \+ \$roomId \+ '\/ok\//);
+assert.match(node['.validate'], /hasChildren\(\['pos','lastEater','streak'\]\)/);
+const gate = (expr, ctx) => vm.runInNewContext(expr, ctx);
+const room = "a".repeat(32);
+function rootOf({ on, admin, ok }) {
+  return { child(path) { return { val() {
+    if (path === "admin/adminUid") return !!admin;
+    if (path === `acl/${room}/on`) return on;
+    if (path === `acl/${room}/ok/member`) return !!ok;
+    return null;
+  } }; } };
+}
+assert.equal(gate(node['.read'], { auth: null, $roomId: room, root: rootOf({ on: false }) }), false);
+assert.equal(gate(node['.read'], { auth: { uid: "member", token: {} }, $roomId: room, root: rootOf({ on: false }) }), true);
+assert.equal(gate(node['.read'], { auth: { uid: "member", token: { lp: true } }, $roomId: room, root: rootOf({ on: true, ok: false }) }), false);
+assert.equal(gate(node['.read'], { auth: { uid: "member", token: { lp: true } }, $roomId: room, root: rootOf({ on: true, ok: true }) }), true);
+assert.equal(gate(node.pos['.validate'], { newData: { exists: () => true, isNumber: () => true, val: () => 50 } }), true);
+assert.equal(gate(node.pos['.validate'], { newData: { exists: () => true, isNumber: () => true, val: () => 101 } }), false);
+assert.equal(gate(node.pos['.validate'], { newData: { exists: () => true, isNumber: () => true, val: () => 1.5 } }), false);
+assert.equal(gate(node.lastEater['.validate'], { newData: { exists: () => true, isString: () => true, val: () => "b" } }), true);
+assert.equal(gate(node.lastEater['.validate'], { newData: { exists: () => true, isString: () => true, val: () => "x" } }), false);
+assert.equal(gate(node.streak['.validate'], { newData: { exists: () => true, isNumber: () => true, val: () => 3 } }), true);
+assert.equal(gate(node.streak['.validate'], { newData: { exists: () => true, isNumber: () => true, val: () => 0 } }), false);
+assert.equal(gate(node['.validate'], { newData: { exists: () => false, hasChildren: () => false } }), true);
+
+const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+const src = fs.readFileSync(new URL('../pond-share.js', import.meta.url), 'utf8');
+const block = html.slice(html.indexOf('id="pondShare"'), html.indexOf('id="pairAsk"'));
+assert.ok(block.includes("c-share-trend is-blue") && block.includes("c-share-trend is-pink"));
+assert.doesNotMatch(block, /飢餓|普通|吃飽|💀|吃一顆|重置|%/);
+assert.match(css, /\.c-share \{[^}]*position: absolute/);
+assert.match(css, /\.c-share \{[^}]*pointer-events: none/);
+assert.match(css, /\.c-share \{[^}]*top: calc\(54px \+ env\(safe-area-inset-top\)\)/);
+assert.match(css, /\.c-share-tube \{[^}]*min\(34vw, 260px\)/);
+assert.match(css, /\.c-share-trend \{[^}]*flex: 0 0 12px/);
+assert.match(css, /\.c-bar \{[^}]*height: calc\(54px \+ env\(safe-area-inset-top\)\)/);
+assert.match(css, /html\[data-theme="light"\] #chat \.c-share-tube/);
+assert.match(app, /mountPondShare/);
+assert.match(app, /S\.share\?\.open\(f, S\.roomId/);
+assert.match(app, /S\.share\?\.close\(\)/);
+assert.match(app, /onEat: \(id\) => S\.share\?\.eat\(id\)/);
+assert.match(src, /runTransaction/);
+assert.match(src, /rooms\/\$\{roomId\}\/pondShare/);
+assert.doesNotMatch(src, /localStorage|setInterval\(/);
+assert.equal(app.match(/const APP_VERSION = "([^"]+)"/)[1], "v61.82");
+assert.doesNotMatch(app, /setAlive/);
+
+console.log('PASS: one shared glass bar tracks who just ate.');
