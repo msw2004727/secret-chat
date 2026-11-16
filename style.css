@@ -531,7 +531,7 @@ html[data-theme="dark"] .update-banner {
   max-width: min(220px, calc(100% - 156px));
   min-width: 0;
 }
-.c-pair-slot { display: flex; align-items: center; justify-content: center; width: 26px; height: 54px; flex: 0 0 auto; }
+.c-pair-slot { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; width: 26px; height: 54px; flex: 0 0 auto; }
 .c-pair-wrap { position: relative; width: 26px; height: 26px; }
 .c-pair-who {
   width: 26px; height: 26px; padding: 0; border-radius: 50%;
@@ -572,6 +572,8 @@ html[data-theme="dark"] .update-banner {
   .c-pair-link { max-width: 56px; }
 }
 .c-seal { display: inline-flex; align-items: center; gap: 1px; height: 20px; flex: 0 0 auto; color: #f7f3ea; }
+#sealM { margin-right: 4px; }
+#sealF { margin-left: 4px; }
 .c-seal i {
   display: inline-block; font-style: normal; font-size: 12px; font-weight: 400; line-height: 1;
   transform: rotate(-11deg); transform-origin: center center;
@@ -3734,8 +3736,9 @@ html[data-theme="dark"] #admin { --warn: #e0a355; }
   white-space: pre; color: var(--txt);
 }
 
-/* 兩隻貓與螢光球：走在輸入列上緣，整層在訊息捲動區後面。
-   訊息氣泡的圓角不在這裡改，維持 18px、尾巴側 6px。 */
+/* 兩隻貓與螢光球：走在輸入列上緣。
+   必須高於訊息捲動層，否則手機把捲動區做成不透明合成層時，貓和球會被整片蓋住，只剩更上面的對白。
+   仍低於對白（3）、標題與輸入列（8）。訊息氣泡圓角不在這裡改。 */
 #chat .c-scroll { padding-bottom: calc(6px + var(--cat-walk, 0px)); }
 @media (min-width: 760px) {
   #chat .c-scroll { padding-bottom: calc(8px + var(--cat-walk, 0px)); }
@@ -3749,7 +3752,7 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
   height: 0;
   overflow: visible;
   pointer-events: none;
-  z-index: 0;
+  z-index: 2;
 }
 .rooster {
   position: absolute;
