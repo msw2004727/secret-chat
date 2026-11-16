@@ -5,6 +5,7 @@ import {
   createOoxx, acceptInvite, needsOoxxPlan, withOoxxPlan,
   askRematch, agreeRematch, rebuffRematch, dismissRebuff,
   createWheel, withWheelPlan, canReplace, enterPlay, finishWheel, forceEnd, otherSide, wedgeLabel,
+  resultKey, revealEnded, readSeen, writeSeen, mountGames,
 } from "../games.js";
 
 assert.equal(pointedSelf(0), true);
@@ -120,6 +121,30 @@ assert.equal(finishWheel(fateAgain).self, "小麥");
 assert.equal(finishWheel(fateAgain).phase, "over");
 assert.equal(forceEnd(fateAgain, "wheel"), null);
 
+const ended = finishWheel(fateAgain);
+const watching = { ...fateAgain };
+assert.equal(revealEnded(null, ended, false, ""), false);
+assert.equal(revealEnded(watching, ended, false, ""), true);
+assert.equal(revealEnded(ended, ended, false, ""), false);
+assert.equal(revealEnded(watching, ended, true, ""), false);
+assert.equal(revealEnded(ended, ended, false, resultKey(ended)), true);
+assert.equal(revealEnded({ ...watching, stale: true }, ended, false, ""), false);
+const replay = withWheelPlan(fateReady, { mode: "none", base: 1900, final: 1900 }, 12000);
+assert.notEqual(resultKey(finishWheel(replay)), resultKey(ended));
+const ooxxOver = { ...playing, phase: "over", winner: "m" };
+assert.equal(revealEnded(null, ooxxOver, false, ""), false);
+assert.equal(revealEnded(playing, ooxxOver, false, ""), true);
+const mem = {
+  m: new Map(),
+  getItem(k) { return this.m.has(k) ? this.m.get(k) : null; },
+  setItem(k, v) { this.m.set(k, v); },
+};
+writeSeen(mem, "room", new Set([resultKey(ended), resultKey(ooxxOver)]));
+const saved = readSeen(mem, "room");
+assert.equal(saved.has(resultKey(ended)), true);
+assert.equal(saved.has(resultKey(ooxxOver)), true);
+assert.equal(readSeen(mem, "other").size, 0);
+
 const rules = JSON.parse(fs.readFileSync(new URL("../database.rules.json", import.meta.url), "utf8"));
 const room = rules.rules.rooms.$roomId;
 assert.equal(room.games.$other[".validate"], false);
@@ -144,7 +169,13 @@ const games = fs.readFileSync(new URL("../games.js", import.meta.url), "utf8");
 assert.match(games, /rooms\/\$\{roomId\}\/games\/ooxx/);
 assert.match(games, /rooms\/\$\{roomId\}\/ooxxWins/);
 assert.match(app, /mountGames/);
-assert.match(app, /const APP_VERSION = "v61\.86"/);
+assert.match(app, /const APP_VERSION = "v61\.87"/);
+assert.equal((html.match(/id="gxFateClose"/g) || []).length, 1);
+assert.equal((html.match(/id="gxClose"/g) || []).length, 1);
+assert.equal((html.match(/id="gxAgain"/g) || []).length, 1);
+assert.equal((html.match(/id="gxFateAgain"/g) || []).length, 1);
+assert.doesNotMatch(css, /\.c-gx-card \{[^}]*translateY/);
+assert.match(games, /sc-gx-seen:/);
 assert.match(html, /id="gxSelf"/);
 assert.match(html, /id="gxOther"/);
 assert.match(html, /maxlength="6"/);
@@ -160,3 +191,76 @@ assert.match(html, /id="gxWheelAbort"/);
 assert.match(html, /id="gxFateAbort"/);
 assert.match(css, /html\[data-theme="light"\] #chat \.c-seal/);
 assert.doesNotMatch(css, /\.c-seal i \{[^}]*border-radius:\s*50%/);
+
+function fakeDoc() {
+  const els = new Map();
+  function make(id) {
+    const classes = new Set();
+    const node = {
+      id, hidden: true, textContent: "", innerHTML: "", className: "", value: "",
+      dataset: {},
+      style: { setProperty() {} },
+      classList: {
+        add(c) { classes.add(c); },
+        remove(c) { classes.delete(c); },
+        contains(c) { return classes.has(c); },
+        toggle(c, on) { if (on) classes.add(c); else classes.delete(c); },
+      },
+      _ev: {},
+      addEventListener(type, fn) { (node._ev[type] ||= []).push(fn); },
+      querySelector(sel) {
+        if (sel === ".self" || sel === ".other" || sel === ".c-gx-card") return make(id + sel);
+        return null;
+      },
+      replaceChildren() {},
+      append() {},
+      focus() {},
+    };
+    els.set(id, node);
+    return node;
+  }
+  return {
+    body: make("body"),
+    getElementById(id) { return els.get(id) || make(id); },
+    els,
+  };
+}
+function fakeDb() {
+  const listeners = new Map();
+  return {
+    db: {},
+    ref(_db, path) { return path; },
+    onValue(path, cb) {
+      const list = listeners.get(path) || [];
+      list.push(cb);
+      listeners.set(path, list);
+      return () => {};
+    },
+    runTransaction: async () => {},
+    emit(path, val) {
+      for (const cb of listeners.get(path) || []) cb({ val: () => val });
+    },
+  };
+}
+const jobs = [];
+globalThis.requestAnimationFrame = (fn) => { jobs.push(fn); return jobs.length; };
+const store = { m: new Map(), getItem(k) { return this.m.has(k) ? this.m.get(k) : null; }, setItem(k, v) { this.m.set(k, v); } };
+const doc = fakeDoc();
+const db = fakeDb();
+const ui = mountGames(doc, { toast() {}, getSide: () => "f", storage: store });
+ui.open(db, "room-a", [], () => true);
+const fresh = withWheelPlan({ ...createWheel("m", "w1", "誰比較可愛", Date.now(), "自己", "對方"), ok: true }, { mode: "none", base: 1800, final: 1800 }, Date.now());
+const done = finishWheel(fresh);
+db.emit("rooms/room-a/games/wheel", done);
+assert.equal(doc.getElementById("gxFateWheel").hidden, true, "already ended wheel stays closed");
+assert.equal(readSeen(store, "room-a").has(resultKey(done)), true);
+const liveBase = withWheelPlan({ ...createWheel("m", "w2", "下一題", Date.now(), "自己", "對方"), ok: true }, { mode: "none", base: 1800, final: 1800 }, Date.now());
+db.emit("rooms/room-a/games/wheel", { ...liveBase, phase: "ready", spin: 0, fin: 0 });
+db.emit("rooms/room-a/games/wheel", finishWheel(liveBase));
+assert.equal(doc.getElementById("gxFateWheel").hidden, false, "result shows when it ends while we are here");
+assert.equal((doc.getElementById("gxFateClose")._ev.click || []).length, 1);
+mountGames(doc, { toast() {}, getSide: () => "f", storage: store });
+assert.equal((doc.getElementById("gxFateClose")._ev.click || []).length, 1, "listeners are not added twice");
+const ooxxLive = withOoxxPlan(acceptInvite(createOoxx("m", "g9", Date.now()), "f"), { mode: "none", base: 1800, final: 1800 }, Date.now());
+db.emit("rooms/room-a/games/ooxx", { ...ooxxLive, phase: "over", winner: "m" });
+assert.equal(doc.getElementById("gxGame").hidden, true, "already ended OOXX stays closed");
