@@ -2700,97 +2700,63 @@ html[data-theme="light"] #chat .c-plantbg { opacity: .11; }
   position: absolute; left: 0; top: 0;
   pointer-events: none; display: block;
 }
-/* 飢餓度玻璃管。absolute 疊在標題列正下方，不把標題列撐高，也不擋餵魚。
-   兩支各 30vw，整組置中，所以藍在中線左邊、粉在右邊。 */
-.c-hunger {
+/* 共用量條。absolute 疊在標題列正下方，不把標題列撐高，也不擋餵魚。
+   一條置中，左藍右粉，兩端箭頭區寬度固定，層數變化時管子不左右跳。 */
+.c-share {
   position: absolute;
   left: 0; right: 0;
   top: calc(54px + env(safe-area-inset-top));
   z-index: 4;
   display: flex;
   justify-content: center;
-  gap: 10px;
   margin: 0;
   padding: 4px 0 0;
-  height: auto;
   background: none;
   pointer-events: none;
 }
-.c-hmeter {
-  width: 30vw;
-  flex: 0 0 30vw;
-  min-width: 0;
-  background: none;
-  pointer-events: none;
+.c-share-meter {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  max-width: calc(100% - 24px);
 }
-.c-htube {
+.c-share-trend {
+  width: 12px;
+  height: 14px;
+  flex: 0 0 12px;
+  display: block;
+}
+.c-share-trend.is-blue { color: #6ad4ff; }
+.c-share-trend.is-pink { color: #ffb3ce; }
+.c-share-tube {
   position: relative;
+  width: min(34vw, 260px);
   height: 7px;
   border-radius: 99px;
   overflow: hidden;
-  background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.08) 42%, rgba(0,0,0,.28));
   border: 1px solid rgba(255,255,255,.42);
   box-shadow: inset 0 1px 1px rgba(255,255,255,.75), inset 0 -2px 3px rgba(0,0,0,.45);
+  background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.05) 42%, rgba(0,0,0,.22));
 }
-html[data-theme="light"] #chat .c-htube {
-  background: linear-gradient(180deg, #fff, rgba(190,208,220,.5) 50%, rgba(40,60,80,.12));
+html[data-theme="light"] #chat .c-share-tube {
   border-color: rgba(40,60,80,.22);
   box-shadow: inset 0 1px 1px #fff, inset 0 -2px 3px rgba(40,60,80,.16);
+  background: linear-gradient(180deg, #fff, rgba(190,208,220,.5) 50%, rgba(40,60,80,.12));
 }
-.c-hliquid {
+.c-share-blend {
   position: absolute;
-  left: 0; top: 1px; bottom: 1px;
-  width: 0;
+  inset: 1px;
   border-radius: 99px;
 }
-.c-hshine {
+.c-share-shine {
   position: absolute;
   left: 8%; right: 8%; top: 1px;
   height: 2px;
+  z-index: 2;
   border-radius: 99px;
-  z-index: 2;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent);
   pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent);
 }
-.c-htick {
-  position: absolute;
-  top: 1px; bottom: 1px;
-  width: 1px;
-  z-index: 2;
-  background: rgba(255,255,255,.85);
-}
-html[data-theme="light"] #chat .c-htick { background: rgba(22,24,28,.4); }
-.c-htick.t20 { left: 20%; }
-.c-htick.t80 { left: 80%; }
-.c-hunder { position: relative; height: 12px; }
-.c-hunder span {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-  font-size: 7px;
-  line-height: 12px;
-  letter-spacing: -0.04em;
-  color: var(--txt-dim);
-  white-space: nowrap;
-  -webkit-text-size-adjust: none;
-  text-size-adjust: none;
-}
-.c-hunder .w20 { left: 10%; }
-.c-hunder .w50 { left: 50%; }
-.c-hunder .w80 { left: 90%; }
-.c-hunder span.is-now { color: var(--txt); font-weight: 650; }
-.c-hdead {
-  min-height: 12px;
-  font-size: 9px;
-  line-height: 12px;
-  color: #e8b4b4;
-  -webkit-text-size-adjust: none;
-  text-size-adjust: none;
-}
-html[data-theme="light"] #chat .c-hdead { color: #a33b3b; }
-.c-hmeter.is-dead .c-hliquid { width: 0 !important; }
-.c-hmeter.is-dead .c-htube { filter: grayscale(1) brightness(.68); }
-.c-hmeter.is-dead .c-hunder span { opacity: .4; }
 
 /* ── 成長計量條（同時是叫出扇形選單的那顆按鈕）──
    ⚠️ 高度要壓到最低。320×568 上「標題列 54 ＋ 這一條 ＋ 斷線提示 ＋ 公告 ＋ 輸入列 65」

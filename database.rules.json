@@ -576,6 +576,23 @@
             ".validate": false
           }
         },
+        "pondShare": {
+          ".read": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+          ".write": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+          ".validate": "!newData.exists() || newData.hasChildren(['pos','lastEater','streak'])",
+          "pos": {
+            ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100 && newData.val() % 1 == 0)"
+          },
+          "lastEater": {
+            ".validate": "!newData.exists() || (newData.isString() && (newData.val() == 'b' || newData.val() == 'p'))"
+          },
+          "streak": {
+            ".validate": "!newData.exists() || (newData.isNumber() && (newData.val() == 1 || newData.val() == 2 || newData.val() == 3))"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
         "loveAsk": {
           ".validate": "!newData.exists() || newData.hasChildren(['id','by','t'])",
           "id": {

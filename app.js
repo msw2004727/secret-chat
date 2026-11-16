@@ -14,7 +14,7 @@ import { Droop, petGroupsFromSnap } from "./droop.js";
 import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS, loveAskPhase, loveAskSeconds, loveAskBothAcked } from "./bubble-fx.js";
 import { pairLocAgeSec, pairLocClock, pairLocDistance, PAIR_LOC_STALE_MS } from "./pair-loc.js";
 import { mountPondShark } from "./pond-shark.js";
-import { mountPondHunger } from "./pond-hunger.js";
+import { mountPondShare } from "./pond-share.js";
 attachBubbleFx(Droop);
 
 const CFG = window.CONFIG;
@@ -25,7 +25,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.81";
+const APP_VERSION = "v61.82";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5376,7 +5376,7 @@ async function enterChat() {
      你在儀表板按撤銷的那一秒，這邊就退回偽裝首頁再跳指定頁。
      ⚠️ 規則層同時會把資料切斷，這裡只是把畫面收乾淨；少了它會看到一堆 permission_denied。 */
   Acl.watch(f, S.roomId);
-  S.hunger?.open(f, S.roomId, S.subs, () => S.gen === myGen && !$("chat").hidden);
+  S.share?.open(f, S.roomId, S.subs, () => S.gen === myGen && !$("chat").hidden);
 
   /* --- 6.1 在線狀態 --- */
   const meRef = ref(db, `${base}/p/${S.clientId}`);
@@ -9345,9 +9345,9 @@ function bindChatUI() {
     releaseTap: () => { tapSuppressed = false; },
     isMenuOpen: () => { const m = $("msgMenu"); return !!(m && !m.hidden); },
     isChatOpen: () => { const c = $("chat"); return !!(c && !c.hidden); },
-    onEat: (id) => S.hunger?.eat(id),
+    onEat: (id) => S.share?.eat(id),
   });
-  S.hunger = mountPondHunger($("pondHunger"), (alive) => S.pond?.setAlive?.(alive));
+  S.share = mountPondShare($("pondShare"));
   bindSettings();
   bindNotes();
   bindHeart();
@@ -10297,7 +10297,7 @@ function leaveChat() {
   S.messagePresence = null;
   S.bubbleWindow = null;
   S.gen++;                                   // 雙保險：即使有殘留 callback 也不會再作用
-  S.hunger?.close();
+  S.share?.close();
 
   // 2. 收掉所有浮層
   $("veil").hidden = true;
