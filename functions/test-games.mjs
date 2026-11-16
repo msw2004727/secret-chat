@@ -6,7 +6,7 @@ import {
   askRematch, agreeRematch, rebuffRematch, dismissRebuff,
   createWheel, withWheelPlan, canReplace, enterPlay, finishWheel, forceEnd, otherSide, wedgeLabel,
   resultKey, revealEnded, readSeen, writeSeen, mountGames, sealNudge,
-  pendingAsk, pendingRebuff, spinFrame, SPIN_MS, WIND_MS,
+  pendingAsk, pendingRebuff, spinFrame, SPIN_MS, WIND_MS, fateResult,
 } from "../games.js";
 
 assert.deepEqual(sealNudge(10, 20, 1), { x: 0, y: 0 });
@@ -79,6 +79,12 @@ assert.equal(spinFrame(windPlan, 5000, 5000 + SPIN_MS + WIND_MS).done, true);
 assert.equal(pendingAsk({ phase: "rematch", rematchBy: "m" }, { phase: "rematch", rematchBy: "m" }, "f"), "ooxx");
 assert.equal(pendingAsk({ phase: "play", rematchBy: "" }, { phase: "rematch", rematchBy: "m" }, "f"), "wheel");
 assert.equal(pendingRebuff({ phase: "rebuff", rematchBy: "f" }, { phase: "rebuff", rematchBy: "m" }, "f"), "ooxx");
+const landed = { self: "小麥", other: "小辛", fin: 1800 };
+assert.equal(fateResult(landed).custom, true);
+assert.equal(fateResult(landed).text, "小麥");
+assert.equal(fateResult({ ...landed, fin: 180 }).text, "小辛");
+assert.equal(fateResult({ self: "自己", other: "對方", fin: 1800 }).custom, false);
+assert.equal(fateResult({ fin: 180 }).text, "");
 assert.deepEqual(viewWins(null), { m: 0, f: 0 });
 
 const asked = askRematch(board, "f", "ooxx");
@@ -190,7 +196,7 @@ const games = fs.readFileSync(new URL("../games.js", import.meta.url), "utf8");
 assert.match(games, /rooms\/\$\{roomId\}\/games\/ooxx/);
 assert.match(games, /rooms\/\$\{roomId\}\/ooxxWins/);
 assert.match(app, /mountGames/);
-assert.match(app, /const APP_VERSION = "v61\.89"/);
+assert.match(app, /const APP_VERSION = "v61\.90"/);
 assert.match(games, /classList\.remove\("is-done"/);
 assert.match(games, /busy = false/);
 assert.equal((html.match(/id="gxFateClose"/g) || []).length, 1);
