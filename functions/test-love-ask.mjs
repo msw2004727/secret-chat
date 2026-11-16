@@ -60,7 +60,7 @@ const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
 const callBtn = html.indexOf('id="zooCall"');
 const loveBtn = html.indexOf('id="zooLove"');
 assert.ok(callBtn > 0 && loveBtn > callBtn);
-assert.equal((html.match(/敬請期待/g) || []).length, 2);
+assert.equal((html.match(/敬請期待/g) || []).length, 0);
 assert.match(html.slice(loveBtn, loveBtn + 400), /愛我嗎\?/);
 assert.match(html, /id="loveCard"/);
 assert.match(html, /你愛我嗎？/);

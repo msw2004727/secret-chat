@@ -37,10 +37,9 @@ assert.equal(vm.runInNewContext(fx.active.$uid['.validate'], active), false);
 
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-const soon = html.indexOf('敬請期待');
 const callBtn = html.indexOf('id="zooCall"');
-assert.ok(soon > 0 && callBtn > soon);
-assert.equal((html.match(/敬請期待/g) || []).length, 2);
+assert.ok(html.indexOf('id="zooOoxx"') > 0 && html.indexOf('id="zooOoxx"') < callBtn);
+assert.equal((html.match(/敬請期待/g) || []).length, 0);
 const ring = html.slice(html.indexOf('id="msgMenu"'), html.indexOf('id="rxPicker"'));
 assert.equal((ring.match(/data-i="/g) || []).length, 8);
 assert.doesNotMatch(ring, /呼叫/);

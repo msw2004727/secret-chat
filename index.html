@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.82">
+<meta name="sc-shell" content="v61.83">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -272,6 +272,7 @@
           <span class="c-pair-tick" id="pairMTick" hidden></span>
         </span>
       </span>
+      <span class="c-seal" id="sealM"><i>勝</i><b>×<em id="winsM">0</em></b></span>
       <div class="c-pair-link" id="pairLink" aria-hidden="true">
         <svg viewBox="0 0 64 16" aria-hidden="true">
           <path class="c-pair-flow" d="M8 8h16M40 8h16" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-dasharray="2.5 2.2"/>
@@ -287,6 +288,7 @@
           <span class="c-pair-tick" id="pairFTick" hidden></span>
         </span>
       </span>
+      <span class="c-seal" id="sealF"><i>勝</i><b>×<em id="winsF">0</em></b></span>
     </div>
 
     <!-- 思念：只有私人房才有。按一下 +1，粉色愛心從按鈕周圍往上飄。
@@ -362,8 +364,14 @@
         </div>
         <label class="c-zoo-row"><span>bobo + QUOKKA</span><span class="c-sw"><input type="checkbox" id="zooPals" checked><span class="c-sw-t"></span></span></label>
         <label class="c-zoo-row"><span>雞</span><span class="c-sw"><input type="checkbox" id="zooBird" checked><span class="c-sw-t"></span></span></label>
-        <div class="c-zoo-row is-soon" aria-disabled="true"><span>敬請期待</span><span class="c-sw" aria-hidden="true"><span class="c-sw-t"></span></span></div>
-        <div class="c-zoo-row is-soon" aria-disabled="true"><span>敬請期待</span><span class="c-sw" aria-hidden="true"><span class="c-sw-t"></span></span></div>
+        <div class="c-zoo-row c-zoo-call">
+          <span>OOXX</span>
+          <button type="button" class="c-zoo-callbtn c-zoo-word" id="zooOoxx" aria-label="OOXX">玩</button>
+        </div>
+        <div class="c-zoo-row c-zoo-call">
+          <span>命運輪盤</span>
+          <button type="button" class="c-zoo-callbtn c-zoo-word" id="zooFate" aria-label="命運輪盤">轉</button>
+        </div>
         <div class="c-zoo-row c-zoo-call">
           <span>呼叫</span>
           <button type="button" class="c-zoo-callbtn" id="zooCall" aria-label="呼叫">
@@ -414,6 +422,95 @@
         <button type="button" id="pairAskNo">取消</button>
         <button type="button" id="pairAskYes">確定</button>
       </div>
+    </div>
+  </div>
+
+  <div class="c-gx" id="gxInvite" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <h2>是否接受邀請</h2>
+      <p id="gxInviteFrom">邀請你玩 OOXX</p>
+      <div class="c-gx-row">
+        <button class="c-gx-ghost" type="button" id="gxReject">拒絕</button>
+        <button class="c-gx-go" type="button" id="gxAccept">接受</button>
+      </div>
+    </div>
+  </div>
+  <div class="c-gx" id="gxWheel" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <div class="c-gx-gust" id="gxOoxxGust" hidden><span></span><span></span><span></span><span></span><b>🍃</b><b>🍂</b><b>🍃</b></div>
+      <h2>誰先下</h2>
+      <div class="c-gx-wheel" id="gxOoxxWrap">
+        <div class="c-gx-needle"></div>
+        <div class="c-gx-disc" id="gxDisc"><b class="self">自己</b><b class="other">對方</b></div>
+      </div>
+      <p id="gxWheelText">輪盤轉動中…</p>
+    </div>
+  </div>
+  <div class="c-gx" id="gxGame" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <p class="c-gx-turn" id="gxTurn"></p>
+      <div class="c-gx-stage">
+        <div class="c-gx-board" id="gxBoard"></div>
+        <div class="c-gx-result" id="gxResult" hidden></div>
+      </div>
+      <div class="c-gx-row" id="gxGameEnd" hidden>
+        <button class="c-gx-ghost" type="button" id="gxClose">關閉</button>
+        <button class="c-gx-go" type="button" id="gxAgain">重來</button>
+      </div>
+    </div>
+  </div>
+  <div class="c-gx" id="gxAsk" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <h2>出個題目</h2>
+      <input class="c-gx-topic" id="gxTopic" maxlength="24" placeholder="誰是笨蛋" enterkeyhint="send">
+      <button class="c-gx-go c-gx-wide" type="button" id="gxTopicSend">送出</button>
+    </div>
+  </div>
+  <div class="c-gx" id="gxFateInvite" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <h2>是否接受挑戰</h2>
+      <p class="c-gx-q" id="gxFateTopicShow"></p>
+      <div class="c-gx-row">
+        <button class="c-gx-ghost" type="button" id="gxFateNo">不玩</button>
+        <button class="c-gx-go" type="button" id="gxFateYes">確定</button>
+      </div>
+    </div>
+  </div>
+  <div class="c-gx" id="gxFateNope" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <h2>對方不玩</h2>
+      <button class="c-gx-go c-gx-wide" type="button" id="gxFateNopeOk">知道了</button>
+    </div>
+  </div>
+  <div class="c-gx" id="gxFateWheel" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <div class="c-gx-gust" id="gxFateGust" hidden><span></span><span></span><span></span><span></span><b>🍃</b><b>🍂</b><b>🍃</b></div>
+      <h2 id="gxFateTopic"></h2>
+      <div class="c-gx-wheel" id="gxFateWrap">
+        <div class="c-gx-needle"></div>
+        <div class="c-gx-disc" id="gxFateDisc"><b class="self">自己</b><b class="other">對方</b></div>
+        <div class="c-gx-dim" id="gxFateDim" hidden><div class="c-gx-result" id="gxFateResult"></div></div>
+      </div>
+      <p id="gxFateText">輪盤轉動中…</p>
+      <div class="c-gx-row" id="gxFateEnd" hidden>
+        <button class="c-gx-ghost" type="button" id="gxFateClose">關閉</button>
+        <button class="c-gx-go" type="button" id="gxFateAgain">重來</button>
+      </div>
+    </div>
+  </div>
+  <div class="c-gx" id="gxRematch" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <h2>對方要求重來</h2>
+      <div class="c-gx-row">
+        <button class="c-gx-ghost" type="button" id="gxRematchNo">反駁</button>
+        <button class="c-gx-go" type="button" id="gxRematchYes">同意</button>
+      </div>
+    </div>
+  </div>
+  <div class="c-gx" id="gxRebuff" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <h2>對方反駁</h2>
+      <button class="c-gx-go c-gx-wide" type="button" id="gxRebuffOk">知道了</button>
     </div>
   </div>
 

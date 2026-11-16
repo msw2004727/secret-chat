@@ -593,6 +593,52 @@
             ".validate": false
           }
         },
+        "ooxxWins": {
+          ".read": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+          ".write": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+          ".validate": "!newData.exists() || newData.hasChildren(['m','f'])",
+          "m": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000 && newData.val() % 1 == 0" },
+          "f": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000 && newData.val() % 1 == 0" },
+          "$other": { ".validate": false }
+        },
+        "games": {
+          ".read": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+          ".write": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+          "ooxx": {
+            ".validate": "!newData.exists() || newData.hasChildren(['id','by','phase','t','cells'])",
+            "id": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
+            "by": { ".validate": "newData.val() == 'm' || newData.val() == 'f'" },
+            "phase": { ".validate": "newData.val() == 'invite' || newData.val() == 'ready' || newData.val() == 'wheel' || newData.val() == 'play' || newData.val() == 'over' || newData.val() == 'rematch' || newData.val() == 'rebuff' || newData.val() == 'nope'" },
+            "ok": { ".validate": "newData.isBoolean()" },
+            "spin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20000 && newData.val() % 1 == 0" },
+            "fin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20000 && newData.val() % 1 == 0" },
+            "mode": { ".validate": "newData.val() == 'none' || newData.val() == 'wind' || newData.val() == 'edge'" },
+            "first": { ".validate": "newData.val() == '' || newData.val() == 'm' || newData.val() == 'f'" },
+            "turn": { ".validate": "newData.val() == '' || newData.val() == 'm' || newData.val() == 'f'" },
+            "cells": { ".validate": "newData.isString() && newData.val().matches('^[mf.]{9}$')" },
+            "winner": { ".validate": "newData.val() == '' || newData.val() == 'm' || newData.val() == 'f'" },
+            "draw": { ".validate": "newData.isBoolean()" },
+            "rematchBy": { ".validate": "newData.val() == '' || newData.val() == 'm' || newData.val() == 'f'" },
+            "t": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 120000" },
+            "$other": { ".validate": false }
+          },
+          "wheel": {
+            ".validate": "!newData.exists() || newData.hasChildren(['id','by','phase','topic','t'])",
+            "id": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
+            "by": { ".validate": "newData.val() == 'm' || newData.val() == 'f'" },
+            "phase": { ".validate": "newData.val() == 'invite' || newData.val() == 'ready' || newData.val() == 'wheel' || newData.val() == 'over' || newData.val() == 'rematch' || newData.val() == 'rebuff' || newData.val() == 'nope'" },
+            "topic": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 24" },
+            "ok": { ".validate": "newData.isBoolean()" },
+            "spin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20000 && newData.val() % 1 == 0" },
+            "fin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20000 && newData.val() % 1 == 0" },
+            "mode": { ".validate": "newData.val() == 'none' || newData.val() == 'wind' || newData.val() == 'edge'" },
+            "target": { ".validate": "newData.val() == '' || newData.val() == 'm' || newData.val() == 'f'" },
+            "rematchBy": { ".validate": "newData.val() == '' || newData.val() == 'm' || newData.val() == 'f'" },
+            "t": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 120000" },
+            "$other": { ".validate": false }
+          },
+          "$other": { ".validate": false }
+        },
         "loveAsk": {
           ".validate": "!newData.exists() || newData.hasChildren(['id','by','t'])",
           "id": {
