@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.85">
+<meta name="sc-shell" content="v61.86">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -468,7 +468,12 @@
   <div class="c-gx" id="gxAsk" hidden>
     <div class="c-gx-card" role="dialog" aria-modal="true">
       <h2>出個題目</h2>
-      <input class="c-gx-topic" id="gxTopic" maxlength="24" placeholder="誰是笨蛋" enterkeyhint="send">
+      <label class="c-gx-lab" for="gxTopic">題目</label>
+      <input class="c-gx-topic" id="gxTopic" maxlength="24" placeholder="誰是笨蛋" enterkeyhint="next" autocomplete="off">
+      <label class="c-gx-lab" for="gxSelf">自己色塊</label>
+      <input class="c-gx-topic" id="gxSelf" maxlength="6" value="自己" placeholder="自己" enterkeyhint="next" autocomplete="off">
+      <label class="c-gx-lab" for="gxOther">對方色塊</label>
+      <input class="c-gx-topic" id="gxOther" maxlength="6" value="對方" placeholder="對方" enterkeyhint="send" autocomplete="off">
       <button class="c-gx-go c-gx-wide" type="button" id="gxTopicSend">送出</button>
     </div>
   </div>
@@ -476,6 +481,7 @@
     <div class="c-gx-card" role="dialog" aria-modal="true">
       <h2>是否接受挑戰</h2>
       <p class="c-gx-q" id="gxFateTopicShow"></p>
+      <div class="c-gx-legend" id="gxFateLegend" hidden></div>
       <div class="c-gx-row">
         <button class="c-gx-ghost" type="button" id="gxFateNo">不玩</button>
         <button class="c-gx-go" type="button" id="gxFateYes">確定</button>
