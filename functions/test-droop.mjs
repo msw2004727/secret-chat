@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { droopClimbIds, DROOP_CLIMB_FRESH_MS, DROOP, droopTapCount, droopPhase, droopFallY, droopFallMs, droopSag, droopSoftSag, droopHang, droopInkSpan, droopSoftPose, droopTapAction, droopBurstEndAction, droopPlayBurst, droopRecordKind } from '../droop.js';
+import { droopClimbIds, DROOP_CLIMB_FRESH_MS, DROOP, droopTapCount, droopPhase, droopFallY, droopFallMs, droopSag, droopSoftSag, droopHang, droopInkSpan, droopSoftPose, droopTapAction, droopBurstEndAction, droopPlayBurst, droopRecordKind, droopSettled } from '../droop.js';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
@@ -27,6 +27,9 @@ ctx.root = { child: () => ({ exists: () => false }) };
 assert.equal(vm.runInNewContext(dr['.validate'], ctx), false);
 ctx.newData = { exists: () => false, hasChildren: () => false };
 assert.equal(vm.runInNewContext(dr['.validate'], ctx), true, 'deleting a droop record is allowed');
+assert.equal(droopSettled({ mode: "soft", on: true, t: 0, drawnFinal: true }, DROOP.SOFT_MS + 50), true);
+assert.equal(droopSettled({ mode: "soft", on: true, t: 0, drawnFinal: false }, DROOP.SOFT_MS + 50), false);
+assert.equal(droopSettled({ mode: "fall", on: true, t: 0, drawnFinal: true }, DROOP.SOFT_MS + 50), false);
 
 const rain = rules.rules.rooms.$roomId.rain;
 assert.equal(rain.$other['.validate'], false);

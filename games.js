@@ -316,11 +316,67 @@ export function dismissRebuff(cur, side, kind) {
   return pack({ ...g, phase: "over" });
 }
 
-export function addWin(cur, side) {
+export function addWin(cur, side, gameId) {
   const w = viewWins(cur);
-  if (side === "m") return { m: w.m + 1, f: w.f };
-  if (side === "f") return { m: w.m, f: w.f + 1 };
-  return { m: w.m, f: w.f };
+  const prevId = cur && typeof cur.id === "string" ? cur.id : "";
+  const id = typeof gameId === "string" ? gameId.slice(0, 64) : "";
+  if (id && prevId === id) return;
+  const next = { m: w.m, f: w.f };
+  if (side === "m") next.m += 1;
+  else if (side === "f") next.f += 1;
+  if (id) next.id = id;
+  return next;
+}
+
+export function pendingAsk(ooxx, wheel, me) {
+  if (ooxx && ooxx.phase === "rematch" && ooxx.rematchBy && ooxx.rematchBy !== me) return "ooxx";
+  if (wheel && wheel.phase === "rematch" && wheel.rematchBy && wheel.rematchBy !== me) return "wheel";
+  return "";
+}
+
+export function pendingRebuff(ooxx, wheel, me) {
+  if (ooxx && ooxx.phase === "rebuff" && ooxx.rematchBy === me) return "ooxx";
+  if (wheel && wheel.phase === "rebuff" && wheel.rematchBy === me) return "wheel";
+  return "";
+}
+
+export const SPIN_MS = 3200;
+export const WIND_MS = 1450;
+export const EDGE_MS = 1820;
+
+export function spinFrame(plan, startedAt, now) {
+  const spin = Number(plan && plan.spin) || 0;
+  const fin = Number(plan && plan.fin) || spin;
+  const mode = plan && plan.mode === "wind" ? "wind" : plan && plan.mode === "edge" ? "edge" : "none";
+  const t = Math.max(0, (Number(now) || 0) - (Number(startedAt) || 0));
+  if (t < SPIN_MS) {
+    return { angle: spin * easeInOutQuart(t / SPIN_MS), gust: false, done: false };
+  }
+  const extra = t - SPIN_MS;
+  if (mode === "wind") {
+    if (extra < WIND_MS) {
+      return { angle: spin + (fin - spin) * easeInOutCubic(extra / WIND_MS), gust: true, done: false };
+    }
+    return { angle: fin, gust: false, done: true };
+  }
+  if (mode === "edge") {
+    if (extra < EDGE_MS) {
+      const sec = extra / 1000;
+      const wobbleMs = 1500;
+      const total = wobbleMs + 320;
+      const p = Math.min(1, extra / total);
+      const enter = smoothstep(0, 0.05, sec);
+      const settle = smoothstep(wobbleMs / total, 1, p);
+      const amp = 14 * enter * Math.exp(-1.8 * sec) * (1 - settle);
+      return {
+        angle: spin + Math.sin(2 * Math.PI * 10 * sec) * amp + (fin - spin) * settle,
+        gust: false,
+        done: false,
+      };
+    }
+    return { angle: fin, gust: false, done: true };
+  }
+  return { angle: spin, gust: false, done: true };
 }
 
 const HAND = {
@@ -406,7 +462,7 @@ export function mountGames(doc, opts) {
   let want = new Set();
   let busy = false;
   let winsSeen = { m: 0, f: 0 };
-  let arming = false;
+  let arming = { ooxx: false, wheel: false };
   let pendingKind = "ooxx";
   let bound = false;
   const storage = opts.storage || (typeof localStorage !== "undefined" ? localStorage : null);
@@ -481,29 +537,34 @@ export function mountGames(doc, opts) {
     wrap?.classList.toggle("is-gust", on);
     if (gust) { gust.hidden = !on; gust.classList.toggle("go", on); }
   }
-  function playSpin(kind, plan, onDone) {
+  function playSpin(kind, plan, startedAt, onDone) {
     const disc = $(kind === "ooxx" ? "gxDisc" : "gxFateDisc");
     const caption = $(kind === "ooxx" ? "gxWheelText" : "gxFateText");
+    const wrap = $(kind === "ooxx" ? "gxOoxxWrap" : "gxFateWrap");
+    wrap?.classList.remove("is-done", "is-gust");
     if (caption) { caption.hidden = false; caption.textContent = "輪盤轉動中…"; }
     stopSpin();
-    setSpin(disc, 0);
+    const job = spinJob;
     showGust(kind, false);
-    requestAnimationFrame(() => {
-      tween(disc, 0, plan.spin, 3200, easeInOutQuart, () => {
-        if (plan.mode === "wind") {
-          if (caption) caption.textContent = "一陣風…";
-          showGust(kind, true);
-          tween(disc, plan.spin, plan.fin, 1450, easeInOutCubic, () => { showGust(kind, false); onDone(); });
-          return;
-        }
-        if (plan.mode === "edge") {
-          if (caption) caption.textContent = "停在邊緣…";
-          wobble(disc, plan.spin, plan.fin, onDone);
-          return;
-        }
-        onDone();
-      });
-    });
+    const frame = () => {
+      if (job !== spinJob) return;
+      const step = spinFrame(plan, startedAt, Date.now());
+      setSpin(disc, step.angle);
+      if (caption && !step.done) {
+        caption.hidden = false;
+        caption.textContent = step.gust ? "一陣風…" : plan.mode === "edge" && Date.now() - startedAt >= SPIN_MS ? "停在邊緣…" : "輪盤轉動中…";
+      }
+      showGust(kind, step.gust);
+      if (!step.done) requestAnimationFrame(frame);
+      else onDone();
+    };
+    requestAnimationFrame(frame);
+  }
+  function finishSpin(kind, id) {
+    busy = false;
+    if (kind === "wheel") finishFate(id);
+    else enterOoxxPlay(id);
+    render();
   }
 
   function hideAll() {
@@ -518,6 +579,12 @@ export function mountGames(doc, opts) {
     want = new Set();
     if (o && me) paintOoxx(o, me);
     if (w && me) paintWheel(w, me);
+    const ask = pendingAsk(o, w, me);
+    const askTitle = $("gxRematchTitle");
+    if (askTitle && ask) askTitle.textContent = ask === "wheel" ? "對方要求重轉命運輪盤" : "對方要求重來 OOXX";
+    const reb = pendingRebuff(o, w, me);
+    const rebTitle = $("gxRebuffTitle");
+    if (rebTitle && reb) rebTitle.textContent = reb === "wheel" ? "對方不重轉" : "對方不重來";
     applyDialogs();
   }
 
@@ -544,10 +611,7 @@ export function mountGames(doc, opts) {
         busy = true;
         show("gxWheel");
         resetAbort($("gxWheelAbort"));
-        playSpin("ooxx", { spin: g.spin, fin: g.fin, mode: g.mode }, () => {
-          busy = false;
-          enterOoxxPlay(g.id);
-        });
+        playSpin("ooxx", { spin: g.spin, fin: g.fin, mode: g.mode }, g.t, () => finishSpin("ooxx", g.id));
         return;
       }
       if (g.phase === "wheel" && g.spin && played.ooxx === key && !busy) {
@@ -647,10 +711,7 @@ export function mountGames(doc, opts) {
         $("gxFateDim").hidden = true;
         $("gxFateEnd").hidden = true;
         resetAbort($("gxFateAbort"));
-        playSpin("wheel", { spin: g.spin, fin: g.fin, mode: g.mode }, () => {
-          busy = false;
-          finishFate(g.id);
-        });
+        playSpin("wheel", { spin: g.spin, fin: g.fin, mode: g.mode }, g.t, () => finishSpin("wheel", g.id));
         return;
       }
       if (g.phase === "wheel" && g.spin && played.wheel === key && !busy) {
@@ -709,7 +770,9 @@ export function mountGames(doc, opts) {
     session = { f, ooxx: null, wheel: null, disposed: false, tail: Promise.resolve(), ooxxRef, wheelRef, winsRef, alive: still };
     const off1 = onValue(ooxxRef, (snap) => {
       if (!session || session.disposed) return;
+      const prev = session.ooxx;
       session.ooxx = viewOoxx(snap.val());
+      maybeScore(prev, session.ooxx);
       maybePlan("ooxx");
       render();
     });
@@ -729,13 +792,20 @@ export function mountGames(doc, opts) {
     paintSeals(viewWins(null));
   }
 
+  function maybeScore(prev, g) {
+    if (!session || !g || g.phase !== "over" || !g.winner) return;
+    if (!prev || prev.id !== g.id || prev.phase === "over") return;
+    const id = g.id;
+    const who = g.winner;
+    tx(session.winsRef, (cur) => addWin(cur, who, id));
+  }
   function maybePlan(kind) {
     const me = side();
-    if (!session || !me || arming) return;
+    if (!session || !me || arming[kind]) return;
     const g = kind === "ooxx" ? session.ooxx : session.wheel;
     const need = kind === "ooxx" ? needsOoxxPlan(g, me) : needsWheelPlan(g, me);
     if (!need) return;
-    arming = true;
+    arming[kind] = true;
     const plan = planSpin();
     const node = kind === "ooxx" ? session.ooxxRef : session.wheelRef;
     tx(node, (cur) => {
@@ -743,7 +813,7 @@ export function mountGames(doc, opts) {
       if (!view || !(kind === "ooxx" ? needsOoxxPlan(view, me) : needsWheelPlan(view, me))) return;
       const now = Date.now();
       return kind === "ooxx" ? withOoxxPlan(view, plan, now) : withWheelPlan(view, plan, now);
-    }).finally(() => { arming = false; });
+    }).finally(() => { arming[kind] = false; });
   }
 
   function requireSide() {
@@ -847,12 +917,16 @@ export function mountGames(doc, opts) {
       const me = side();
       const index = Number(btn.dataset.i);
       let won = "";
+      let wonId = "";
       tx(session.ooxxRef, (cur) => {
         const next = applyMove(cur, me, index);
-        if (next && next.phase === "over" && next.winner === me && (!cur || cur.phase !== "over")) won = me;
+        if (next && next.phase === "over" && next.winner && (!cur || cur.phase !== "over")) {
+          won = next.winner;
+          wonId = next.id;
+        }
         return next;
       }).then(() => {
-        if (won && session) tx(session.winsRef, (cur) => addWin(cur, won));
+        if (won && wonId && session) tx(session.winsRef, (cur) => addWin(cur, won, wonId));
       });
     });
     $("gxAgain")?.addEventListener("click", () => ask("ooxx"));
@@ -892,7 +966,8 @@ export function mountGames(doc, opts) {
     });
     $("gxRebuffOk")?.addEventListener("click", () => {
       const me = side(); if (!session || !me) return;
-      const kind = session.wheel && session.wheel.phase === "rebuff" && session.wheel.rematchBy === me ? "wheel" : "ooxx";
+      const kind = pendingRebuff(session.ooxx, session.wheel, me);
+      if (!kind) return;
       const node = kind === "wheel" ? session.wheelRef : session.ooxxRef;
       tx(node, (cur) => dismissRebuff(cur, me, kind));
     });
@@ -915,7 +990,8 @@ export function mountGames(doc, opts) {
   }
   function replyRematch(yes) {
     const me = side(); if (!session || !me) return;
-    const kind = session.wheel && session.wheel.phase === "rematch" ? "wheel" : "ooxx";
+    const kind = pendingAsk(session.ooxx, session.wheel, me);
+    if (!kind) return;
     const node = kind === "wheel" ? session.wheelRef : session.ooxxRef;
     tx(node, (cur) => yes ? agreeRematch(cur, me, kind) : rebuffRematch(cur, me, kind));
   }
@@ -923,7 +999,7 @@ export function mountGames(doc, opts) {
   function close() {
     stopSpin();
     busy = false;
-    arming = false;
+    arming = { ooxx: false, wheel: false };
     if (session) session.disposed = true;
     session = null;
     hideAll();

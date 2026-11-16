@@ -599,6 +599,7 @@
           ".validate": "!newData.exists() || newData.hasChildren(['m','f'])",
           "m": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000 && newData.val() % 1 == 0" },
           "f": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000 && newData.val() % 1 == 0" },
+          "id": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
           "$other": { ".validate": false }
         },
         "games": {
