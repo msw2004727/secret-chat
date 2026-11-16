@@ -915,6 +915,11 @@ export function mountGames(doc, opts) {
       tx(session.ooxxRef, (cur) => acceptInvite(cur, me));
     });
     $("gxTopicSend")?.addEventListener("click", sendTopic);
+    $("gxAskClose")?.addEventListener("click", () => {
+      const ask = $("gxAsk");
+      ask?.querySelector("input")?.blur();
+      veil(ask, false);
+    });
     for (const id of ["gxTopic", "gxSelf", "gxOther"]) {
       $(id)?.addEventListener("keydown", (e) => { if (e.key === "Enter") sendTopic(); });
     }
