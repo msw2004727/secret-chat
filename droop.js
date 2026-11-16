@@ -30,6 +30,12 @@ export const DROOP = {
 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
+export function droopSettled(st, now) {
+  if (!st || (st.mode !== "soft" && st.mode !== "stiff")) return false;
+  const e = now - st.t;
+  const settled = st.on ? e > DROOP.SOFT_MS + 40 : e > DROOP.RECOVER_MS;
+  return !!(settled && st.drawnFinal);
+}
 /* 舊的軟掉爬背判斷還留著給測試。現在真正播爬背的是 bubbleFx 的堅挺。
    太舊的紀錄是進房時就在的，不重播。同一筆 t 只算一次。 */
 export const DROOP_CLIMB_FRESH_MS = 12000;
@@ -366,6 +372,7 @@ export const Droop = {
       }
     }, { passive: true });
     window.addEventListener("resize", () => { for (const st of this.map.values()) st.drawnFinal = false; this.kick(); });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) this.kick(); });
     if (window.MutationObserver) {
       new MutationObserver(() => { if (this.last && !petsOff()) this.sync(this.last, this.now()); }).observe(list, { childList: true, subtree: true });
     }
@@ -664,12 +671,20 @@ export const Droop = {
   syncLayer() {},
   tick() {
     this.raf = 0;
+    const chat = document.getElementById("chat");
+    if (document.hidden || (chat && chat.hidden)) return;
     if (!this.map.size) return;
     const now = this.now();
+    let live = false;
     for (const [row, st] of [...this.map]) {
       if (!row.isConnected || !st.bub.isConnected) { this.clear(row); continue; }
       try {
-        if (st.mode === "soft" || st.mode === "stiff") { this.tickSoft(row, st, now); continue; }
+        if (st.mode === "soft" || st.mode === "stiff") {
+          this.tickSoft(row, st, now);
+          if (!droopSettled(st, now)) live = true;
+          continue;
+        }
+        live = true;
         const elapsed = now - st.t;
         const phase = droopPhase(elapsed, st.fallMs, st.reduced);
         if (phase === "done") { if (this.intent) this.intent.set(row, "normal"); this.clear(row); continue; }
@@ -724,7 +739,7 @@ export const Droop = {
         this.clear(row);
       }
     }
-    if (this.map.size) this.kick();
+    if (live) this.kick();
   },
   tickSoft(row, st, now) {
     const e = now - st.t;

@@ -656,6 +656,8 @@ html[data-theme="light"] #chat #pairAskYes { background: #1a73e8; color: #fff; }
   background: var(--bg); color: var(--txt); border: 1px solid var(--line);
   box-shadow: 0 12px 28px rgba(0,0,0,.28);
   display: flex; flex-direction: column; gap: 2px;
+  max-height: calc(100dvh - 70px - env(safe-area-inset-top));
+  overflow-y: auto;
 }
 .c-gear-menu[hidden] { display: none !important; }
 html[data-theme="dark"] .c-gear-menu { box-shadow: 0 12px 28px rgba(0,0,0,.5); }
