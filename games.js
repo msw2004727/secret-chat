@@ -75,6 +75,29 @@ export function viewOoxx(raw) {
   };
 }
 
+/* 旋轉後的小字若落在不同小數像素，反鋸齒會一粗一細。
+   把印章平移到最近的裝置像素，兩邊才會同一套筆畫。 */
+export function sealNudge(left, top, dpr) {
+  const d = Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
+  const x = left * d;
+  const y = top * d;
+  return { x: (Math.round(x) - x) / d, y: (Math.round(y) - y) / d };
+}
+
+export function snapSeals(doc, dpr) {
+  const ratio = Number.isFinite(dpr) && dpr > 0
+    ? dpr
+    : (typeof devicePixelRatio === "number" && devicePixelRatio > 0 ? devicePixelRatio : 1);
+  for (const id of ["sealM", "sealF"]) {
+    const el = doc.getElementById(id);
+    if (!el || !el.getClientRects || el.getClientRects().length === 0) continue;
+    el.style.transform = "";
+    const r = el.getBoundingClientRect();
+    const n = sealNudge(r.left, r.top, ratio);
+    el.style.transform = (n.x || n.y) ? `translate(${n.x.toFixed(4)}px, ${n.y.toFixed(4)}px)` : "";
+  }
+}
+
 export function wedgeLabel(raw, fallback) {
   if (typeof raw !== "string") return fallback;
   const text = raw.trim().slice(0, 6);
@@ -448,6 +471,7 @@ export function mountGames(doc, opts) {
       void el.offsetWidth;
       el.classList.add("hit");
     }
+    snapSeals(doc);
   }
   function showGust(kind, on) {
     const root = $(kind === "ooxx" ? "gxWheel" : "gxFateWheel");

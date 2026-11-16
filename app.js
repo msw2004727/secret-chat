@@ -15,7 +15,7 @@ import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RIN
 import { pairLocAgeSec, pairLocClock, pairLocDistance, PAIR_LOC_STALE_MS } from "./pair-loc.js";
 import { mountPondShark } from "./pond-shark.js";
 import { mountPondShare } from "./pond-share.js";
-import { mountGames } from "./games.js";
+import { mountGames, snapSeals } from "./games.js";
 attachBubbleFx(Droop);
 
 const CFG = window.CONFIG;
@@ -26,7 +26,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.87";
+const APP_VERSION = "v61.88";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5307,6 +5307,7 @@ async function enterChat() {
   resetList();                 // 從乾淨狀態開始，並讓上一輪飛行中的工作全部作廢
   $("gate").hidden = true;
   $("chat").hidden = false;
+  requestAnimationFrame(() => snapSeals(document));
 
   // 先綁好介面再連線 —— 這樣連線期間輸入框就是活的，不會有「打了字送不出去」的空窗
   if (!S.uiBound) { bindChatUI(); if (ROOM_EXTRAS_ENABLED) bindPlant(); S.uiBound = true; }
@@ -10453,15 +10454,20 @@ function initViewport() {
     if (!vv) {
       root.style.setProperty("--app-h", window.innerHeight + "px");
       root.style.setProperty("--app-top", "0px");
+      requestAnimationFrame(() => snapSeals(document));
       return;
     }
 
     // 雙指放大時 vv.height 也會變小，但那不是鍵盤，不能動版面
-    if (vv.scale > 1.05) return;
+    if (vv.scale > 1.05) {
+      requestAnimationFrame(() => snapSeals(document));
+      return;
+    }
 
     // 高度與位置都要對齊「實際看得到的那一塊」，輸入列才會剛好停在鍵盤上緣
     root.style.setProperty("--app-h", Math.round(vv.height) + "px");
     root.style.setProperty("--app-top", Math.round(vv.offsetTop) + "px");
+    requestAnimationFrame(() => snapSeals(document));
 
     // iOS 會把整份文件往上推來讓輸入框露出來，這裡強制拉回原位
     if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
@@ -13626,6 +13632,7 @@ function paintPair() {
   const both = !!(pairFix.m && pairFix.f);
   if (link) link.classList.toggle("on", both);
   if (dist) dist.textContent = both ? pairLocDistance(pairFix.m, pairFix.f) : "";
+  snapSeals(document);
 }
 function resetPairUi() {
   clearInterval(pairTimer);
