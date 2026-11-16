@@ -110,6 +110,11 @@ export function tiltRelease() {
   }
 }
 
+/* 進了聊天室才問。沒有 requestPermission 的裝置（Android、電腦）不走這條。 */
+export function tiltOnChatTap(chatHidden, needsPermission) {
+  return !!needsPermission && !chatHidden;
+}
+
 /* 必須在使用者點擊當下呼叫。拒絕或失敗只記一次，之後不再問。 */
 export function tiltAsk() {
   if (denied) return Promise.resolve(false);
@@ -139,4 +144,14 @@ if (typeof document !== "undefined") {
     if (document.hidden) pause();
     else ensure();
   });
+  /* iOS 要在使用者手勢裡問。用冒泡階段，讓這一下原本的點擊先跑完再問，不攔截、不延遲。 */
+  if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+    const onChatTap = () => {
+      const chat = document.getElementById("chat");
+      if (!tiltOnChatTap(!chat || chat.hidden, true)) return;
+      document.removeEventListener("click", onChatTap);
+      try { tiltAsk(); } catch (_) {}
+    };
+    document.addEventListener("click", onChatTap);
+  }
 }

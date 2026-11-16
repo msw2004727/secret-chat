@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
-import { tiltInput, tiltRoll, tiltHold, tiltAccelX, tiltSmooth, TILT_DEAD, TILT_G, TILT_MAX } from "../tilt.js";
+import { tiltInput, tiltRoll, tiltHold, tiltAccelX, tiltSmooth, tiltOnChatTap, TILT_DEAD, TILT_G, TILT_MAX } from "../tilt.js";
 
 assert.equal(tiltRoll(0, 0), 0);
 assert.equal(tiltRoll(90, 0), 0);
@@ -51,3 +51,9 @@ assert.match(pets, /tiltAsk\(\)/);
 assert.match(rain, /Y\[i\] \+= vy \+ G/);
 assert.match(rain, /Math\.sin\(th\) \* G/);
 assert.doesNotMatch(rain, /Math\.cos\(th\) \* G/);
+assert.equal(tiltOnChatTap(true, true), false);
+assert.equal(tiltOnChatTap(false, false), false);
+assert.equal(tiltOnChatTap(false, true), true);
+const tiltSrc = fs.readFileSync(new URL("../tilt.js", import.meta.url), "utf8");
+assert.match(tiltSrc, /addEventListener\("click", onChatTap\)/);
+assert.doesNotMatch(tiltSrc, /preventDefault|stopPropagation/);
