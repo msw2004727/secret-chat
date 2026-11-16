@@ -104,6 +104,16 @@ export function wedgeLabel(raw, fallback) {
   return text || fallback;
 }
 
+/* 有改過色塊文字時，結果就是指針停到的那一塊字，兩邊讀同一筆。
+   沒改過就維持原本的「是你／是他」。 */
+export function fateResult(g) {
+  const self = wedgeLabel(g && g.self, "自己");
+  const other = wedgeLabel(g && g.other, "對方");
+  const onSelf = pointedSelf(g && g.fin);
+  const custom = self !== "自己" || other !== "對方";
+  return { custom, onSelf, text: custom ? (onSelf ? self : other) : "" };
+}
+
 export function viewWheel(raw) {
   if (!raw || typeof raw !== "object") return null;
   if (!PHASE.includes(raw.phase) || !sideOf(raw.by) || typeof raw.id !== "string") return null;
@@ -386,6 +396,15 @@ const HAND = {
   you: `<svg viewBox="0 0 320 150" aria-label="是你！"><text class="hand" x="160" y="118" text-anchor="middle">是你！</text></svg>`,
   him: `<svg viewBox="0 0 320 150" aria-label="是他！"><text class="hand" x="160" y="118" text-anchor="middle">是他！</text></svg>`,
 };
+
+function fateHand(text) {
+  const n = [...String(text)].length;
+  const size = n <= 2 ? 96 : n <= 4 ? 72 : 52;
+  const safe = String(text).replace(/[&<>"]/g, (ch) => (
+    ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : "&quot;"
+  ));
+  return `<svg viewBox="0 0 320 150" aria-label="${safe}"><text class="hand" x="160" y="118" text-anchor="middle" style="font-size:${size}px">${safe}</text></svg>`;
+}
 
 function markSvg(kind) {
   if (kind === "O") {
@@ -737,10 +756,11 @@ export function mountGames(doc, opts) {
     setSpin(disc, angle);
     $("gxFateWrap").classList.add("is-done");
     const you = who === me;
+    const landed = fateResult(g);
     const result = $("gxFateResult");
     $("gxFateDim").hidden = false;
-    result.className = "c-gx-result fate " + (you ? "you" : "him");
-    result.innerHTML = you ? HAND.you : HAND.him;
+    result.className = "c-gx-result fate " + ((landed.custom ? landed.onSelf : you) ? "you" : "him");
+    result.innerHTML = landed.custom ? fateHand(landed.text) : (you ? HAND.you : HAND.him);
     $("gxFateText").hidden = true;
     $("gxFateEnd").hidden = g.phase === "wheel";
     const abortRow = $("gxFateAbortRow");
