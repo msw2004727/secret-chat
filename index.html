@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.84">
+<meta name="sc-shell" content="v61.85">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -444,6 +444,9 @@
         <div class="c-gx-disc" id="gxDisc"><b class="self">自己</b><b class="other">對方</b></div>
       </div>
       <p id="gxWheelText">輪盤轉動中…</p>
+      <div class="c-gx-row">
+        <button class="c-gx-ghost" type="button" id="gxWheelAbort">強制結束</button>
+      </div>
     </div>
   </div>
   <div class="c-gx" id="gxGame" hidden>
@@ -452,6 +455,9 @@
       <div class="c-gx-stage">
         <div class="c-gx-board" id="gxBoard"></div>
         <div class="c-gx-result" id="gxResult" hidden></div>
+      </div>
+      <div class="c-gx-row" id="gxLiveEnd" hidden>
+        <button class="c-gx-ghost" type="button" id="gxAbort">強制結束</button>
       </div>
       <div class="c-gx-row" id="gxGameEnd" hidden>
         <button class="c-gx-ghost" type="button" id="gxClose">關閉</button>
@@ -492,6 +498,9 @@
         <div class="c-gx-dim" id="gxFateDim" hidden><div class="c-gx-result" id="gxFateResult"></div></div>
       </div>
       <p id="gxFateText">輪盤轉動中…</p>
+      <div class="c-gx-row" id="gxFateAbortRow">
+        <button class="c-gx-ghost" type="button" id="gxFateAbort">強制結束</button>
+      </div>
       <div class="c-gx-row" id="gxFateEnd" hidden>
         <button class="c-gx-ghost" type="button" id="gxFateClose">關閉</button>
         <button class="c-gx-go" type="button" id="gxFateAgain">重來</button>
@@ -504,6 +513,15 @@
       <div class="c-gx-row">
         <button class="c-gx-ghost" type="button" id="gxRematchNo">反駁</button>
         <button class="c-gx-go" type="button" id="gxRematchYes">同意</button>
+      </div>
+    </div>
+  </div>
+  <div class="c-gx" id="gxBusy" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <h2>這局還在進行</h2>
+      <div class="c-gx-row">
+        <button class="c-gx-ghost" type="button" id="gxBusyEnd">結束這局</button>
+        <button class="c-gx-go" type="button" id="gxBusyGo">繼續</button>
       </div>
     </div>
   </div>

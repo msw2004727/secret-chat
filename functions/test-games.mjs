@@ -4,7 +4,7 @@ import {
   pointedSelf, personAt, planSpin, winnerOf, applyMove, addWin, viewWins,
   createOoxx, acceptInvite, needsOoxxPlan, withOoxxPlan,
   askRematch, agreeRematch, rebuffRematch, dismissRebuff,
-  createWheel, withWheelPlan,
+  createWheel, withWheelPlan, canReplace, enterPlay, finishWheel, forceEnd, otherSide,
 } from "../games.js";
 
 assert.equal(pointedSelf(0), true);
@@ -62,9 +62,35 @@ assert.deepEqual(viewWins(null), { m: 0, f: 0 });
 const asked = askRematch(board, "f", "ooxx");
 assert.equal(asked.phase, "rematch");
 assert.equal(agreeRematch(asked, "f", "ooxx"), undefined);
-const ready = agreeRematch(asked, "m", "ooxx");
+const ready = agreeRematch(asked, "m", "ooxx", 5000);
 assert.equal(ready.phase, "ready");
 assert.equal(ready.spin, 0);
+assert.equal(ready.cells, ".........");
+assert.equal(ready.winner, "");
+const again = withOoxxPlan(ready, { mode: "none", base: 2100, final: 2140 }, 5000);
+assert.equal(again.phase, "wheel");
+assert.equal(again.cells, ".........");
+assert.equal(again.winner, "");
+assert.equal(again.turn, again.first);
+assert.equal(again.first, personAt(2140, "f"));
+const playing = enterPlay(again);
+assert.equal(playing.phase, "play");
+assert.equal(playing.winner, "");
+assert.equal(enterPlay(playing), undefined);
+const moved = applyMove(playing, playing.turn, 0);
+assert.equal(moved.phase, "play");
+const second = withOoxxPlan(agreeRematch(askRematch({ ...moved, phase: "over", winner: moved.turn }, otherSide(moved.turn), "ooxx"), moved.turn, "ooxx"), { mode: "wind", base: 1800, final: 2500 }, 9000);
+assert.equal(second.phase, "wheel");
+assert.equal(second.cells, ".........");
+assert.notEqual(second.spin, again.spin);
+assert.equal(forceEnd(playing, "ooxx"), null);
+assert.equal(forceEnd(again, "ooxx"), null);
+assert.equal(forceEnd({ ...playing, phase: "over", winner: "m" }, "ooxx"), undefined);
+assert.equal(canReplace(null, "", 0), true);
+assert.equal(canReplace(playing, "", playing.t + 1000), false);
+assert.equal(canReplace({ ...playing, phase: "over" }, "", playing.t), true);
+assert.equal(canReplace(playing, playing.id, playing.t), true);
+assert.equal(canReplace(playing, "", playing.t + 31 * 60 * 1000), true);
 const no = rebuffRematch(asked, "m", "ooxx");
 assert.equal(no.phase, "rebuff");
 assert.equal(dismissRebuff(no, "f", "ooxx").phase, "over");
@@ -73,6 +99,13 @@ const topic = createWheel("m", "w1", "誰是笨蛋", 1000);
 const spun = withWheelPlan({ ...topic, ok: true }, { mode: "edge", base: 1980, final: 1992 });
 assert.equal(spun.target, personAt(1992, "m"));
 assert.equal(spun.topic, "誰是笨蛋");
+const fateReady = agreeRematch(askRematch({ ...spun, phase: "over" }, "m", "wheel"), "f", "wheel", 8000);
+assert.equal(fateReady.phase, "ready");
+assert.equal(fateReady.topic, "誰是笨蛋");
+const fateAgain = withWheelPlan(fateReady, { mode: "none", base: 1800, final: 1800 }, 8000);
+assert.equal(fateAgain.phase, "wheel");
+assert.equal(finishWheel(fateAgain).phase, "over");
+assert.equal(forceEnd(fateAgain, "wheel"), null);
 
 const rules = JSON.parse(fs.readFileSync(new URL("../database.rules.json", import.meta.url), "utf8"));
 const room = rules.rules.rooms.$roomId;
@@ -95,6 +128,9 @@ const games = fs.readFileSync(new URL("../games.js", import.meta.url), "utf8");
 assert.match(games, /rooms\/\$\{roomId\}\/games\/ooxx/);
 assert.match(games, /rooms\/\$\{roomId\}\/ooxxWins/);
 assert.match(app, /mountGames/);
-assert.match(app, /const APP_VERSION = "v61\.84"/);
+assert.match(app, /const APP_VERSION = "v61\.85"/);
+assert.match(html, /id="gxAbort"/);
+assert.match(html, /id="gxWheelAbort"/);
+assert.match(html, /id="gxFateAbort"/);
 assert.match(css, /html\[data-theme="light"\] #chat \.c-seal/);
 assert.doesNotMatch(css, /\.c-seal i \{[^}]*border-radius:\s*50%/);
