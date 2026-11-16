@@ -1,5 +1,6 @@
 /* 聊天室裡的兩隻擬真貓（棕色虎斑、灰貓）、螢光球、咬泡泡、吊著與談戀愛。只在這台瀏覽器裡跑，不上傳。 */
 import { Droop } from "./droop.js";
+import { tiltAngle, tiltAcquire, tiltRelease, tiltAsk, tiltAccel } from "./tilt.js";
 import { REAL } from "./real-cats.js";
 import { attachRooster } from "./rooster-room.js";
 import { attachBobo } from "./bobo-room.js";
@@ -575,7 +576,9 @@ export function mountRoomPets() {
       const L = BR, R = areaW - BR;
       for (let i = 0; i < steps; i++) {
         const T = topY + BR, F = floorY - BR;
-        ball.vy += 1500 * h;
+        const acc = tiltAccel(tiltAngle());
+        ball.vx += acc.x * h;
+        ball.vy += acc.y * h;
         ball.x += ball.vx * h; ball.y += ball.vy * h;
         if (ball.x < L) { ball.x = L; if (ball.vx < 0) { ball.vx = -ball.vx * 0.8; bounced(now, ball.vx); } }
         if (ball.x > R) { ball.x = R; if (ball.vx > 0) { ball.vx = -ball.vx * 0.8; bounced(now, -ball.vx); } }
@@ -588,7 +591,8 @@ export function mountRoomPets() {
         collideHeads(now);
       }
       const onFloor = ball.y >= floorY - BR - 0.5;
-      if (onFloor && Math.abs(ball.vy) < 1) { ball.vx *= Math.pow(0.4, dt); if (Math.abs(ball.vx) < 3) ball.vx = 0; }
+      const drive = Math.abs(tiltAccel(tiltAngle()).x);
+      if (onFloor && Math.abs(ball.vy) < 8 && drive < 40) { ball.vx *= Math.pow(0.4, dt); if (Math.abs(ball.vx) < 3) ball.vx = 0; }
       ball.spin += ball.vx * dt / BR;
       /* 卡在泡泡頂端不動時，輕輕推一下讓它滾下來 */
       if (Math.hypot(ball.vx, ball.vy) < 6 && !onFloor) {
@@ -641,6 +645,7 @@ export function mountRoomPets() {
       return d < BR + 12;
     }
     function grabBall(e, now) {
+      try { tiltAsk(); } catch (_) {}
       if (soc && soc.kind === "love") endSoc(now); /* 摸球：談戀愛中斷 */
       const c = ball.carrier;
       if (c) {
@@ -3854,8 +3859,15 @@ export function mountRoomPets() {
     let last = performance.now();
     let overlapped = false;
     let rafId = 0;
+    let tiltHeld = false;
+    function holdTilt(on) {
+      if (on === tiltHeld) return;
+      tiltHeld = on;
+      if (on) tiltAcquire(); else tiltRelease();
+    }
     function loop(now) {
       if (petsOn === false || !chatLive() || document.hidden) {
+        holdTilt(false);
         rafId = 0;
         document.documentElement.classList.remove("room-pet-drag");
         if (ball.state === "drag") { ball.state = "loose"; ball.dragId = null; }
@@ -3865,6 +3877,7 @@ export function mountRoomPets() {
         return;
       }
       try {
+      holdTilt(true);
       const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
       last = now;
       geom();

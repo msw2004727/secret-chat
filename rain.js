@@ -1,3 +1,4 @@
+import { tiltAngle, tiltAcquire, tiltRelease, tiltAsk } from "./tilt.js";
 /* ===== 彩蛋：連點 3 下「在線上」→ 螢光黃球雨（雙方同步）=====
    獨立區塊，不依賴貓咪程式：
    - 觸發／提早結束都是「聊天室事件」：BallRain.write(v) / BallRain.writeEnd() 交給呼叫端寫進資料庫，
@@ -115,7 +116,9 @@
       let vx = (X[i] - OX[i]) * 0.996, vy = (Y[i] - OY[i]) * 0.996;
       if (vy > 9) vy = 9; if (vx > 9) vx = 9; else if (vx < -9) vx = -9;
       OX[i] = X[i]; OY[i] = Y[i];
-      X[i] += vx; Y[i] += vy + G;
+      const th = tiltAngle();
+      X[i] += vx + Math.sin(th) * G;
+      Y[i] += vy + Math.cos(th) * G;
       s.a[i] += vx / RR[i];
     }
     const cw = D, cols = Math.max(1, Math.ceil(AW / cw)), rows = Math.max(1, Math.ceil((AH + 80) / cw)), nc = cols * rows;
@@ -179,6 +182,8 @@
         const ms = Math.min(RAIN.FREEZE_CAP_MS, RAIN.DUR_MS + RAIN.FADE_MS + RAIN.AFTER_MS - e);
         if (ms > 800 && !s.fading) window.dispatchEvent(new CustomEvent("sc-rain", { detail: { phase: "hit", ms } }));
       }
+      const tilting = Math.abs(tiltAngle()) > 0.02;
+      if (s.settled && tilting) { s.settled = false; s.quiet = 0; s.dirty = true; }
       if (!s.settled) {
         const t = performance.now(), dt = s.last ? Math.min(50, t - s.last) : 16.7; s.last = t;
         while (s.n < s.N && s.spawnAt[s.n] <= e) spawn(s, s.n++);
@@ -187,8 +192,8 @@
         while (s.acc >= 1000 * H && k < 4) { step(s); s.acc -= 1000 * H; k++; }
         if (k === 4) s.acc = 0; /* 太慢的裝置：寧可慢動作，也不要越積越多 */
         s.simMs += performance.now() - t;
-        /* 全部掉完、而且都不太動了 → 停止計算（不會一直抖） */
-        if (s.n >= s.N) {
+        /* 全部掉完、而且都不太動了 → 停止計算（不會一直抖）。傾斜時繼續算，球才會跟著滾。 */
+        if (s.n >= s.N && !tilting) {
           let mx = 0;
           for (let i = 0; i < s.n; i++) { const vx = s.x[i] - s.ox[i], vy = s.y[i] - s.oy[i], v = vx * vx + vy * vy; if (v > mx) mx = v; }
           s.quiet = mx < 0.004 ? s.quiet + 1 : 0;
@@ -203,6 +208,7 @@
   function begin(t0, id) {
     stop();
     st = freshState(t0, id);
+    try { tiltAcquire(); } catch (_) {}
     cv.style.transition = "none"; cv.style.opacity = "1"; cv.style.display = "block";
     raf = requestAnimationFrame(frame);
     /* 備援：分頁在背景時畫面不更新，也要準時淡出 */
@@ -224,6 +230,7 @@
   function stop() {
     clearTimeout(fadeTimer); clearTimeout(durTimer);
     if (raf) cancelAnimationFrame(raf); raf = 0;
+    try { if (st) tiltRelease(); } catch (_) {}
     const was = st;
     st = null;
     /* 球完全消失：通知貓「再僵 5 秒就好」 */
@@ -282,7 +289,7 @@
       if (st) { taps = []; requestEnd(); return; } /* 球雨中（含淡出中）：第一下就是提早淡出，不會疊第二波 */
       if (taps.length && t - taps[taps.length - 1] > RAIN.TAP_GAP_MS) taps = [];
       taps.push(t);
-      if (taps.length >= RAIN.TAPS) { taps = []; requestStart(); }
+      if (taps.length >= RAIN.TAPS) { taps = []; try { tiltAsk(); } catch (_) {} requestStart(); }
     });
   }
   window.addEventListener("resize", () => { if (st) layout(); });
