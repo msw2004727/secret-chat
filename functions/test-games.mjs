@@ -95,6 +95,6 @@ const games = fs.readFileSync(new URL("../games.js", import.meta.url), "utf8");
 assert.match(games, /rooms\/\$\{roomId\}\/games\/ooxx/);
 assert.match(games, /rooms\/\$\{roomId\}\/ooxxWins/);
 assert.match(app, /mountGames/);
-assert.match(app, /const APP_VERSION = "v61\.83"/);
+assert.match(app, /const APP_VERSION = "v61\.84"/);
 assert.match(css, /html\[data-theme="light"\] #chat \.c-seal/);
 assert.doesNotMatch(css, /\.c-seal i \{[^}]*border-radius:\s*50%/);
