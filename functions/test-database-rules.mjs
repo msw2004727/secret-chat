@@ -21,7 +21,7 @@ assert.match(cells[1], /\.matches\(\/\^\[mf\.\]\{9\}\$\/\)/);
 const firebase = new URL("../node_modules/.bin/firebase", import.meta.url);
 const result = spawnSync(
   firebase.pathname,
-  ["emulators:exec", "--only", "database", "--project", "demo-secret-chat", "node -e \"process.exit(0)\""],
+  ["emulators:exec", "--only", "database", "--project", "demo-secret-chat", "node scripts/wheel-rules-emulator.mjs"],
   { cwd: new URL("..", import.meta.url), encoding: "utf8", timeout: 120000 },
 );
 for (const name of ["database-debug.log", "firebase-debug.log", "ui-debug.log"]) {

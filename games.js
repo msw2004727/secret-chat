@@ -75,6 +75,12 @@ export function viewOoxx(raw) {
   };
 }
 
+export function wedgeLabel(raw, fallback) {
+  if (typeof raw !== "string") return fallback;
+  const text = raw.trim().slice(0, 6);
+  return text || fallback;
+}
+
 export function viewWheel(raw) {
   if (!raw || typeof raw !== "object") return null;
   if (!PHASE.includes(raw.phase) || !sideOf(raw.by) || typeof raw.id !== "string") return null;
@@ -84,6 +90,8 @@ export function viewWheel(raw) {
     by: raw.by,
     phase: raw.phase,
     topic,
+    self: wedgeLabel(raw.self, "自己"),
+    other: wedgeLabel(raw.other, "對方"),
     ok: raw.ok === true,
     spin: intOf(raw.spin),
     fin: intOf(raw.fin),
@@ -115,6 +123,7 @@ export function packWheel(g) {
     id: g.id, by: g.by, phase: g.phase, topic: g.topic || "", ok: !!g.ok,
     spin: g.spin | 0, fin: g.fin | 0, mode: g.mode || "none",
     target: g.target || "", rematchBy: g.rematchBy || "", t: g.t,
+    self: wedgeLabel(g.self, "自己"), other: wedgeLabel(g.other, "對方"),
   };
 }
 
@@ -122,8 +131,8 @@ export function createOoxx(side, id, now) {
   return packOoxx({ id, by: side, phase: "invite", t: now, cells: EMPTY });
 }
 
-export function createWheel(side, id, topic, now) {
-  return packWheel({ id, by: side, phase: "invite", topic, t: now });
+export function createWheel(side, id, topic, now, self, other) {
+  return packWheel({ id, by: side, phase: "invite", topic, self, other, t: now });
 }
 
 export function acceptInvite(cur, side) {
@@ -481,9 +490,37 @@ export function mountGames(doc, opts) {
     }
   }
 
+  function fitWedge(el, text) {
+    if (!el) return;
+    el.textContent = text;
+    const n = [...text].length;
+    el.style.fontSize = n <= 2 ? "18px" : n <= 4 ? "14px" : "11px";
+  }
+  function paintWedges(g) {
+    const disc = $("gxFateDisc");
+    fitWedge(disc?.querySelector(".self"), g.self || "自己");
+    fitWedge(disc?.querySelector(".other"), g.other || "對方");
+  }
+  function paintLegend(g) {
+    const legend = $("gxFateLegend");
+    if (!legend) return;
+    legend.replaceChildren();
+    const row = (color, prefix, label) => {
+      const span = document.createElement("span");
+      const swatch = document.createElement("i");
+      swatch.className = color;
+      const text = document.createElement("b");
+      text.textContent = prefix + " " + label;
+      span.append(swatch, text);
+      return span;
+    };
+    legend.append(row("pink", "自己", g.other || "對方"), row("blue", "對方", g.self || "自己"));
+    legend.hidden = false;
+  }
   function paintWheel(g, me) {
     if (g.phase === "invite" && g.by !== me && !g.ok) {
       $("gxFateTopicShow").textContent = g.topic;
+      paintLegend(g);
       veil($("gxFateInvite"), true);
       return;
     }
@@ -501,6 +538,7 @@ export function mountGames(doc, opts) {
         if (Date.now() - g.t > 20000) { finishFate(g.id); return; }
         busy = true;
         $("gxFateTopic").textContent = g.topic;
+        paintWedges(g);
         veil($("gxFateWheel"), true);
         $("gxFateDim").hidden = true;
         $("gxFateEnd").hidden = true;
@@ -526,6 +564,7 @@ export function mountGames(doc, opts) {
   function showFateResult(g, me) {
     veil($("gxFateWheel"), true);
     $("gxFateTopic").textContent = g.topic;
+    paintWedges(g);
     const disc = $("gxFateDisc");
     const who = g.target;
     const show = pointedSelf(g.fin) === (who === me) ? g.fin : g.fin + 180;
@@ -635,6 +674,8 @@ export function mountGames(doc, opts) {
     if (!canReplace(session.wheel, closed.wheel, Date.now())) { openBusy("wheel"); return; }
     veil($("gxAsk"), true);
     $("gxTopic").value = "";
+    if ($("gxSelf")) $("gxSelf").value = "自己";
+    if ($("gxOther")) $("gxOther").value = "對方";
     $("gxTopic").focus();
   }
   function openBusy(kind) {
@@ -672,7 +713,9 @@ export function mountGames(doc, opts) {
       tx(session.ooxxRef, (cur) => acceptInvite(cur, me));
     });
     $("gxTopicSend")?.addEventListener("click", sendTopic);
-    $("gxTopic")?.addEventListener("keydown", (e) => { if (e.key === "Enter") sendTopic(); });
+    for (const id of ["gxTopic", "gxSelf", "gxOther"]) {
+      $(id)?.addEventListener("keydown", (e) => { if (e.key === "Enter") sendTopic(); });
+    }
     $("gxFateNo")?.addEventListener("click", () => {
       if (!session) return;
       tx(session.wheelRef, (cur) => {
@@ -740,8 +783,10 @@ export function mountGames(doc, opts) {
     if (!session || !me) return;
     const topic = ($("gxTopic").value || "").trim();
     if (!topic) return;
+    const self = wedgeLabel($("gxSelf")?.value, "自己");
+    const other = wedgeLabel($("gxOther")?.value, "對方");
     veil($("gxAsk"), false);
-    tx(session.wheelRef, () => createWheel(me, gid(), topic, Date.now()));
+    tx(session.wheelRef, () => createWheel(me, gid(), topic, Date.now(), self, other));
   }
   function ask(kind) {
     const me = side(); if (!session || !me) return;

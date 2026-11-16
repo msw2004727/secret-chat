@@ -623,11 +623,13 @@
             "$other": { ".validate": false }
           },
           "wheel": {
-            ".validate": "!newData.exists() || newData.hasChildren(['id','by','phase','topic','t'])",
+            ".validate": "!newData.exists() || newData.hasChildren(['id','by','phase','topic','t','self','other'])",
             "id": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
             "by": { ".validate": "newData.val() == 'm' || newData.val() == 'f'" },
             "phase": { ".validate": "newData.val() == 'invite' || newData.val() == 'ready' || newData.val() == 'wheel' || newData.val() == 'over' || newData.val() == 'rematch' || newData.val() == 'rebuff' || newData.val() == 'nope'" },
             "topic": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 24" },
+            "self": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 6" },
+            "other": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 6" },
             "ok": { ".validate": "newData.isBoolean()" },
             "spin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20000 && newData.val() % 1 == 0" },
             "fin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20000 && newData.val() % 1 == 0" },

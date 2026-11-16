@@ -4,7 +4,7 @@ import {
   pointedSelf, personAt, planSpin, winnerOf, applyMove, addWin, viewWins,
   createOoxx, acceptInvite, needsOoxxPlan, withOoxxPlan,
   askRematch, agreeRematch, rebuffRematch, dismissRebuff,
-  createWheel, withWheelPlan, canReplace, enterPlay, finishWheel, forceEnd, otherSide,
+  createWheel, withWheelPlan, canReplace, enterPlay, finishWheel, forceEnd, otherSide, wedgeLabel,
 } from "../games.js";
 
 assert.equal(pointedSelf(0), true);
@@ -95,15 +95,28 @@ const no = rebuffRematch(asked, "m", "ooxx");
 assert.equal(no.phase, "rebuff");
 assert.equal(dismissRebuff(no, "f", "ooxx").phase, "over");
 
-const topic = createWheel("m", "w1", "誰是笨蛋", 1000);
-const spun = withWheelPlan({ ...topic, ok: true }, { mode: "edge", base: 1980, final: 1992 });
+assert.equal(wedgeLabel("  ", "自己"), "自己");
+assert.equal(wedgeLabel("一二三四五六七", "自己"), "一二三四五六");
+assert.equal(wedgeLabel(null, "對方"), "對方");
+const topic = createWheel("m", "w1", "誰是笨蛋", 1000, "小麥", "  ");
+assert.equal(topic.self, "小麥");
+assert.equal(topic.other, "對方");
+const named = createWheel("m", "w1", "誰是笨蛋", 1000, "小麥", "小辛");
+const spun = withWheelPlan({ ...named, ok: true }, { mode: "edge", base: 1980, final: 1992 });
 assert.equal(spun.target, personAt(1992, "m"));
 assert.equal(spun.topic, "誰是笨蛋");
+assert.equal(spun.self, "小麥");
+assert.equal(spun.other, "小辛");
 const fateReady = agreeRematch(askRematch({ ...spun, phase: "over" }, "m", "wheel"), "f", "wheel", 8000);
 assert.equal(fateReady.phase, "ready");
 assert.equal(fateReady.topic, "誰是笨蛋");
+assert.equal(fateReady.self, "小麥");
+assert.equal(fateReady.other, "小辛");
 const fateAgain = withWheelPlan(fateReady, { mode: "none", base: 1800, final: 1800 }, 8000);
 assert.equal(fateAgain.phase, "wheel");
+assert.equal(fateAgain.self, "小麥");
+assert.equal(fateAgain.other, "小辛");
+assert.equal(finishWheel(fateAgain).self, "小麥");
 assert.equal(finishWheel(fateAgain).phase, "over");
 assert.equal(forceEnd(fateAgain, "wheel"), null);
 
@@ -115,6 +128,9 @@ assert.match(room.games[".read"], /acl\/' \+ \$roomId \+ '\/ok\//);
 assert.equal(room.ooxxWins.$other[".validate"], false);
 assert.match(room.games.ooxx.cells[".validate"], /\[mf\.\]/);
 assert.match(room.games.wheel.topic[".validate"], /length <= 24/);
+assert.match(room.games.wheel[".validate"], /hasChildren\(\['id','by','phase','topic','t','self','other'\]\)/);
+assert.match(room.games.wheel.self[".validate"], /isString\(\) && newData\.val\(\)\.length > 0 && newData\.val\(\)\.length <= 6/);
+assert.match(room.games.wheel.other[".validate"], /isString\(\) && newData\.val\(\)\.length > 0 && newData\.val\(\)\.length <= 6/);
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../style.css", import.meta.url), "utf8");
@@ -128,7 +144,17 @@ const games = fs.readFileSync(new URL("../games.js", import.meta.url), "utf8");
 assert.match(games, /rooms\/\$\{roomId\}\/games\/ooxx/);
 assert.match(games, /rooms\/\$\{roomId\}\/ooxxWins/);
 assert.match(app, /mountGames/);
-assert.match(app, /const APP_VERSION = "v61\.85"/);
+assert.match(app, /const APP_VERSION = "v61\.86"/);
+assert.match(html, /id="gxSelf"/);
+assert.match(html, /id="gxOther"/);
+assert.match(html, /maxlength="6"/);
+assert.match(games, /wedgeLabel/);
+assert.match(css, /\.c-seal i \{[^}]*font-weight:\s*400/);
+assert.match(css, /\.c-seal b \{[^}]*font-weight:\s*400/);
+assert.match(css, /\.c-seal em \{[^}]*font-weight:\s*400/);
+assert.match(css, /\.c-bar \{[^}]*height: calc\(54px \+ env\(safe-area-inset-top\)\)/);
+assert.match(css, /\.c-pair \{[^}]*left:\s*50%/);
+assert.match(css, /html\[data-theme="light"\] #chat \.c-seal[\s\S]*#1c2430/);
 assert.match(html, /id="gxAbort"/);
 assert.match(html, /id="gxWheelAbort"/);
 assert.match(html, /id="gxFateAbort"/);
