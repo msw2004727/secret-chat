@@ -734,6 +734,16 @@
             "t": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 120000" },
             "$other": { ".validate": false }
           },
+          "clear": {
+            ".read": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+            ".write": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+            ".validate": "!newData.exists() || newData.hasChildren(['id','by','phase','t'])",
+            "id": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
+            "by": { ".validate": "newData.isString() && newData.val().length <= 64" },
+            "phase": { ".validate": "newData.val() == 'ask' || newData.val() == 'yes' || newData.val() == 'no'" },
+            "t": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 120000" },
+            "$other": { ".validate": false }
+          },
           "$other": { ".validate": false }
         },
         "$other": {

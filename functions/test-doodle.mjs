@@ -4,7 +4,7 @@ import {
   DOODLE_W, DOODLE_H, DOODLE_RATIO, Q, MAX_STROKES, MAX_GALLERY, MAX_JPEG,
   fitBox, clientToUnit, unitToPx, quantize, dequant,
   encodePts, decodePts, encodeStroke, decodeStroke, allocSlot, simplifyPts,
-  flattenStrokes, mergeStrokes, inviteEffect,
+  flattenStrokes, mergeStrokes, inviteEffect, consentEffect, brushStamps,
   toneOf, ringOf, sideCode, peerOpen, ownUndoId, formatStamp, jpegWithin,
 } from "../doodle.js";
 
@@ -161,6 +161,76 @@ const reopened = mergeStrokes(shared, []);
 assert.equal(reopened.length, 4);
 assert.equal(new Set(reopened.map((s) => s.by)).size, 2);
 
+const ask = { id: "c1", by: "alice", phase: "ask", t: 1 };
+assert.equal(consentEffect(ask, "bob", "").dialog, true);
+assert.equal(consentEffect(ask, "bob", "c1:ask").dialog, false);
+assert.equal(consentEffect(ask, "alice", "").dialog, false);
+const refused = consentEffect({ id: "c1", by: "alice", phase: "no", t: 2 }, "alice", "", "對方先不清除");
+assert.equal(refused.act, false);
+assert.equal(refused.tell, "對方先不清除");
+assert.equal(consentEffect({ id: "c1", by: "alice", phase: "no", t: 2 }, "bob", "", "對方先不清除").tell, "");
+const picture = [{ jpg: "data:image/jpeg,kept" }];
+const keptStrokes = shared.slice();
+assert.equal(keptStrokes.length, 4);
+assert.equal(picture.length, 1);
+const agreed = consentEffect({ id: "c1", by: "alice", phase: "yes", t: 3 }, "alice", "");
+assert.equal(agreed.act, true);
+assert.equal(agreed.dialog, false);
+assert.equal(consentEffect({ id: "c1", by: "alice", phase: "yes", t: 3 }, "bob", "").act, false);
+const cleared = agreed.act ? [] : keptStrokes;
+assert.equal(cleared.length, 0);
+assert.equal(picture.length, 1);
+const saveAsk = { id: "s1", by: "alice", phase: "ask", t: 4 };
+assert.equal(consentEffect(saveAsk, "bob", "").dialog, true);
+const saveNo = consentEffect({ id: "s1", by: "alice", phase: "no", t: 5 }, "alice", "", "對方先不要存");
+assert.equal(saveNo.act, false);
+assert.equal(saveNo.tell, "對方先不要存");
+const saveYes = consentEffect({ id: "s1", by: "alice", phase: "yes", t: 6 }, "alice", "");
+assert.equal(saveYes.act, true);
+const filed = saveYes.act ? { strokes: [], gallery: picture.concat([{ jpg: "data:image/jpeg,new" }]) } : { strokes: keptStrokes, gallery: picture };
+assert.equal(filed.strokes.length, 0);
+assert.equal(filed.gallery.length, 2);
+
+function logicalDist(a, b) {
+  return Math.hypot((a.x - b.x) * DOODLE_W, (a.y - b.y) * DOODLE_H);
+}
+function radiusPx(p) {
+  return Math.max(0.4, (Number(p.r) || 0) * Math.min(DOODLE_W, DOODLE_H));
+}
+const fastBrush = [
+  { x: 0.12, y: 0.3, r: 0.006 },
+  { x: 0.12 + 180 / DOODLE_W, y: 0.42, r: 0.005 },
+];
+assert.ok(logicalDist(fastBrush[0], fastBrush[1]) > radiusPx(fastBrush[0]) * 4);
+const fastStamps = brushStamps(fastBrush);
+assert.ok(fastStamps.length > 8);
+for (let i = 1; i < fastStamps.length; i++) {
+  const gap = logicalDist(fastStamps[i - 1], fastStamps[i]);
+  const allow = Math.min(radiusPx(fastStamps[i - 1]), radiusPx(fastStamps[i]));
+  assert.ok(gap <= allow * 0.5 + 0.05);
+  assert.ok(fastStamps[i].r <= fastBrush[0].r + 1e-9);
+}
+const curve = [];
+for (let i = 0; i < 400; i++) {
+  const t = i / 399;
+  curve.push({ x: 0.15 + t * 0.7, y: 0.3 + Math.sin(t * Math.PI) * 0.18, r: 0.02 - t * 0.012 });
+}
+const stored = decodePts(encodePts(simplifyPts(curve)));
+const seenA = brushStamps(stored);
+const seenB = brushStamps(decodePts(encodePts(simplifyPts(curve))));
+assert.equal(seenA.length, seenB.length);
+assert.ok(seenA.length > stored.length);
+for (let i = 1; i < seenA.length; i++) {
+  const gap = logicalDist(seenA[i - 1], seenA[i]);
+  const allow = Math.min(radiusPx(seenA[i - 1]), radiusPx(seenA[i]));
+  assert.ok(gap <= allow * 0.5 + 0.05);
+  assert.ok(Math.abs(seenA[i].x - seenB[i].x) < 1e-12);
+  assert.ok(Math.abs(seenA[i].r - seenB[i].r) < 1e-12);
+}
+assert.ok(Math.abs(seenA[0].x - stored[0].x) < 1e-9);
+assert.ok(Math.abs(seenA[seenA.length - 1].y - stored[stored.length - 1].y) < 1e-6);
+assert.equal(brushStamps([{ x: 0.2, y: 0.2, r: 0.02 }]).length, 1);
+
 const now = Date.now();
 assert.equal(inviteEffect({ id: "a1", by: "alice", phase: "ask", t: now }, "bob", now, "").dialog, true);
 assert.equal(inviteEffect({ id: "a1", by: "alice", phase: "ask", t: now }, "bob", now, "a1").dialog, false);
@@ -183,12 +253,27 @@ assert.match(doodle.g.$id.jpg[".validate"], /140000/);
 assert.match(doodle[".read"], /acl\/' \+ \$roomId/);
 assert.match(doodle[".write"], /auth\.token\.lp === true/);
 assert.equal(doodle.$other[".validate"], false);
+assert.match(doodle.clear[".read"], /acl\/' \+ \$roomId/);
+assert.match(doodle.clear[".write"], /auth\.token\.lp === true/);
+assert.equal(doodle.clear.phase[".validate"].includes("ask"), true);
+assert.equal(doodle.clear.phase[".validate"].includes("yes"), true);
+assert.equal(doodle.clear.phase[".validate"].includes("no"), true);
+assert.equal(doodle.clear.$other[".validate"], false);
 
 const app = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
 const board = fs.readFileSync(new URL("../doodle.js", import.meta.url), "utf8");
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../style.css", import.meta.url), "utf8");
-assert.match(app, /const APP_VERSION = "v62\.00"/);
+assert.match(app, /const APP_VERSION = "v62\.01"/);
+assert.match(html, /id="doodleSave">存檔<\/button>\s*<button type="button" class="c-doodle-mini" id="doodleClear">清除<\/button>\s*<button type="button" class="c-doodle-mini" id="doodleClose">關閉<\/button>/);
+assert.match(html, /id="doodleClearAsk"[\s\S]*class="c-gx-card"/);
+assert.match(board, /consentEffect/);
+assert.match(board, /doodle\/clear/);
+assert.doesNotMatch(board, /!peerOpen\(/);
+assert.doesNotMatch(board, /dataset\.save = peer \? "ask" : "self"/);
+assert.doesNotMatch(board, /commitClear\(\)[\s\S]{0,400}doodle\/g\//);
+assert.match(board, /tool === "brush"\) \{\s*for \(const p of brushStamps\(pts\)\)/);
+assert.doesNotMatch(board, /tool === "water"[\s\S]{0,80}brushStamps/);
 assert.match(app, /S\.doodle\?\.open/);
 assert.match(board, /rooms\/\$\{room\}\/doodle/);
 assert.match(html, /塗鴉板/);

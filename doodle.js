@@ -144,6 +144,43 @@ export function inviteEffect(rec, me, now, seenId) {
   if (rec.phase === "ask" && rec.by !== me && rec.id !== seenId) return { dialog: true, open: false, tell: "" };
   return { dialog: false, open: false, tell: "" };
 }
+/* 存檔與清除都要對方點頭。人在房裡就會看到詢問，白板開沒開不算。
+   yes 只讓提出的人動手；no 只通知提出的人，筆畫與作品集都不動。 */
+export function consentEffect(rec, me, seenKey, refuseTell) {
+  if (!rec || !rec.id || rec.phase == null) return { dialog: false, act: false, tell: "" };
+  const key = String(rec.id) + ":" + rec.phase;
+  if (rec.phase === "yes" && rec.by === me) return { dialog: false, act: true, tell: "" };
+  if (rec.phase === "no" && rec.by === me && key !== seenKey) return { dialog: false, act: false, tell: refuseTell || "" };
+  if (rec.phase === "ask" && rec.by !== me && key !== seenKey) return { dialog: true, act: false, tell: "" };
+  return { dialog: false, act: false, tell: "" };
+}
+/* 毛筆只存取樣點。快拖時兩點距離會大於筆尖，直接蓋圓印就變成一顆顆點。
+   畫的時候沿線補點，間距是筆尖半徑的一小段，半徑也跟著兩端漸變。
+   存檔和對方都走這條，精簡過的點也一樣連續。 */
+export function brushStamps(pts) {
+  const list = (Array.isArray(pts) ? pts : []).filter((p) => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y)));
+  if (!list.length) return [];
+  const out = [{ x: Number(list[0].x), y: Number(list[0].y), r: Number(list[0].r) || 0 }];
+  const minSide = Math.min(DOODLE_W, DOODLE_H);
+  for (let i = 1; i < list.length; i++) {
+    const a = list[i - 1];
+    const b = list[i];
+    const dist = Math.hypot((b.x - a.x) * DOODLE_W, (b.y - a.y) * DOODLE_H);
+    const ra = Math.max(0.4, (Number(a.r) || 0) * minSide);
+    const rb = Math.max(0.4, (Number(b.r) || 0) * minSide);
+    const step = Math.max(0.5, Math.min(ra, rb) * 0.42);
+    const n = Math.max(1, Math.ceil(dist / step));
+    for (let s = 1; s <= n; s++) {
+      const t = s / n;
+      out.push({
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t,
+        r: (Number(a.r) || 0) + ((Number(b.r) || 0) - (Number(a.r) || 0)) * t,
+      });
+    }
+  }
+  return out;
+}
 export function decodePts(raw) {
   if (!raw) return [];
   return String(raw).split(";").slice(0, MAX_POINTS).map((part) => {
@@ -236,10 +273,13 @@ export function mountDoodle(doc, hooks) {
   let saveRec = null;
   let inviteRec = null;
   let seenInvite = "";
+  let clearRec = null;
+  let seenSave = "";
+  let seenClear = "";
   let committing = false;
+  let clearing = false;
   let writeTimer = 0;
   let nibTimer = 0;
-  const asked = new Set();
 
   function toast(text) { try { hooks.toast?.(text); } catch (_) {} }
   function strokes() {
@@ -490,18 +530,62 @@ export function mountDoodle(doc, hooks) {
       committing = false;
     }
   }
-  function askSave() {
-    const peer = peerOpen(openMap, me);
+  function fillSave(mode) {
+    const peer = mode === "peer";
     const title = $(doc, "doodleConfirmTitle");
     const text = $(doc, "doodleConfirmText");
     const yes = $(doc, "doodleSaveYes");
     const no = $(doc, "doodleSaveNo");
-    if (title) title.textContent = peer ? "對方同意存檔" : "存檔";
+    if (title) title.textContent = peer ? "同意存檔" : "存檔";
     if (text) text.textContent = "確定存檔並清空嗎？";
-    if (yes) yes.textContent = peer ? "送出請求" : "確定";
-    if (no) no.textContent = "取消";
-    sheet.dataset.save = peer ? "ask" : "self";
+    if (yes) yes.textContent = peer ? "同意" : "送出請求";
+    if (no) no.textContent = peer ? "拒絕" : "取消";
+    sheet.dataset.save = peer ? "peer" : "ask";
+  }
+  function askSave() {
+    fillSave("ask");
     show($(doc, "doodleConfirm"), true);
+  }
+  async function commitClear() {
+    if (clearing || !api) return;
+    clearing = true;
+    try {
+      await api.remove(api.ref(api.db, `rooms/${room}/doodle/strokes`));
+      await api.remove(api.ref(api.db, `rooms/${room}/doodle/clear`));
+      server = [];
+      pending.clear();
+      paint();
+      toast("已清除");
+    } catch (_) {
+      toast("清除沒寫上，請再試一次");
+    } finally {
+      clearing = false;
+    }
+  }
+  function fillClear(mode) {
+    const peer = mode === "peer";
+    const title = $(doc, "doodleClearTitle");
+    const text = $(doc, "doodleClearText");
+    const yes = $(doc, "doodleClearYes");
+    const no = $(doc, "doodleClearNo");
+    if (title) title.textContent = peer ? "同意清除" : "清除";
+    if (text) text.textContent = "確定清除整張板嗎？不會存進作品集。";
+    if (yes) yes.textContent = peer ? "同意" : "送出請求";
+    if (no) no.textContent = peer ? "拒絕" : "取消";
+    sheet.dataset.clear = peer ? "peer" : "ask";
+  }
+  function askClear() {
+    if (clearRec && clearRec.by === me && clearRec.phase === "ask") {
+      toast("已經在等對方");
+      return;
+    }
+    fillClear("ask");
+    show($(doc, "doodleClearAsk"), true);
+  }
+  function takeConsent(rec, seen, refuseTell) {
+    const effect = consentEffect(rec, me, seen, refuseTell);
+    const next = effect.dialog ? rec.id + ":ask" : effect.tell ? rec.id + ":no" : seen;
+    return { effect, seen: next };
   }
   function renderGallery() {
     const grid = $(doc, "doodleGrid");
@@ -583,6 +667,7 @@ export function mountDoodle(doc, hooks) {
     }));
     $(doc, "doodleUndo")?.addEventListener("click", undo);
     $(doc, "doodleSave")?.addEventListener("click", askSave);
+    $(doc, "doodleClear")?.addEventListener("click", askClear);
     $(doc, "doodleSaveNo")?.addEventListener("click", () => {
       show($(doc, "doodleConfirm"), false);
       if (sheet.dataset.save === "peer" && saveRec && api) {
@@ -596,13 +681,26 @@ export function mountDoodle(doc, hooks) {
         if (saveRec && saveRec.phase === "ask") api.update(api.ref(api.db, `rooms/${room}/doodle/save`), { phase: "yes" }).catch(() => {});
         return;
       }
-      if (sheet.dataset.save === "ask") {
-        const id = Date.now().toString(36);
-        api.set(api.ref(api.db, `rooms/${room}/doodle/save`), { id, by: me, phase: "ask", t: Date.now() }).catch(() => toast("沒能請問對方"));
-        toast("等對方同意");
+      const id = Date.now().toString(36);
+      api.set(api.ref(api.db, `rooms/${room}/doodle/save`), { id, by: me, phase: "ask", t: Date.now() }).catch(() => toast("沒能請問對方"));
+      toast("等對方同意");
+    });
+    $(doc, "doodleClearNo")?.addEventListener("click", () => {
+      show($(doc, "doodleClearAsk"), false);
+      if (sheet.dataset.clear === "peer" && clearRec && api) {
+        api.update(api.ref(api.db, `rooms/${room}/doodle/clear`), { phase: "no" }).catch(() => {});
+      }
+    });
+    $(doc, "doodleClearYes")?.addEventListener("click", () => {
+      show($(doc, "doodleClearAsk"), false);
+      if (!api) { toast("還在連線中，請稍候一下"); return; }
+      if (sheet.dataset.clear === "peer") {
+        if (clearRec && clearRec.phase === "ask") api.update(api.ref(api.db, `rooms/${room}/doodle/clear`), { phase: "yes" }).catch(() => {});
         return;
       }
-      commitSave();
+      const id = Date.now().toString(36);
+      api.set(api.ref(api.db, `rooms/${room}/doodle/clear`), { id, by: me, phase: "ask", t: Date.now() }).catch(() => toast("沒能請問對方"));
+      toast("等對方同意");
     });
     $(doc, "doodleGallery")?.addEventListener("click", () => { renderGallery(); show($(doc, "doodleGal"), true); });
     $(doc, "doodleGalX")?.addEventListener("click", () => show($(doc, "doodleGal"), false));
@@ -731,7 +829,6 @@ export function mountDoodle(doc, hooks) {
       watch(base + "/open", (val) => {
         openMap = val && typeof val === "object" ? val : {};
         paintRings();
-        if (saveRec && saveRec.phase === "ask" && saveRec.by === me && !peerOpen(openMap, me)) commitSave();
       });
       watch(base + "/side", (val) => { sideMap = val && typeof val === "object" ? val : {}; paintRings(); paintNibs(); });
       watch(base + "/nib", (val) => { nibMap = val && typeof val === "object" ? val : {}; paintNibs(); });
@@ -752,20 +849,31 @@ export function mountDoodle(doc, hooks) {
       });
       watch(base + "/save", (val) => {
         saveRec = val && val.id ? val : null;
-        if (!saveRec) return;
-        if (saveRec.phase === "ask" && saveRec.by !== me && boardOn && !asked.has(saveRec.id)) {
-          asked.add(saveRec.id);
-          sheet.dataset.save = "peer";
-          const title = $(doc, "doodleConfirmTitle");
-          if (title) title.textContent = "同意存檔";
-          const text = $(doc, "doodleConfirmText");
-          if (text) text.textContent = "確定存檔並清空嗎？";
-          const yes = $(doc, "doodleSaveYes");
-          if (yes) yes.textContent = "同意";
+        const step = takeConsent(saveRec, seenSave, "對方先不要存");
+        seenSave = step.seen;
+        if (step.effect.dialog) {
+          fillSave("peer");
           show($(doc, "doodleConfirm"), true);
         }
-        if (saveRec.phase === "yes" && saveRec.by === me) commitSave();
-        if (saveRec.phase === "no" && saveRec.by === me) { toast("對方先不要存"); api.remove(api.ref(api.db, base + "/save")).catch(() => {}); }
+        if (step.effect.tell) {
+          toast(step.effect.tell);
+          api.remove(api.ref(api.db, base + "/save")).catch(() => {});
+        }
+        if (step.effect.act) commitSave();
+      });
+      watch(base + "/clear", (val) => {
+        clearRec = val && val.id ? val : null;
+        const step = takeConsent(clearRec, seenClear, "對方先不清除");
+        seenClear = step.seen;
+        if (step.effect.dialog) {
+          fillClear("peer");
+          show($(doc, "doodleClearAsk"), true);
+        }
+        if (step.effect.tell) {
+          toast(step.effect.tell);
+          api.remove(api.ref(api.db, base + "/clear")).catch(() => {});
+        }
+        if (step.effect.act) commitClear();
       });
       if (boardOn) setBoard(true);
     },
@@ -780,7 +888,7 @@ function drawStroke(ctx, w, h, s) {
   if (s.tool === "water") {
     for (const p of pts) blot(ctx, w, h, p, s.color);
   } else if (s.tool === "brush") {
-    for (const p of pts) stamp(ctx, unitToPx(p.x, p.y, w, h), p.r * Math.min(w, h), s.color, 0.9);
+    for (const p of brushStamps(pts)) stamp(ctx, unitToPx(p.x, p.y, w, h), p.r * Math.min(w, h), s.color, 0.9);
   } else {
     const alpha = s.tool === "high" ? 0.38 : 1;
     ctx.globalAlpha = alpha;
