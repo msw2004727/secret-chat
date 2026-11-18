@@ -70,6 +70,33 @@ export function petGroupsFromSnap(val) {
     catPregnant: opted(v.catPregnant), kittens: opted(v.kittens),
   };
 }
+export function petGroupCacheKey(roomId) {
+  return "sc-pet-groups:" + String(roomId || "");
+}
+export function normalizePetGroups(g) {
+  const v = g && typeof g === "object" ? g : {};
+  return {
+    cats: v.cats !== false,
+    quokka: v.quokka !== false,
+    rooster: v.rooster !== false,
+    catPregnant: v.catPregnant === true,
+    kittens: v.kittens === true,
+  };
+}
+export function loadPetGroups(roomId) {
+  if (!roomId) return null;
+  try {
+    const raw = localStorage.getItem(petGroupCacheKey(roomId));
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    if (!v || typeof v !== "object" || typeof v.cats !== "boolean") return null;
+    return normalizePetGroups(v);
+  } catch (_) { return null; }
+}
+export function savePetGroups(roomId, g) {
+  if (!roomId || !g || typeof g !== "object") return;
+  try { localStorage.setItem(petGroupCacheKey(roomId), JSON.stringify(normalizePetGroups(g))); } catch (_) {}
+}
 
 function reducedMotion() {
   try { return !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches; } catch (_) { return false; }

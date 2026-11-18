@@ -10,7 +10,7 @@
  * ============================================================ */
 
 import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat-performance.js";
-import { Droop, petGroupsFromSnap } from "./droop.js";
+import { Droop, petGroupsFromSnap, loadPetGroups, savePetGroups } from "./droop.js";
 import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS, loveAskPhase, loveAskSeconds, loveAskBothAcked } from "./bubble-fx.js";
 import { pairLocAgeSec, pairLocClock, pairLocDistance, PAIR_LOC_STALE_MS } from "./pair-loc.js";
 import { mountPondShark } from "./pond-shark.js";
@@ -27,7 +27,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.98";
+const APP_VERSION = "v61.99";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5306,6 +5306,7 @@ function livePeers(map, myId, now) {
 async function enterChat() {
   S.gen++;                     // 新的一輪：舊訂閱若還沒解除也不會再作用
   resetList();                 // 從乾淨狀態開始，並讓上一輪飛行中的工作全部作廢
+  primePetGroups(S.roomId);    // 開關讀到前先套用上次狀態，沒有紀錄就先藏著
   $("gate").hidden = true;
   $("chat").hidden = false;
   requestAnimationFrame(() => { snapSeals(document); Droop.kick(); });
@@ -12985,20 +12986,8 @@ function bindPetGroupSync(f, roomId, clientId, bag) {
   let seen = false;
   const paint = (val, animate) => {
     const g = petGroupsFromSnap(val);
-    const cats = $("zooCats"), pals = $("zooPals"), bird = $("zooBird");
-    const preg = $("zooPreg"), kits = $("zooKits");
-    if (cats) cats.checked = g.cats;
-    if (pals) pals.checked = g.quokka;
-    if (bird) bird.checked = g.rooster;
-    if (preg) preg.checked = g.catPregnant;
-    if (kits) kits.checked = g.kittens;
-    lockCatSubs();
-    const detail = {
-      cats: g.cats, quokka: g.quokka, rooster: g.rooster,
-      catPregnant: g.catPregnant, kittens: g.kittens, animate: !!animate,
-    };
-    window.__petGroupState = detail;
-    window.dispatchEvent(new CustomEvent("sc-pet-groups", { detail }));
+    savePetGroups(roomId, g);
+    applyPetGroups(g, animate, true);
   };
   const unsub = f.onValue(f.ref(f.db, `${base}/pets`), (snap) => {
     const animate = seen;
@@ -13016,6 +13005,39 @@ function bindPetGroupSync(f, roomId, clientId, bag) {
   if (bag) bag.push(unsub);
   window.__petSyncReady = roomId;
   return unsub;
+}
+
+/* 動物開關。還沒從這間房讀到、也沒有本機上次紀錄時先全部藏起來，避免進房閃一下。 */
+function applyPetGroups(g, animate, ready) {
+  const show = ready && g ? g : { cats: false, quokka: false, rooster: false, catPregnant: false, kittens: false };
+  const cats = $("zooCats"), pals = $("zooPals"), bird = $("zooBird");
+  const preg = $("zooPreg"), kits = $("zooKits");
+  if (cats) cats.checked = !!show.cats;
+  if (pals) pals.checked = !!show.quokka;
+  if (bird) bird.checked = !!show.rooster;
+  if (preg) preg.checked = !!show.catPregnant;
+  if (kits) kits.checked = !!show.kittens;
+  lockCatSubs();
+  const detail = {
+    cats: !!show.cats, quokka: !!show.quokka, rooster: !!show.rooster,
+    catPregnant: !!show.catPregnant, kittens: !!show.kittens,
+    animate: !!animate, ready: !!ready,
+  };
+  window.__petGroupState = detail;
+  window.dispatchEvent(new CustomEvent("sc-pet-groups", { detail }));
+  const chat = $("chat");
+  if (!chat) return;
+  if (ready) {
+    if (chat.classList.contains("pets-hold")) requestAnimationFrame(() => chat.classList.remove("pets-hold"));
+    else chat.classList.remove("pets-hold");
+  } else {
+    chat.classList.add("pets-hold");
+  }
+}
+function primePetGroups(roomId) {
+  const g = loadPetGroups(roomId);
+  if (g) applyPetGroups(g, false, true);
+  else applyPetGroups(null, false, false);
 }
 
 /* 貓咪子開關：總開關或「貓咪 ×2」關掉時變灰，不能改。 */

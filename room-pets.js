@@ -617,7 +617,7 @@ export function mountRoomPets() {
       ballEl.style.zIndex = host === layer ? "5" : "";
     }
     function renderBall(now) {
-      if (ball.state === "hidden") { ballEl.style.display = "none"; ballShadow.style.display = "none"; return; }
+      if (!groupsReady || groups.cats === false || ball.state === "hidden") { ballEl.style.display = "none"; ballShadow.style.display = "none"; return; }
       ballEl.style.display = ""; ballShadow.style.display = "";
       /* 叼著的球跟叼牠的貓在同一層：在牠頭上、但在前面那隻貓後面（貓是 1 或 3，球就是 2 或 4） */
       const carrier = ball.state === "carried" ? ball.carrier : null;
@@ -3692,8 +3692,9 @@ export function mountRoomPets() {
     /* 房間分組：cats、quokka（Bobo 與 QUOKKA 同一組）、rooster。
        總開關 sc-pets 關掉時這台裝置全部不顯示，分組狀態仍留在房間裡。
        現場切換才跑進跑出；晚進房或總開關重新打開只對齊目前狀態。 */
-    let groups = { cats: true, quokka: true, rooster: true };
-    let phase = { cats: "shown", quokka: "shown", rooster: "shown" };
+    let groupsReady = false;
+    let groups = { cats: false, quokka: false, rooster: false };
+    let phase = { cats: "gone", quokka: "gone", rooster: "gone" };
     function motionOk() {
       try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (_) { return true; }
     }
@@ -4059,15 +4060,32 @@ export function mountRoomPets() {
       wake();
     }
     window.addEventListener("sc-pets", (e) => { if (e.detail && e.detail.on) petsEnable(); else petsDisable(); });
-    const takeGroups = (d) => applyGroups({
-      cats: !d || d.cats !== false,
-      quokka: !d || d.quokka !== false,
-      rooster: !d || d.rooster !== false,
-      catPregnant: !!(d && d.catPregnant),
-      kittens: !!(d && d.kittens),
-    }, !!(d && d.animate), performance.now());
+    const takeGroups = (d) => {
+      const now = performance.now();
+      if (!d || d.ready === false) {
+        groupsReady = false;
+        applyGroups({ cats: false, quokka: false, rooster: false, catPregnant: false, kittens: false }, false, now);
+        ballEl.style.display = "none";
+        ballShadow.style.display = "none";
+        return;
+      }
+      groupsReady = true;
+      applyGroups({
+        cats: d.cats !== false,
+        quokka: d.quokka !== false,
+        rooster: d.rooster !== false,
+        catPregnant: !!d.catPregnant,
+        kittens: !!d.kittens,
+      }, !!d.animate, now);
+    };
     window.addEventListener("sc-pet-groups", (e) => takeGroups(e.detail || {}));
     try { if (localStorage.getItem("sc-pets") === "off") petsOn = false; } catch (_) {}
+    quietCats(performance.now());
+    settleFloor("quokka", false);
+    settleFloor("rooster", false);
+    hideKits();
+    ballEl.style.display = "none";
+    ballShadow.style.display = "none";
     if (window.__petGroupState) takeGroups({ ...window.__petGroupState, animate: false });
     if (petsOn === false) petsDisable(); else wake();
     /* 測試用：window.__cats 可以直接觸發互動 */

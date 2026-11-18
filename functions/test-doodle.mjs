@@ -126,7 +126,7 @@ const app = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
 const board = fs.readFileSync(new URL("../doodle.js", import.meta.url), "utf8");
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../style.css", import.meta.url), "utf8");
-assert.match(app, /const APP_VERSION = "v61\.98"/);
+assert.match(app, /const APP_VERSION = "v61\.99"/);
 assert.match(app, /S\.doodle\?\.open/);
 assert.match(board, /rooms\/\$\{room\}\/doodle/);
 assert.match(html, /塗鴉板/);

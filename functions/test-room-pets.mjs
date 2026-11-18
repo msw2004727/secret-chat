@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { decodeQuokkaGif, quokkaFrame, quokkaMirror, QUOKKA_CSS_AT_REF } from '../quokka-gif.js';
 import { Bobo } from '../bobo.js';
-import { petGroupsFromSnap } from '../droop.js';
+import { petGroupsFromSnap, loadPetGroups, savePetGroups } from '../droop.js';
 
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -257,6 +257,27 @@ assert.deepEqual(petGroupsFromSnap({ quokka: { on: false, t: 1, by: "abc" } }), 
 assert.equal(petGroupsFromSnap({ cats: { on: true, t: 1, by: "abc" } }).cats, true);
 assert.equal(petGroupsFromSnap({ catPregnant: { on: true, t: 1, by: "a" } }).catPregnant, true);
 assert.equal(petGroupsFromSnap({ kittens: { on: false, t: 1, by: "a" } }).kittens, false);
+const mem = new Map();
+globalThis.localStorage = {
+  getItem: (k) => (mem.has(k) ? mem.get(k) : null),
+  setItem: (k, v) => mem.set(k, String(v)),
+  removeItem: (k) => mem.delete(k),
+};
+const off = { cats: false, quokka: false, rooster: false, catPregnant: true, kittens: true };
+savePetGroups("room-a", off);
+assert.deepEqual(loadPetGroups("room-a"), off);
+assert.equal(loadPetGroups("room-b"), null);
+savePetGroups("room-a", "nope");
+assert.deepEqual(loadPetGroups("room-a"), off);
+mem.set("sc-pet-groups:room-a", "{");
+assert.equal(loadPetGroups("room-a"), null);
+assert.match(app, /primePetGroups\(S\.roomId\)/);
+assert.match(app, /savePetGroups\(roomId, g\)/);
+assert.match(app, /ready: !!ready/);
+assert.match(pets, /groupsReady = false/);
+assert.match(pets, /d\.ready === false/);
+assert.match(pets, /groups\.cats === false \|\| ball\.state === "hidden"/);
+assert.match(css, /#chat\.pets-hold #cats/);
 assert.match(html, /灰貓懷孕/);
 assert.match(html, /召喚幼貓 ×2/);
 assert.match(html, /id="zooCatMore"/);

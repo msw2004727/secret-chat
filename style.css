@@ -3744,6 +3744,13 @@ html[data-theme="dark"] #admin { --warn: #e0a355; }
   #chat .c-scroll { padding-bottom: calc(8px + var(--cat-walk, 0px)); }
 }
 html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
+#chat.pets-hold #cats,
+#chat.pets-hold .bobo,
+#chat.pets-hold .quokka,
+#chat.pets-hold .rooster {
+  opacity: 0;
+}
+#cats, .bobo, .quokka, .rooster { transition: opacity .2s ease; }
 #cats {
   position: absolute;
   left: 0;
