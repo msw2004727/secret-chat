@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>塗鴉板預覽</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --bg-soft: #171a20;
+    --line: #262a32;
+    --txt: #e8eaed;
+    --dim: #7d848f;
+    --me: #2b6cd4;
+    --you: #1c2028;
+    --blue: #4c8dff;
+    --pink: #ff7aa2;
+    --green: #3dcc6e;
+    --danger: #d93025;
+    --bar: 54px;
+    --in: 64px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--txt);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  #app {
+    position: relative; max-width: 480px; height: 100%; margin: 0 auto;
+    background: var(--bg); display: flex; flex-direction: column; overflow: hidden;
+  }
+  header.bar {
+    flex: 0 0 var(--bar); height: var(--bar); display: flex; align-items: center;
+    padding: 0 6px; border-bottom: 1px solid var(--line); background: var(--bg); z-index: 8;
+  }
+  .icon {
+    width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; color: var(--dim);
+    display: grid; place-items: center;
+  }
+  .title { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--dim); font-size: 13px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex: none; }
+  .pair {
+    position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+    height: var(--bar); display: flex; align-items: center; gap: 4px;
+  }
+  .who {
+    width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.28);
+    background: rgba(255,255,255,.04); color: rgba(232,234,237,.45); font-size: 13px; font-weight: 600;
+  }
+  .who.on.m { color: #9ec1ff; border-color: rgba(120,168,255,.85); }
+  .who.on.f { color: #ffb3c7; border-color: rgba(255,140,164,.9); }
+  .link { width: 36px; height: 16px; position: relative; display: grid; place-items: center; }
+  .link svg { width: 36px; height: 12px; color: rgba(232,234,237,.34); }
+  .peer {
+    position: absolute; width: 8px; height: 8px; border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--bg);
+    transform: scale(.4); opacity: 0; pointer-events: none;
+    transition: transform .22s cubic-bezier(.2,.8,.2,1), opacity .22s ease;
+  }
+  .peer.show { transform: scale(1); opacity: 1; }
+  .peer.blue { background: var(--blue); }
+  .peer.pink { background: var(--pink); }
+  .peer.green { background: var(--green); }
+  .right { margin-left: auto; display: flex; align-items: center; }
+  .msgs { flex: 1 1 auto; overflow-y: auto; padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 8px; }
+  .row { display: flex; }
+  .row.me { justify-content: flex-end; }
+  .bub {
+    max-width: 78%; padding: 8px 12px; border-radius: 18px; font-size: 15px; line-height: 1.45;
+    background: var(--you); color: var(--txt);
+  }
+  .row.me .bub { background: var(--me); color: #fff; border-bottom-right-radius: 6px; }
+  .row.you .bub { border-bottom-left-radius: 6px; }
+  .composer {
+    flex: 0 0 auto; z-index: 8; display: flex; gap: 8px; align-items: flex-end;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line); background: var(--bg);
+  }
+  .composer input {
+    flex: 1; border: 0; outline: 0; background: var(--bg-soft); border-radius: 20px;
+    padding: 10px 14px; font-size: 16px;
+  }
+  .send {
+    width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--me); color: #fff;
+  }
+  .send:disabled { opacity: .35; }
+  .menu {
+    position: absolute; top: 48px; right: 8px; z-index: 12; width: min(280px, calc(100% - 16px));
+    background: #171c24; border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 16px 40px rgba(0,0,0,.45); padding: 6px; display: none;
+  }
+  .menu.open { display: block; animation: pop .18s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .grow { width: 100%; text-align: left; border: 0; background: transparent; border-radius: 10px; padding: 11px 12px; }
+  .grow:active, .call:active { background: rgba(255,255,255,.06); }
+  .sub { padding: 0 6px 6px 14px; display: none; }
+  .sub.open { display: block; }
+  .call { width: 100%; display: flex; align-items: center; justify-content: space-between; border: 0; background: transparent; border-radius: 10px; padding: 9px 8px; }
+  .call b {
+    min-width: 44px; height: 28px; border-radius: 999px; display: grid; place-items: center;
+    background: rgba(255,255,255,.08); font-weight: 650; font-size: 13px;
+  }
+  .sheet {
+    position: absolute; z-index: 6; left: 50%; top: calc(var(--bar) + 8px);
+    width: min(84%, 340px);
+    height: min(60%, calc(100% - var(--bar) - var(--in) - 24px));
+    transform: translateX(-50%) translateY(10px) scale(.98);
+    opacity: 0; pointer-events: none;
+    display: flex; flex-direction: column;
+    border-radius: 22px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,.4);
+    background: linear-gradient(165deg, rgba(40,46,58,.92), rgba(14,16,22,.9));
+    box-shadow: 0 18px 40px rgba(0,0,0,.4);
+    transition: opacity .28s ease, transform .28s cubic-bezier(.2,.8,.2,1);
+  }
+  .sheet.on { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
+  .sheet head, .sheet .hd {
+    display: flex; align-items: center; gap: 6px; padding: 8px 8px 4px; color: #f4f7fb;
+  }
+  .hd span { font-size: 14px; font-weight: 650; margin-right: auto; }
+  .mini {
+    border: 0; background: rgba(255,255,255,.1); color: #f4f7fb; border-radius: 999px;
+    height: 28px; padding: 0 10px; font-size: 12px;
+  }
+  .paper { position: relative; flex: 1 1 auto; margin: 0 8px; border-radius: 14px; overflow: hidden; background: #fffdf8; }
+  .paper canvas { width: 100%; height: 100%; touch-action: none; display: block; }
+  .nib {
+    position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
+    border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); pointer-events: none;
+    transition: left .05s linear, top .05s linear;
+  }
+  .tools { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 6px; }
+  .rowt { display: flex; gap: 6px; align-items: center; }
+  .rowt .scroll { display: flex; gap: 6px; overflow-x: auto; flex: 1; scrollbar-width: none; }
+  .rowt .scroll::-webkit-scrollbar { display: none; }
+  .tool, .sz, .act {
+    flex: 0 0 auto; height: 32px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18);
+    background: rgba(255,255,255,.06); color: #f4f7fb; padding: 0 10px; font-size: 12px;
+  }
+  .tool.on, .sz.on, .act.on { background: #3d7aee; border-color: transparent; }
+  .swatch {
+    width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; padding: 0; flex: none;
+  }
+  .swatch.on { border-color: #fff; }
+  input[type="color"] { width: 26px; height: 26px; border: 0; padding: 0; background: transparent; flex: none; }
+  .veil {
+    position: absolute; inset: 0; z-index: 20; background: rgba(0,0,0,.45);
+    display: flex; align-items: flex-end; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .28s ease;
+  }
+  .veil.on { opacity: 1; pointer-events: auto; }
+  .card {
+    width: min(360px, 100%); background: #171c24; border-radius: 18px 18px 0 0;
+    padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+    transform: translateY(16px); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+  }
+  .veil.on .card { transform: none; }
+  .card h3 { margin: 0 0 10px; font-size: 16px; text-align: center; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 46vh; overflow: auto; }
+  .cell { border: 0; background: var(--bg-soft); border-radius: 12px; padding: 4px; text-align: left; }
+  .cell img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px; background: #fff; display: block; }
+  .cell small { display: block; color: var(--dim); font-size: 10px; margin-top: 4px; letter-spacing: -.02em; }
+  .empty { color: var(--dim); text-align: center; padding: 24px 0; }
+  .ask, .confirm {
+    position: absolute; z-index: 16; left: 50%; top: 18%;
+    width: min(300px, calc(100% - 36px));
+    transform: translateX(-50%) translateY(8px) scale(.96);
+    opacity: 0; pointer-events: none;
+    border-radius: 22px; padding: 18px 16px 14px; text-align: center; color: #f4f7fb;
+    border: 1px solid rgba(255,255,255,.46);
+    background: linear-gradient(165deg, rgba(255,255,255,.16), rgba(16,18,24,.72));
+    box-shadow: 0 18px 40px rgba(0,0,0,.38);
+    transition: opacity .28s ease, transform .28s cubic-bezier(.2,.8,.2,1);
+  }
+  .ask.on, .confirm.on { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
+  .ask p, .confirm p { margin: 8px 0 14px; }
+  .btns { display: flex; gap: 8px; }
+  .btns button { flex: 1; min-height: 44px; border: 0; border-radius: 999px; font-weight: 680; }
+  .go { background: linear-gradient(180deg, #8eb8ff, #1c4eaf); color: #fff; }
+  .ghost { background: rgba(255,255,255,.12); color: #eef2f6; }
+  .view {
+    position: absolute; inset: 0; z-index: 22; background: rgba(0,0,0,.72);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    padding: 20px; opacity: 0; pointer-events: none; transition: opacity .24s ease;
+  }
+  .view.on { opacity: 1; pointer-events: auto; }
+  .view img { max-width: 100%; max-height: 62vh; border-radius: 12px; background: #fff; }
+  .view small { color: #fff; }
+  .sim {
+    position: absolute; z-index: 14; left: 8px; right: 8px; bottom: calc(var(--in) + 8px);
+    background: #171c24; border: 1px solid var(--line); border-radius: 16px; padding: 10px;
+    display: none; box-shadow: 0 12px 32px rgba(0,0,0,.4);
+  }
+  .sim.open { display: block; animation: pop .18s ease-out; }
+  .sim p { margin: 0 0 8px; font-size: 12px; color: var(--dim); }
+  .seg { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .seg button, .sim .wide {
+    border: 1px solid var(--line); background: transparent; border-radius: 999px; height: 32px; padding: 0 10px; font-size: 12px;
+  }
+  .seg button.on { background: var(--me); border-color: transparent; }
+  .sim .wide { width: 100%; margin-top: 6px; }
+  .toast {
+    position: absolute; left: 50%; bottom: calc(var(--in) + 12px); transform: translateX(-50%) translateY(8px);
+    background: rgba(20,22,28,.92); color: #fff; border-radius: 999px; padding: 8px 14px; font-size: 13px;
+    opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 30;
+  }
+  .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="bar">
+    <button class="icon" type="button" aria-label="離開">←</button>
+    <div class="title"><i class="dot"></i><span>在線上</span></div>
+    <div class="pair" id="pair">
+      <button class="who m on" id="whoM" type="button">麥</button>
+      <div class="link" aria-hidden="true">
+        <svg viewBox="0 0 36 12"><path d="M4 6h28" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+        <i class="peer" id="peerDot"></i>
+      </div>
+      <button class="who f on" id="whoF" type="button">辛</button>
+    </div>
+    <div class="right">
+      <button class="icon" id="btnSim" type="button" title="模擬對方">試</button>
+      <button class="icon" id="btnGear" type="button" aria-label="選單">⚙</button>
+    </div>
+  </header>
+  <div class="menu" id="menu">
+    <button class="grow" id="btnInteract" type="button">互動</button>
+    <div class="sub open" id="interact">
+      <button class="call" type="button"><span>OOXX</span><b>玩</b></button>
+      <button class="call" type="button"><span>命運輪盤</span><b>轉</b></button>
+      <button class="call" type="button"><span>呼叫</span><b>☎</b></button>
+      <button class="call" type="button"><span>愛我嗎?</span><b>♥</b></button>
+      <button class="call" id="btnInvite" type="button"><span>邀請塗鴉</span><b>邀</b></button>
+      <button class="call" id="btnBoard" type="button"><span>塗鴉板</span><b id="boardMark">關</b></button>
+    </div>
+  </div>
+
+  <div class="msgs" id="msgs">
+    <div class="row you"><div class="bub">今晚想畫一點東西嗎？</div></div>
+    <div class="row me"><div class="bub">好，我開白板。</div></div>
+  </div>
+
+  <div class="sheet" id="sheet">
+    <div class="hd">
+      <span>塗鴉板</span>
+      <button class="mini" id="btnGallery" type="button">作品</button>
+      <button class="mini" id="btnSave" type="button">存檔</button>
+      <button class="mini" id="btnClose" type="button">關閉</button>
+    </div>
+    <div class="paper" id="paper">
+      <canvas id="cv"></canvas>
+      <i class="nib" id="nib"></i>
+    </div>
+    <div class="tools">
+      <div class="rowt scroll" id="brushes"></div>
+      <div class="rowt">
+        <button class="sz" data-sz="s" type="button">小</button>
+        <button class="sz on" data-sz="m" type="button">中</button>
+        <button class="sz" data-sz="l" type="button">大</button>
+        <button class="act" id="btnEraser" type="button">橡皮</button>
+        <button class="act" id="btnUndo" type="button">上一步</button>
+      </div>
+      <div class="rowt"><div class="scroll" id="colors"></div></div>
+    </div>
+  </div>
+
+  <form class="composer" id="form">
+    <input id="text" placeholder="輸入訊息" autocomplete="off" enterkeyhint="send">
+    <button class="send" id="btnSend" type="submit" disabled>➤</button>
+  </form>
+
+  <div class="ask" id="ask">
+    <h3 id="askTitle">邀請你一起塗鴉</h3>
+    <p>要打開共同白板嗎？</p>
+    <div class="btns">
+      <button class="ghost" id="askNo" type="button">先不要</button>
+      <button class="go" id="askYes" type="button">打開</button>
+    </div>
+  </div>
+  <div class="confirm" id="confirm">
+    <h3>存檔</h3>
+    <p>確定存檔並清空嗎？</p>
+    <div class="btns">
+      <button class="ghost" id="saveNo" type="button">取消</button>
+      <button class="go" id="saveYes" type="button">確定</button>
+    </div>
+  </div>
+  <div class="veil" id="gallery">
+    <div class="card">
+      <h3>作品集</h3>
+      <div class="grid" id="grid"></div>
+      <button class="mini" id="galClose" type="button" style="margin-top:10px;width:100%">收合</button>
+    </div>
+  </div>
+  <div class="view" id="view">
+    <img id="viewImg" alt="">
+    <small id="viewTime"></small>
+    <div class="btns" style="width:min(320px,100%)">
+      <button class="ghost" id="viewDown" type="button">下載</button>
+      <button class="ghost" id="viewDel" type="button">刪除</button>
+      <button class="go" id="viewClose" type="button">關閉</button>
+    </div>
+  </div>
+  <div class="sim" id="sim">
+    <p>預覽用，不進正式版。切換後，點與筆畫都算在對方身上。</p>
+    <div class="seg" id="segMe"><button type="button" data-me="m" class="on">我是麥</button><button type="button" data-me="f">我是辛</button></div>
+    <div class="seg" id="segBind"><button type="button" data-bind="m">對方是麥·藍</button><button type="button" data-bind="f" class="on">對方是辛·粉</button><button type="button" data-bind="">未綁定·綠</button></div>
+    <button class="wide" id="simDraw" type="button">對方畫幾筆</button>
+    <button class="wide" id="simBoard" type="button">對方開關白板</button>
+    <button class="wide" id="simInvite" type="button">對方發邀請</button>
+  </div>
+  <div class="toast" id="toast"></div>
+</div>
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const TOOLS = [
+    ["pen", "原子筆"], ["marker", "麥克筆"], ["high", "螢光筆"], ["brush", "毛筆"], ["water", "水彩筆"]
+  ];
+  const COLORS = ["#1a1a1a", "#f4f1ea", "#e23b3b", "#f08a24", "#e2b143", "#2f9e57", "#2f6fed", "#7a4de0", "#e85aa0", "#8a5a3a"];
+  const SIZE = { s: 0.012, m: 0.022, l: 0.038 };
+  const people = {
+    m: { name: "麥", bind: "m", open: false },
+    f: { name: "辛", bind: "f", open: false }
+  };
+  let me = "m";
+  let tool = "pen";
+  let size = "m";
+  let color = COLORS[0];
+  let eraser = false;
+  const strokes = [];
+  const gallery = [];
+  let drawing = null;
+  let peerTimer = 0;
+  let viewId = "";
+  let toastTimer = 0;
+
+  const cv = $("cv");
+  const ctx = cv.getContext("2d");
+  const nib = $("nib");
+
+  function other() { return me === "m" ? "f" : "m"; }
+  function toast(text) {
+    const el = $("toast");
+    el.textContent = text;
+    el.classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("on"), 1600);
+  }
+  function stamp(d) {
+    const p = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "/" + p(d.getMonth() + 1) + "/" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function bindColor(who) {
+    const b = people[who].bind;
+    return b === "m" ? "blue" : b === "f" ? "pink" : "green";
+  }
+  function paintDot() {
+    const peer = other();
+    const dot = $("peerDot");
+    dot.className = "peer " + bindColor(peer) + (people[peer].open ? " show" : "");
+  }
+  function paintWho() {
+    $("whoM").classList.toggle("on", true);
+    $("whoF").classList.toggle("on", true);
+    $("boardMark").textContent = people[me].open ? "開" : "關";
+    $("segMe").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.me === me));
+    const peer = other();
+    $("segBind").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.bind === people[peer].bind));
+    paintDot();
+  }
+
+  function fit() {
+    const r = $("paper").getBoundingClientRect();
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = Math.max(1, Math.round(r.width * dpr));
+    const h = Math.max(1, Math.round(r.height * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    redraw();
+  }
+  function px(nx, ny) {
+    const dpr = cv.width / $("paper").clientWidth;
+    return { x: nx * $("paper").clientWidth, y: ny * $("paper").clientHeight, dpr };
+  }
+  function radius(norm) {
+    return norm * Math.min($("paper").clientWidth, $("paper").clientHeight);
+  }
+
+  function drawStroke(s) {
+    const pts = s.pts;
+    if (!pts.length) return;
+    ctx.save();
+    if (s.eraser) {
+      ctx.globalCompositeOperation = "destination-out";
+      pts.forEach((p, i) => {
+        const q = px(p.x, p.y);
+        stamp(q.x, q.y, radius(p.r), "#000", 1);
+        if (i) link(pts[i - 1], p, "#000", 1, "destination-out");
+      });
+      ctx.restore();
+      return;
+    }
+    if (s.tool === "water") {
+      pts.forEach((p) => blot(p, s.color));
+    } else if (s.tool === "brush") {
+      pts.forEach((p) => { const q = px(p.x, p.y); stamp(q.x, q.y, radius(p.r), s.color, 0.9); });
+      for (let i = 1; i < pts.length; i++) link(pts[i - 1], pts[i], s.color, 0.92, "source-over");
+    } else {
+      const alpha = s.tool === "high" ? 0.38 : 1;
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = s.color;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = radius(pts[0].r) * (s.tool === "marker" ? 2.4 : s.tool === "high" ? 3.2 : 1);
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const q = px(p.x, p.y);
+        if (!i) ctx.moveTo(q.x, q.y);
+        else ctx.lineTo(q.x, q.y);
+      });
+      ctx.stroke();
+      if (pts.length === 1) {
+        const q = px(pts[0].x, pts[0].y);
+        stamp(q.x, q.y, ctx.lineWidth / 2, s.color, alpha);
+      }
+    }
+    ctx.restore();
+  }
+  function stamp(x, y, r, color, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(0.4, r), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  function link(a, b, color, alpha, op) {
+    const steps = Math.max(1, Math.ceil(Math.hypot((b.x - a.x) * cv.width, (b.y - a.y) * cv.height) / 1.5));
+    ctx.save();
+    ctx.globalCompositeOperation = op;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t;
+      const r = a.r + (b.r - a.r) * t;
+      const q = px(x, y);
+      stamp(q.x, q.y, radius(r), color, alpha);
+    }
+    ctx.restore();
+  }
+  function blot(p, color) {
+    const q = px(p.x, p.y);
+    const r = radius(p.r) * 2.8;
+    for (let k = 0; k < 4; k++) {
+      const ox = (k - 1.5) * r * 0.22;
+      const oy = ((k % 2) - 0.5) * r * 0.18;
+      const g = ctx.createRadialGradient(q.x + ox, q.y + oy, 0, q.x + ox, q.y + oy, r);
+      g.addColorStop(0, hexA(color, 0.22));
+      g.addColorStop(1, hexA(color, 0));
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(q.x + ox, q.y + oy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+  function hexA(hex, a) {
+    const n = hex.replace("#", "");
+    const v = parseInt(n.length === 3 ? n.split("").map((c) => c + c).join("") : n, 16);
+    return "rgba(" + ((v >> 16) & 255) + "," + ((v >> 8) & 255) + "," + (v & 255) + "," + a + ")";
+  }
+  function redraw() {
+    const w = $("paper").clientWidth, h = $("paper").clientHeight;
+    ctx.setTransform(cv.width / w, 0, 0, cv.height / h, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#fffdf8";
+    ctx.fillRect(0, 0, w, h);
+    strokes.forEach(drawStroke);
+  }
+
+  function localPoint(e) {
+    const r = cv.getBoundingClientRect();
+    return {
+      x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+      y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))
+    };
+  }
+  function sampleRadius(speed) {
+    let k = 1;
+    if (tool === "brush") k = Math.max(0.28, Math.min(1.25, 1.05 - speed * 0.9));
+    if (tool === "marker") k = 1.15;
+    if (tool === "high") k = 1.35;
+    if (tool === "water") k = 1.05;
+    if (tool === "pen") k = 0.55;
+    if (eraser) k = 1.4;
+    return SIZE[size] * k;
+  }
+  function down(e) {
+    if (!$("sheet").classList.contains("on")) return;
+    cv.setPointerCapture(e.pointerId);
+    const p = localPoint(e);
+    drawing = { owner: me, tool: eraser ? "pen" : tool, color, eraser, pts: [], last: null, t: performance.now() };
+    pushPoint(p, performance.now());
+  }
+  function move(e) {
+    if (!drawing) return;
+    pushPoint(localPoint(e), performance.now());
+  }
+  function pushPoint(p, now) {
+    const prev = drawing.last;
+    const dt = prev ? Math.max(8, now - drawing.t) : 16;
+    const dist = prev ? Math.hypot((p.x - prev.x) * $("paper").clientWidth, (p.y - prev.y) * $("paper").clientHeight) : 0;
+    const speed = dist / dt;
+    const r = sampleRadius(speed);
+    const pt = { x: p.x, y: p.y, r };
+    drawing.pts.push(pt);
+    if (drawing.pts.length === 1) strokes.push(drawing);
+    drawing.last = p;
+    drawing.t = now;
+    redraw();
+  }
+  function up() {
+    if (!drawing) return;
+    const pts = drawing.pts;
+    if (drawing.tool === "brush" && pts.length > 4) {
+      const n = Math.min(6, Math.floor(pts.length / 3));
+      for (let i = 0; i < n; i++) {
+        pts[i].r *= 0.35 + 0.65 * (i / n);
+        pts[pts.length - 1 - i].r *= 0.25 + 0.75 * (i / n);
+      }
+    }
+    drawing = null;
+    nib.hidden = true;
+    redraw();
+  }
+
+  function undo() {
+    for (let i = strokes.length - 1; i >= 0; i--) {
+      if (strokes[i].owner === me) { strokes.splice(i, 1); redraw(); return; }
+    }
+    toast("沒有可收回的筆畫");
+  }
+  function setBoard(who, open) {
+    people[who].open = open;
+    if (who === me) $("sheet").classList.toggle("on", open);
+    paintWho();
+    if (who === me && open) requestAnimationFrame(fit);
+  }
+
+  function showAsk(from) {
+    $("askTitle").textContent = people[from].name + " 邀請你一起塗鴉";
+    $("ask").classList.add("on");
+  }
+  function saveWork() {
+    const url = cv.toDataURL("image/png");
+    gallery.unshift({ id: Date.now().toString(36), url, ts: stamp(new Date()), by: me });
+    strokes.splice(0, strokes.length);
+    redraw();
+    toast("已存進作品集");
+    renderGallery();
+  }
+  function renderGallery() {
+    const grid = $("grid");
+    grid.innerHTML = "";
+    if (!gallery.length) {
+      const p = document.createElement("p");
+      p.className = "empty";
+      p.textContent = "還沒有作品";
+      grid.appendChild(p);
+      return;
+    }
+    gallery.forEach((g) => {
+      const b = document.createElement("button");
+      b.className = "cell";
+      b.type = "button";
+      b.innerHTML = "<img alt=''><small></small>";
+      b.querySelector("img").src = g.url;
+      b.querySelector("small").textContent = g.ts;
+      b.addEventListener("click", () => openView(g.id));
+      grid.appendChild(b);
+    });
+  }
+  function openView(id) {
+    const g = gallery.find((x) => x.id === id);
+    if (!g) return;
+    viewId = id;
+    $("viewImg").src = g.url;
+    $("viewTime").textContent = g.ts;
+    $("view").classList.add("on");
+  }
+
+  function peerDraw() {
+    const who = other();
+    people[who].open = true;
+    paintDot();
+    const lines = 3;
+    let n = 0;
+    const next = () => {
+      if (n++ >= lines) { nib.hidden = true; return; }
+      const count = 10 + Math.floor(Math.random() * 8);
+      const stroke = {
+        owner: who,
+        tool: ["pen", "marker", "brush", "water", "high"][n % 5],
+        color: COLORS[(n * 3) % COLORS.length],
+        eraser: false,
+        pts: []
+      };
+      strokes.push(stroke);
+      let i = 0;
+      const x0 = 0.15 + Math.random() * 0.3;
+      const y0 = 0.2 + Math.random() * 0.5;
+      const step = () => {
+        if (i >= count) { nib.hidden = true; setTimeout(next, 180); return; }
+        const x = Math.min(0.92, x0 + i * 0.05);
+        const y = Math.min(0.9, y0 + Math.sin(i / 2) * 0.06);
+        stroke.pts.push({ x, y, r: SIZE.m * (stroke.tool === "pen" ? 0.55 : 1) });
+        nib.hidden = false;
+        nib.style.left = (x * 100) + "%";
+        nib.style.top = (y * 100) + "%";
+        nib.style.background = people[who].bind === "m" ? "var(--blue)" : people[who].bind === "f" ? "var(--pink)" : "var(--green)";
+        redraw();
+        i++;
+        peerTimer = setTimeout(step, 36);
+      };
+      step();
+    };
+    next();
+  }
+
+  function buildTools() {
+    const box = $("brushes");
+    TOOLS.forEach(([id, name]) => {
+      const b = document.createElement("button");
+      b.className = "tool" + (id === tool ? " on" : "");
+      b.type = "button";
+      b.textContent = name;
+      b.dataset.tool = id;
+      b.addEventListener("click", () => {
+        tool = id; eraser = false;
+        $("btnEraser").classList.remove("on");
+        box.querySelectorAll(".tool").forEach((el) => el.classList.toggle("on", el.dataset.tool === id));
+      });
+      box.appendChild(b);
+    });
+    const colors = $("colors");
+    COLORS.forEach((c) => {
+      const b = document.createElement("button");
+      b.className = "swatch" + (c === color ? " on" : "");
+      b.type = "button";
+      b.style.background = c;
+      b.addEventListener("click", () => {
+        color = c; eraser = false;
+        $("btnEraser").classList.remove("on");
+        colors.querySelectorAll(".swatch").forEach((el) => el.classList.remove("on"));
+        b.classList.add("on");
+      });
+      colors.appendChild(b);
+    });
+    const pick = document.createElement("input");
+    pick.type = "color";
+    pick.value = "#2f6fed";
+    pick.addEventListener("input", () => { color = pick.value; eraser = false; $("btnEraser").classList.remove("on"); });
+    colors.appendChild(pick);
+  }
+
+  cv.addEventListener("pointerdown", down);
+  cv.addEventListener("pointermove", move);
+  cv.addEventListener("pointerup", up);
+  cv.addEventListener("pointercancel", up);
+  new ResizeObserver(fit).observe($("paper"));
+
+  $("btnGear").addEventListener("click", () => { $("menu").classList.toggle("open"); $("sim").classList.remove("open"); });
+  $("btnInteract").addEventListener("click", () => $("interact").classList.toggle("open"));
+  $("menu").addEventListener("click", (e) => {
+    if (e.target.closest("#btnInvite, #btnBoard, #btnInteract")) return;
+    if (e.target.closest(".call")) toast("預覽只示範塗鴉");
+  });
+  $("btnBoard").addEventListener("click", () => { setBoard(me, !people[me].open); $("menu").classList.remove("open"); });
+  $("btnClose").addEventListener("click", () => setBoard(me, false));
+  $("btnInvite").addEventListener("click", () => {
+    $("menu").classList.remove("open");
+    toast("已邀請" + people[other()].name);
+    people[other()].pending = true;
+  });
+  $("btnUndo").addEventListener("click", undo);
+  $("btnEraser").addEventListener("click", () => {
+    eraser = !eraser;
+    $("btnEraser").classList.toggle("on", eraser);
+    if (eraser) $("brushes").querySelectorAll(".tool").forEach((el) => el.classList.remove("on"));
+  });
+  document.querySelectorAll(".sz").forEach((b) => b.addEventListener("click", () => {
+    size = b.dataset.sz;
+    document.querySelectorAll(".sz").forEach((el) => el.classList.toggle("on", el === b));
+  }));
+  $("btnSave").addEventListener("click", () => $("confirm").classList.add("on"));
+  $("saveNo").addEventListener("click", () => $("confirm").classList.remove("on"));
+  $("saveYes").addEventListener("click", () => { $("confirm").classList.remove("on"); saveWork(); });
+  $("btnGallery").addEventListener("click", () => { renderGallery(); $("gallery").classList.add("on"); });
+  $("galClose").addEventListener("click", () => $("gallery").classList.remove("on"));
+  $("viewClose").addEventListener("click", () => $("view").classList.remove("on"));
+  $("viewDel").addEventListener("click", () => {
+    const i = gallery.findIndex((g) => g.id === viewId);
+    if (i >= 0) gallery.splice(i, 1);
+    $("view").classList.remove("on");
+    renderGallery();
+  });
+  $("viewDown").addEventListener("click", () => {
+    const g = gallery.find((x) => x.id === viewId);
+    if (!g) return;
+    const a = document.createElement("a");
+    a.href = g.url;
+    a.download = "doodle-" + g.ts.replace(/[/: ]/g, "") + ".png";
+    a.click();
+  });
+  $("askNo").addEventListener("click", () => $("ask").classList.remove("on"));
+  $("askYes").addEventListener("click", () => { $("ask").classList.remove("on"); setBoard(me, true); });
+
+  $("btnSim").addEventListener("click", () => { $("sim").classList.toggle("open"); $("menu").classList.remove("open"); });
+  $("segMe").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    me = b.dataset.me;
+    setBoard(me, people[me].open);
+    if (people[me].pending) { people[me].pending = false; showAsk(other()); }
+    paintWho();
+  });
+  $("segBind").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    people[other()].bind = b.dataset.bind;
+    paintWho();
+  });
+  $("simDraw").addEventListener("click", () => { $("sim").classList.remove("open"); peerDraw(); });
+  $("simBoard").addEventListener("click", () => {
+    const who = other();
+    people[who].open = !people[who].open;
+    paintDot();
+    toast(people[who].name + (people[who].open ? " 打開了白板" : " 關掉了白板"));
+  });
+  $("simInvite").addEventListener("click", () => { $("sim").classList.remove("open"); showAsk(other()); });
+
+  const text = $("text");
+  text.addEventListener("input", () => { $("btnSend").disabled = !text.value.trim(); });
+  $("form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = text.value.trim();
+    if (!v) return;
+    const row = document.createElement("div");
+    row.className = "row " + (me === "m" ? "me" : "you");
+    row.innerHTML = "<div class='bub'></div>";
+    row.querySelector(".bub").textContent = v;
+    $("msgs").appendChild(row);
+    $("msgs").scrollTop = $("msgs").scrollHeight;
+    text.value = "";
+    $("btnSend").disabled = true;
+  });
+
+  document.addEventListener("pointerdown", (e) => {
+    if (!$("menu").contains(e.target) && e.target !== $("btnGear")) $("menu").classList.remove("open");
+    if (!$("sim").contains(e.target) && e.target !== $("btnSim")) $("sim").classList.remove("open");
+  });
+
+  buildTools();
+  paintWho();
+  requestAnimationFrame(fit);
+})();
+</script>
+</body>
+</html>
