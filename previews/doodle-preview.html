@@ -58,7 +58,7 @@
   }
   .board-dot.blue { color: var(--blue); }
   .board-dot.pink { color: var(--pink); }
-  .board-dot.green { color: var(--green); }
+  .board-dot.gray { color: #b7c0cc; }
   .right { margin-left: auto; display: flex; align-items: center; }
   .msgs { flex: 1 1 auto; overflow-y: auto; padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 8px; }
   .row { display: flex; }
@@ -221,7 +221,8 @@
   }
   .sim.open { display: block; animation: pop .18s ease-out; }
   .sim p { margin: 0 0 8px; font-size: 12px; color: var(--dim); }
-  .seg { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .seg { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+  .seg .lab { min-width: 1.6em; font-size: 12px; color: var(--dim); }
   .seg button, .sim .wide {
     border: 1px solid var(--line); background: transparent; border-radius: 999px; height: 32px; padding: 0 10px; font-size: 12px;
   }
@@ -397,7 +398,8 @@
   <div class="sim" id="sim">
     <p>預覽用，不進正式版。切換後，點與筆畫都算在對方身上。</p>
     <div class="seg" id="segMe"><button type="button" data-me="m" class="on">我是麥</button><button type="button" data-me="f">我是辛</button></div>
-    <div class="seg" id="segBind"><button type="button" data-bind="m">對方是麥·藍</button><button type="button" data-bind="f" class="on">對方是辛·粉</button><button type="button" data-bind="">未綁定·綠</button></div>
+    <div class="seg" id="bindM"><span class="lab">麥</span><button type="button" data-who="m" data-bound="1" class="on">已綁定</button><button type="button" data-who="m" data-bound="0">未綁定</button></div>
+    <div class="seg" id="bindF"><span class="lab">辛</span><button type="button" data-who="f" data-bound="1" class="on">已綁定</button><button type="button" data-who="f" data-bound="0">未綁定</button></div>
     <button class="wide" id="simDraw" type="button">對方畫幾筆</button>
     <button class="wide" id="simBoard" type="button">對方開關白板</button>
     <button class="wide" id="simInvite" type="button">對方發邀請</button>
@@ -421,8 +423,8 @@
   const SIZE = { s: 0.012, m: 0.022, l: 0.038 };
   const SHAPES = { circle: 1, rect: 1, line: 1 };
   const people = {
-    m: { name: "麥", bind: "m", open: false },
-    f: { name: "辛", bind: "f", open: false }
+    m: { name: "麥", bound: true, open: false },
+    f: { name: "辛", bound: true, open: false }
   };
   let me = "m";
   let tool = "pen";
@@ -456,8 +458,12 @@
     return d.getFullYear() + "/" + p(d.getMonth() + 1) + "/" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
   }
   function bindColor(who) {
-    const b = people[who].bind;
-    return b === "m" ? "blue" : b === "f" ? "pink" : "green";
+    if (!people[who].bound) return "gray";
+    return who === "m" ? "blue" : "pink";
+  }
+  function floaterTone(who) {
+    if (!people[who].bound) return "plain";
+    return who === "m" ? "mai" : "xin";
   }
   function paintDot() {
     const box = $("rings");
@@ -476,8 +482,15 @@
     $("btnBoard").classList.toggle("on", people[me].open);
     $("btnBoard").setAttribute("aria-label", people[me].open ? "關閉塗鴉板" : "打開塗鴉板");
     $("segMe").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.me === me));
-    const peer = other();
-    $("segBind").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.bind === people[peer].bind));
+    ["m", "f"].forEach((who) => {
+      $(who === "m" ? "bindM" : "bindF").querySelectorAll("button").forEach((b) => {
+        b.classList.toggle("on", (b.dataset.bound === "1") === people[who].bound);
+      });
+    });
+    document.querySelectorAll("#floaters .floater").forEach((el) => {
+      el.classList.remove("mai", "xin", "plain");
+      el.classList.add(floaterTone(el.dataset.who));
+    });
     paintDot();
   }
 
@@ -759,7 +772,7 @@
         nib.hidden = false;
         nib.style.left = (x * 100) + "%";
         nib.style.top = (y * 100) + "%";
-        nib.style.background = bindColor(who) === "blue" ? "var(--blue)" : bindColor(who) === "pink" ? "var(--pink)" : "var(--green)";
+        nib.style.background = bindColor(who) === "blue" ? "var(--blue)" : bindColor(who) === "pink" ? "var(--pink)" : "#b7c0cc";
         redraw();
         i++;
         peerTimer = setTimeout(step, 36);
@@ -920,12 +933,12 @@
     if (people[me].pending) { people[me].pending = false; showAsk(other()); }
     paintWho();
   });
-  $("segBind").addEventListener("click", (e) => {
+  document.querySelectorAll("#bindM, #bindF").forEach((box) => box.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b) return;
-    people[other()].bind = b.dataset.bind;
+    people[b.dataset.who].bound = b.dataset.bound === "1";
     paintWho();
-  });
+  }));
   $("simDraw").addEventListener("click", () => { $("sim").classList.remove("open"); peerDraw(); });
   $("simBoard").addEventListener("click", () => {
     const who = other();
@@ -941,10 +954,6 @@
     addLine(peerLines[peerLine++ % peerLines.length], other());
   });
 
-  function floaterTone(who) {
-    const b = people[who].bind;
-    return b === "m" ? "mai" : b === "f" ? "xin" : "plain";
-  }
   function addLine(text, who) {
     const row = document.createElement("div");
     row.className = "row " + (who === "m" ? "me" : "you");
@@ -954,6 +963,7 @@
     $("msgs").scrollTop = $("msgs").scrollHeight;
     if (!$("sheet").classList.contains("on")) return;
     const el = document.createElement("div");
+    el.dataset.who = who;
     el.className = "floater " + floaterTone(who);
     el.textContent = text;
     $("floaters").appendChild(el);
