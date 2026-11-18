@@ -287,6 +287,42 @@
             ".validate": false
           }
         },
+        "ballLive": {
+          ".validate": "!newData.exists() || newData.hasChildren(['by','seq','hold','t','x','y','vx','vy','spin','g'])",
+          "by": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64"
+          },
+          "seq": {
+            ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000000 && newData.val() % 1 == 0"
+          },
+          "hold": {
+            ".validate": "newData.isBoolean()"
+          },
+          "t": {
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 120000"
+          },
+          "x": {
+            ".validate": "newData.isNumber() && newData.val() >= -0.2 && newData.val() <= 1.2"
+          },
+          "y": {
+            ".validate": "newData.isNumber() && newData.val() >= -0.2 && newData.val() <= 1.2"
+          },
+          "vx": {
+            ".validate": "newData.isNumber() && newData.val() >= -40 && newData.val() <= 40"
+          },
+          "vy": {
+            ".validate": "newData.isNumber() && newData.val() >= -40 && newData.val() <= 40"
+          },
+          "spin": {
+            ".validate": "newData.isNumber() && newData.val() >= -4 && newData.val() <= 4"
+          },
+          "g": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 80"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
         "meta": {
           "wipe": {
             ".validate": "newData.isNumber()"
