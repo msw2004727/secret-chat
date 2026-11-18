@@ -99,19 +99,23 @@ export function strokeToken(s) {
   const last = pts[pts.length - 1] || { x: 0, y: 0 };
   return [s.tool, s.by, s.t, s.color, pts.length, quantize(last.x), quantize(last.y)].join(":");
 }
+/* 筆畫編號從 1 起。Firebase 的 val() 會把這種整數鍵收成「第 0 格是洞」的陣列。
+   用 map 再 for...of 會在那個洞上丟例外，整包快照因此套不進去，
+   雙方就只剩自己還沒被伺服器確認的筆。Object.entries 會跳過洞。 */
+function strokeEntries(node) {
+  if (!node || typeof node !== "object") return [];
+  return Object.entries(node);
+}
 export function flattenStrokes(val) {
   const out = [];
-  if (!val || typeof val !== "object") return out;
-  const rows = Array.isArray(val) ? val.map((v, i) => [String(i), v]) : Object.entries(val);
-  for (const [key, node] of rows) {
+  for (const [key, node] of strokeEntries(val)) {
     if (!node || typeof node !== "object") continue;
     if (node.tool) {
       const s = decodeStroke(key, node);
       if (s) out.push(s);
       continue;
     }
-    const kids = Array.isArray(node) ? node.map((v, i) => [String(i), v]) : Object.entries(node);
-    for (const [slot, raw] of kids) {
+    for (const [slot, raw] of strokeEntries(node)) {
       if (!raw || typeof raw !== "object") continue;
       const s = decodeStroke(key + "/" + slot, raw);
       if (s) out.push(s);
