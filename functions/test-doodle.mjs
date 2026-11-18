@@ -3,7 +3,8 @@ import fs from "node:fs";
 import {
   DOODLE_W, DOODLE_H, DOODLE_RATIO, Q, MAX_STROKES, MAX_GALLERY, MAX_JPEG,
   fitBox, clientToUnit, unitToPx, quantize, dequant,
-  encodePts, decodePts, encodeStroke, decodeStroke, allocSlot,
+  encodePts, decodePts, encodeStroke, decodeStroke, allocSlot, simplifyPts,
+  flattenStrokes, mergeStrokes, inviteEffect,
   toneOf, ringOf, sideCode, peerOpen, ownUndoId, formatStamp, jpegWithin,
 } from "../doodle.js";
 
@@ -73,10 +74,47 @@ const jpg = jpegWithin(fake, MAX_JPEG);
 assert.ok(jpg.startsWith("data:image/jpeg"));
 assert.ok(jpg.length <= MAX_JPEG);
 
+const long = [];
+for (let i = 0; i < 400; i++) long.push({ x: i / 400, y: 0.5, r: 0.02 });
+const thin = simplifyPts(long);
+assert.equal(thin.length, 180);
+assert.equal(thin[0].x, 0);
+assert.ok(Math.abs(thin[thin.length - 1].x - 399 / 400) < 1e-9);
+assert.ok(encodePts(long).split(";").length <= 180);
+assert.ok(encodePts(long).length <= 6000);
+
+const first = decodeStroke("alice/1", encodeStroke({ by: "alice", tool: "pen", color: "#1a1a1a", z: "m", t: 10, pts: [{ x: 0.1, y: 0.1, r: 0.02 }] }));
+const second = { ...first, id: "alice/2", t: 20, pts: [{ x: 0.4, y: 0.4, r: 0.02 }] };
+const remoteOnlyFirst = [first];
+const kept = mergeStrokes(remoteOnlyFirst, [second]);
+assert.equal(kept.length, 2);
+assert.equal(kept.some((s) => s.id === "alice/2"), true);
+const echoed = mergeStrokes([first, second], [second]);
+assert.equal(echoed.filter((s) => s.id === "alice/2").length, 1);
+
+const nested = flattenStrokes({
+  alice: { 1: encodeStroke({ by: "alice", tool: "pen", color: "#1a1a1a", z: "m", t: 10, pts: [{ x: 0.1, y: 0.2, r: 0.02 }] }) },
+  bob: { 1: encodeStroke({ by: "bob", tool: "line", color: "#ffffff", z: "m", t: 11, a: { x: 0, y: 0 }, b: { x: 1, y: 1 } }) },
+});
+assert.equal(nested.length, 2);
+assert.equal(nested.find((s) => s.by === "bob").tool, "line");
+
+const now = Date.now();
+assert.equal(inviteEffect({ id: "a1", by: "alice", phase: "ask", t: now }, "bob", now, "").dialog, true);
+assert.equal(inviteEffect({ id: "a1", by: "alice", phase: "ask", t: now }, "bob", now, "a1").dialog, false);
+assert.equal(inviteEffect({ id: "a1", by: "alice", phase: "yes", t: now }, "alice", now, "a1").open, true);
+assert.equal(inviteEffect({ id: "a1", by: "alice", phase: "yes", t: now }, "bob", now, "a1").open, true);
+assert.equal(inviteEffect({ id: "a1", by: "alice", phase: "no", t: now }, "alice", now, "").open, false);
+assert.equal(inviteEffect({ id: "a1", by: "alice", phase: "no", t: now }, "alice", now, "").tell.length > 0, true);
+assert.equal(inviteEffect({ id: "a1", by: "alice", phase: "no", t: now }, "bob", now, "").open, false);
+assert.equal(inviteEffect({ id: "old", by: "alice", phase: "ask", t: now - 130000 }, "bob", now, "").dialog, false);
+
 const rules = JSON.parse(fs.readFileSync(new URL("../database.rules.json", import.meta.url), "utf8"));
 const doodle = rules.rules.rooms.$roomId.doodle;
-assert.match(doodle.strokes.$id[".validate"], /240/);
+assert.match(doodle.strokes.$by.$id[".validate"], /240/);
+assert.doesNotMatch(doodle.strokes.$by.$id[".validate"], /\(\?:/);
 assert.match(doodle.g.$id[".validate"], /20/);
+assert.equal(doodle.invite.phase[".validate"].includes("ask"), true);
 assert.equal(allocSlot(["1", "2"], 3), "3");
 assert.equal(allocSlot(["1", "2", "3"], 3), "");
 assert.match(doodle.g.$id.jpg[".validate"], /140000/);
@@ -88,12 +126,14 @@ const app = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
 const board = fs.readFileSync(new URL("../doodle.js", import.meta.url), "utf8");
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../style.css", import.meta.url), "utf8");
-assert.match(app, /const APP_VERSION = "v61\.97"/);
+assert.match(app, /const APP_VERSION = "v61\.98"/);
 assert.match(app, /S\.doodle\?\.open/);
 assert.match(board, /rooms\/\$\{room\}\/doodle/);
 assert.match(html, /塗鴉板/);
 assert.match(html, /id="doodleInvite"/);
 assert.match(html, /id="doodleBoard"/);
+assert.match(html, /拒絕／稍後/);
+assert.match(html, />同意</);
 assert.match(css, /touch-action:\s*none/);
 assert.match(css, /\.c-doodle-floats[\s\S]*pointer-events:\s*none/);
 assert.match(css, /min\(90%/);
