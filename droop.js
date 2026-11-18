@@ -58,17 +58,23 @@ function petsOff() {
   try { return localStorage.getItem("sc-pets") === "off"; } catch (_) { return false; }
 }
 
-/* 房間動物分組：rooms/<房>/pets/<cats|quokka|rooster|catPregnant|kittens> {on,t,by}。
-   三組動物沒寫、或 on 不是 false，都當作開。懷孕和幼貓沒寫就是關。
+/* 房間動物分組：rooms/<房>/pets/<cats|quokka|rooster|ball|catPregnant|kittens> {on,t,by}。
+   三組動物和黃球沒寫、或 on 不是 false，都當作開。懷孕和幼貓沒寫就是關。
    晚進房只看目前狀態，不重播跑走。 */
 export function petGroupsFromSnap(val) {
   const on = (rec) => !rec || rec.on !== false;
   const opted = (rec) => !!(rec && rec.on === true);
   const v = val && typeof val === "object" ? val : {};
   return {
-    cats: on(v.cats), quokka: on(v.quokka), rooster: on(v.rooster),
+    cats: on(v.cats), quokka: on(v.quokka), rooster: on(v.rooster), ball: on(v.ball),
     catPregnant: opted(v.catPregnant), kittens: opted(v.kittens),
   };
+}
+/* 黃球跟貓咪分開。還沒讀到房間開關時先不要畫；讀到之後，沒有 ball 這筆或 on 不是 false 就顯示。
+   打架把球收進煙霧時 state 是 hidden，那一段照舊先藏。 */
+export function showPetBall(ready, groups, state) {
+  if (!ready || state === "hidden") return false;
+  return !groups || groups.ball !== false;
 }
 export function petGroupCacheKey(roomId) {
   return "sc-pet-groups:" + String(roomId || "");
@@ -79,6 +85,7 @@ export function normalizePetGroups(g) {
     cats: v.cats !== false,
     quokka: v.quokka !== false,
     rooster: v.rooster !== false,
+    ball: v.ball !== false,
     catPregnant: v.catPregnant === true,
     kittens: v.kittens === true,
   };

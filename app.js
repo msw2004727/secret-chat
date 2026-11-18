@@ -27,7 +27,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.01";
+const APP_VERSION = "v62.02";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -12995,7 +12995,7 @@ function bindPetGroupSync(f, roomId, clientId, bag) {
     paint(snap.val(), animate);
   });
   S.petGroupsWrite = (kind, on) => {
-    if (kind !== "cats" && kind !== "quokka" && kind !== "rooster" && kind !== "catPregnant" && kind !== "kittens") return;
+    if (kind !== "cats" && kind !== "quokka" && kind !== "rooster" && kind !== "ball" && kind !== "catPregnant" && kind !== "kittens") return;
     f.set(f.ref(f.db, `${base}/pets/${kind}`), {
       on: !!on,
       t: f.serverTimestamp(),
@@ -13009,17 +13009,18 @@ function bindPetGroupSync(f, roomId, clientId, bag) {
 
 /* 動物開關。還沒從這間房讀到、也沒有本機上次紀錄時先全部藏起來，避免進房閃一下。 */
 function applyPetGroups(g, animate, ready) {
-  const show = ready && g ? g : { cats: false, quokka: false, rooster: false, catPregnant: false, kittens: false };
-  const cats = $("zooCats"), pals = $("zooPals"), bird = $("zooBird");
+  const show = ready && g ? g : { cats: false, quokka: false, rooster: false, ball: false, catPregnant: false, kittens: false };
+  const cats = $("zooCats"), pals = $("zooPals"), bird = $("zooBird"), ball = $("zooBall");
   const preg = $("zooPreg"), kits = $("zooKits");
   if (cats) cats.checked = !!show.cats;
   if (pals) pals.checked = !!show.quokka;
   if (bird) bird.checked = !!show.rooster;
+  if (ball) ball.checked = !!show.ball;
   if (preg) preg.checked = !!show.catPregnant;
   if (kits) kits.checked = !!show.kittens;
   lockCatSubs();
   const detail = {
-    cats: !!show.cats, quokka: !!show.quokka, rooster: !!show.rooster,
+    cats: !!show.cats, quokka: !!show.quokka, rooster: !!show.rooster, ball: !!show.ball,
     catPregnant: !!show.catPregnant, kittens: !!show.kittens,
     animate: !!animate, ready: !!ready,
   };
@@ -13782,14 +13783,14 @@ function bindZoo() {
   const btn = $("btnZoo"), panel = $("zooPanel");
   if (!btn || !panel || btn.dataset.bound) return;
   btn.dataset.bound = "1";
-  const boxes = { cats: $("zooCats"), pals: $("zooPals"), bird: $("zooBird") };
+  const boxes = { cats: $("zooCats"), pals: $("zooPals"), bird: $("zooBird"), ball: $("zooBall") };
   const masterOn = () => {
     try { return localStorage.getItem("sc-pets") !== "off"; } catch (_) { return true; }
   };
   const paintMaster = () => {
     const on = masterOn();
     panel.classList.toggle("is-locked", !on);
-    for (const box of [boxes.cats, boxes.pals, boxes.bird]) {
+    for (const box of [boxes.cats, boxes.pals, boxes.bird, boxes.ball]) {
       if (box) box.disabled = !on;
     }
   };
@@ -13814,7 +13815,7 @@ function bindZoo() {
     if (!masterOn()) return;
     const t = e.target;
     if (!t) return;
-    const kind = t.id === "zooCats" ? "cats" : t.id === "zooPals" ? "quokka" : t.id === "zooBird" ? "rooster" : t.id === "zooPreg" ? "catPregnant" : t.id === "zooKits" ? "kittens" : "";
+    const kind = t.id === "zooCats" ? "cats" : t.id === "zooPals" ? "quokka" : t.id === "zooBird" ? "rooster" : t.id === "zooBall" ? "ball" : t.id === "zooPreg" ? "catPregnant" : t.id === "zooKits" ? "kittens" : "";
     if (!kind || !S.petGroupsWrite || t.disabled) return;
     S.petGroupsWrite(kind, !!t.checked);
     if (t.id === "zooCats") lockCatSubs();
