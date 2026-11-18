@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>黃球同步預覽</title>
+<style>
+  :root {
+    --bg: #0f1115; --soft: #171a20; --line: #262a32; --txt: #e8eaed; --dim: #7d848f;
+    --blue: #4c8dff; --pink: #ff7aa2; --me: #2b6cd4;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--txt);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  #app { max-width: 920px; height: 100%; margin: 0 auto; background: var(--bg); display: flex; flex-direction: column; }
+  header.top {
+    flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 10px 12px 8px; border-bottom: 1px solid var(--line);
+  }
+  header.top b { font-size: 15px; margin-right: auto; }
+  .seg { display: flex; gap: 4px; flex-wrap: wrap; }
+  .seg button, .focus button {
+    border: 1px solid var(--line); background: transparent; border-radius: 999px;
+    height: 32px; padding: 0 10px; font-size: 12px;
+  }
+  .seg button.on, .focus button.on { background: var(--me); border-color: transparent; }
+  .focus { display: none; gap: 4px; }
+  .phones { flex: 1 1 auto; min-height: 0; display: flex; gap: 10px; padding: 10px; }
+  .phone {
+    flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px;
+  }
+  .shell {
+    flex: 1 1 auto; min-height: 0; border-radius: 28px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,.16);
+    background: linear-gradient(180deg, #141820, #0e1116);
+    display: flex; flex-direction: column;
+    box-shadow: 0 16px 40px rgba(0,0,0,.35);
+  }
+  .bar {
+    height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 12px;
+    border-bottom: 1px solid var(--line); font-size: 13px;
+  }
+  .who { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; }
+  .who.m { color: #9ec1ff; border: 1.5px solid rgba(120,168,255,.85); }
+  .who.f { color: #ffb3c7; border: 1.5px solid rgba(255,140,164,.9); }
+  .role { margin-left: auto; font-size: 12px; color: var(--dim); }
+  .role.ref { color: #d6ff4a; }
+  .room { position: relative; flex: 1 1 auto; min-height: 220px; touch-action: none; overflow: hidden; }
+  .bub {
+    position: absolute; max-width: 70%; padding: 8px 12px; border-radius: 18px;
+    font-size: 14px; line-height: 1.35; pointer-events: none;
+  }
+  .bub.you { left: 12px; background: #1c2028; border-bottom-left-radius: 6px; }
+  .bub.me { right: 12px; background: var(--me); color: #fff; border-bottom-right-radius: 6px; }
+  .ball {
+    position: absolute; left: 0; top: 0; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+    border-radius: 50%; z-index: 3; pointer-events: none;
+    background: radial-gradient(circle at 34% 30%, #ffffe6 0 14%, #f6ff45 30%, #dcff00 62%, #a9cc00 100%);
+    box-shadow: 0 0 5px 1px rgba(226,255,40,.75), 0 0 14px 4px rgba(214,255,0,.28);
+  }
+  .ball.mini { width: 10px; height: 10px; margin: -5px 0 0 -5px; }
+  .ball i {
+    position: absolute; inset: 1px; border-radius: 50%;
+    border: 1.5px solid transparent;
+    border-left-color: rgba(120,150,0,.55); border-right-color: rgba(120,150,0,.55);
+  }
+  .shadow {
+    position: absolute; left: 0; bottom: 8px; width: 14px; height: 4px; margin-left: -7px;
+    border-radius: 50%; background: rgba(0,0,0,.35); z-index: 0; pointer-events: none;
+  }
+  .shadow.mini { width: 10px; height: 3px; margin-left: -5px; }
+  .tilt {
+    display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim);
+  }
+  .tilt input { flex: 1; accent-color: #d6ff4a; }
+  .note { padding: 0 12px 12px; color: var(--dim); font-size: 12px; line-height: 1.45; }
+  @media (max-width: 720px) {
+    .focus { display: flex; }
+    .phones.view-m .phone.f, .phones.view-f .phone.m { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <b>黃球同步</b>
+    <div class="seg" id="delay">
+      <button type="button" data-ms="0">延遲 0</button>
+      <button type="button" data-ms="150" class="on">150ms</button>
+      <button type="button" data-ms="400">400ms</button>
+    </div>
+    <div class="seg" id="mode">
+      <button type="button" data-mode="A" class="on">A 只算裁判傾斜</button>
+      <button type="button" data-mode="B">B 同步時關傾斜</button>
+    </div>
+    <div class="seg" id="rain">
+      <button type="button" data-rain="0" class="on">只有黃球</button>
+      <button type="button" data-rain="1">加上球雨</button>
+    </div>
+    <div class="focus" id="focus">
+      <button type="button" data-view="both" class="on">並排</button>
+      <button type="button" data-view="m">麥</button>
+      <button type="button" data-view="f">辛</button>
+    </div>
+  </header>
+  <div class="phones view-both" id="phones">
+    <section class="phone m" data-side="m">
+      <div class="shell">
+        <div class="bar"><span class="who m">麥</span><span>在線上</span><span class="role" id="roleM">跟隨</span></div>
+        <div class="room" id="roomM" data-side="m"></div>
+      </div>
+      <label class="tilt">傾斜 <input id="tiltM" type="range" min="-90" max="90" value="0" aria-label="麥的傾斜"></label>
+    </section>
+    <section class="phone f" data-side="f">
+      <div class="shell">
+        <div class="bar"><span class="who f">辛</span><span>在線上</span><span class="role" id="roleF">裁判</span></div>
+        <div class="room" id="roomF" data-side="f"></div>
+      </div>
+      <label class="tilt">傾斜 <input id="tiltF" type="range" min="-90" max="90" value="0" aria-label="辛的傾斜"></label>
+    </section>
+  </div>
+  <p class="note" id="note">拖哪一邊，誰就是裁判。另一邊依延遲後的廣播預測，再平滑追上。</p>
+</div>
+<script>
+(() => {
+  "use strict";
+  const W = 320, H = 460, R = 7, RR = 5, G = 1500, MAXV = 1500;
+  const DEAD = 4 * Math.PI / 180;
+  const BUBBLES = [
+    { x: 16, y: 36, w: 168, h: 42, me: false, text: "球給你囉" },
+    { x: 120, y: 96, w: 184, h: 42, me: true, text: "我來撥" },
+    { x: 16, y: 168, w: 132, h: 36, me: false, text: "看它滾" }
+  ];
+  const $ = (id) => document.getElementById(id);
+  const rooms = { m: $("roomM"), f: $("roomF") };
+  const views = {};
+  let delay = 150;
+  let mode = "A";
+  let rain = false;
+  let referee = "f";
+  let drag = null;
+  const queue = [];
+  const shown = { m: [], f: [] };
+
+  function makeBall(id, mini) {
+    return {
+      id, mini: !!mini, r: mini ? RR : R,
+      x: W * (0.35 + id * 0.08), y: 40 + id * 18,
+      vx: mini ? (id % 2 ? 80 : -60) : 40, vy: 0, spin: 0, squash: 0
+    };
+  }
+  let balls = [makeBall(0, false)];
+
+  function tiltOf(side) {
+    const deg = Number($(side === "m" ? "tiltM" : "tiltF").value) || 0;
+    const rad = deg * Math.PI / 180;
+    if (Math.abs(rad) < DEAD) return 0;
+    return rad;
+  }
+  function accel() {
+    if (mode === "B") return 0;
+    return Math.sin(tiltOf(referee)) * G;
+  }
+  function hitBubble(b, s) {
+    const rad = 14;
+    const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+    const hw = s.w / 2 - rad, hh = s.h / 2 - rad;
+    const dx = Math.abs(b.x - cx) - hw, dy = Math.abs(b.y - cy) - hh;
+    const ax = Math.max(dx, 0), ay = Math.max(dy, 0);
+    const sd = Math.min(Math.max(dx, dy), 0) + Math.hypot(ax, ay) - rad;
+    if (sd >= b.r) return;
+    const sx = b.x < cx ? -1 : 1, sy = b.y < cy ? -1 : 1;
+    let nx, ny;
+    if (dx > 0 && dy > 0) {
+      const l = Math.hypot(dx, dy) || 1;
+      nx = sx * dx / l; ny = sy * dy / l;
+    } else if (dx > dy) { nx = sx; ny = 0; }
+    else { nx = 0; ny = sy; }
+    b.x += nx * (b.r - sd);
+    b.y += ny * (b.r - sd);
+    const vn = b.vx * nx + b.vy * ny;
+    if (vn < 0) {
+      const e = -vn > 120 ? 0.8 : 0.3;
+      b.vx -= (1 + e) * vn * nx;
+      b.vy -= (1 + e) * vn * ny;
+      if (-vn > 160) b.squash = performance.now();
+    }
+  }
+  function stepBody(b, dt, ax) {
+    const sp = Math.hypot(b.vx, b.vy);
+    if (sp > MAXV) { b.vx *= MAXV / sp; b.vy *= MAXV / sp; }
+    const n = Math.max(1, Math.min(8, Math.ceil(sp * dt / (b.r * 0.8))));
+    const h = dt / n;
+    for (let i = 0; i < n; i++) {
+      b.vx += ax * h;
+      b.vy += G * h;
+      b.x += b.vx * h;
+      b.y += b.vy * h;
+      if (b.x < b.r) { b.x = b.r; if (b.vx < 0) b.vx = -b.vx * 0.8; }
+      if (b.x > W - b.r) { b.x = W - b.r; if (b.vx > 0) b.vx = -b.vx * 0.8; }
+      if (b.y < b.r + 8) { b.y = b.r + 8; if (b.vy < 0) b.vy = -b.vy * 0.75; }
+      if (b.y > H - b.r - 10) {
+        b.y = H - b.r - 10;
+        if (b.vy > 0) {
+          const v = b.vy;
+          b.vy = v > 90 ? -v * 0.72 : 0;
+          b.vx *= 0.93;
+          if (v > 160) b.squash = performance.now();
+        }
+      }
+      for (const s of BUBBLES) hitBubble(b, s);
+    }
+    const onFloor = b.y >= H - b.r - 10.6;
+    if (onFloor && Math.abs(b.vy) < 1 && Math.abs(ax) < 1) {
+      b.vx *= Math.pow(0.4, dt);
+      if (Math.abs(b.vx) < 3) b.vx = 0;
+    }
+    b.spin += b.vx * dt / b.r;
+  }
+  function cloneBalls(list) {
+    return list.map((b) => ({ id: b.id, mini: b.mini, r: b.r, x: b.x, y: b.y, vx: b.vx, vy: b.vy, spin: b.spin, squash: b.squash }));
+  }
+  function integrate(list, seconds, ax) {
+    const out = cloneBalls(list);
+    let left = Math.max(0, Math.min(1.2, seconds));
+    const slice = 1 / 60;
+    while (left > 0) {
+      const dt = Math.min(slice, left);
+      for (const b of out) stepBody(b, dt, ax);
+      left -= dt;
+    }
+    return out;
+  }
+
+  function paintRoom(side) {
+    const room = rooms[side];
+    room.innerHTML = "";
+    BUBBLES.forEach((s) => {
+      const el = document.createElement("div");
+      el.className = "bub " + (s.me ? "me" : "you");
+      el.textContent = s.text;
+      el.style.left = s.me ? "auto" : (s.x / W * 100) + "%";
+      el.style.right = s.me ? ((W - s.x - s.w) / W * 100) + "%" : "auto";
+      el.style.top = (s.y / H * 100) + "%";
+      el.style.width = (s.w / W * 100) + "%";
+      room.appendChild(el);
+    });
+    const count = rain ? 7 : 1;
+    for (let i = 0; i < count; i++) {
+      const sh = document.createElement("i");
+      sh.className = "shadow" + (i ? " mini" : "");
+      sh.dataset.ball = String(i);
+      const ball = document.createElement("div");
+      ball.className = "ball" + (i ? " mini" : "");
+      ball.dataset.ball = String(i);
+      ball.innerHTML = "<i></i>";
+      room.appendChild(sh);
+      room.appendChild(ball);
+    }
+    views[side] = room;
+  }
+  paintRoom("m");
+  paintRoom("f");
+  shown.m = cloneBalls(balls);
+  shown.f = cloneBalls(balls);
+
+  function place(side, list, now) {
+    const room = views[side];
+    const rect = room.getBoundingClientRect();
+    list.forEach((b) => {
+      const el = room.querySelector('.ball[data-ball="' + b.id + '"]');
+      const sh = room.querySelector('.shadow[data-ball="' + b.id + '"]');
+      if (!el || !sh) return;
+      const x = b.x / W * rect.width;
+      const y = b.y / H * rect.height;
+      const sq = now - b.squash < 90 ? " scale(1.18,0.82)" : "";
+      el.style.transform = "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px,0)" + sq;
+      el.querySelector("i").style.transform = "rotate(" + (b.spin * 57.3).toFixed(1) + "deg) scaleX(.45)";
+      const hgt = Math.max(0, (H - 10 - b.r) - b.y);
+      const k = Math.max(0.25, Math.min(1, 1 - hgt / 220));
+      sh.style.transform = "translate3d(" + x.toFixed(1) + "px,0,0) scale(" + k.toFixed(2) + ")";
+      sh.style.opacity = String(k);
+    });
+  }
+  function latest(now) {
+    let pkt = null;
+    for (const p of queue) if (p.deliver <= now) pkt = p;
+    return pkt;
+  }
+  function smoothToward(side, target, dt) {
+    const cur = shown[side];
+    while (cur.length < target.length) cur.push(cloneBalls([target[cur.length]])[0]);
+    cur.length = target.length;
+    const k = 1 - Math.exp(-12 * dt);
+    target.forEach((t, i) => {
+      const d = cur[i];
+      d.mini = t.mini; d.r = t.r; d.id = t.id;
+      d.x += (t.x - d.x) * k;
+      d.y += (t.y - d.y) * k;
+      d.vx += (t.vx - d.vx) * k;
+      d.vy += (t.vy - d.vy) * k;
+      d.spin += (t.spin - d.spin) * k;
+      d.squash = t.squash;
+    });
+  }
+
+  let lastSend = 0;
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.033, Math.max(0, (now - last) / 1000));
+    last = now;
+    if (!drag) {
+      const ax = accel();
+      for (const b of balls) stepBody(b, dt, ax);
+    }
+    if (now - lastSend > 50) {
+      lastSend = now;
+      queue.push({
+        at: now,
+        deliver: now + delay,
+        ax: accel(),
+        balls: cloneBalls(balls)
+      });
+      while (queue.length && queue[0].deliver < now - 2000) queue.shift();
+    }
+    ["m", "f"].forEach((side) => {
+      if (side === referee) {
+        shown[side] = cloneBalls(balls);
+      } else {
+        const pkt = latest(now);
+        if (pkt) {
+          const pred = integrate(pkt.balls, (now - pkt.at) / 1000, pkt.ax);
+          smoothToward(side, pred, dt);
+        }
+      }
+      place(side, shown[side], now);
+    });
+    $("roleM").textContent = referee === "m" ? "裁判" : "跟隨";
+    $("roleF").textContent = referee === "f" ? "裁判" : "跟隨";
+    $("roleM").classList.toggle("ref", referee === "m");
+    $("roleF").classList.toggle("ref", referee === "f");
+    const who = referee === "m" ? "麥" : "辛";
+    $("note").textContent = mode === "A"
+      ? "裁判是" + who + "。只有這支手機的傾斜會推球，另一邊晚 " + delay + "ms 再平滑追上。"
+      : "同步時傾斜關掉。兩邊都只受垂直重力，另一邊晚 " + delay + "ms 再平滑追上。";
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  function localPoint(room, e) {
+    const r = room.getBoundingClientRect();
+    return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+  }
+  function pickBall(p) {
+    let best = null, bestD = 1e9;
+    for (const b of balls) {
+      const d = Math.hypot(p.x - b.x, p.y - b.y);
+      if (d < b.r + 16 && d < bestD) { best = b; bestD = d; }
+    }
+    return best;
+  }
+  function onDown(e) {
+    const room = e.currentTarget;
+    const side = room.dataset.side;
+    const p = localPoint(room, e);
+    const b = pickBall(p);
+    if (!b) return;
+    if (referee !== side) {
+      balls = cloneBalls(shown[side].length ? shown[side] : balls);
+      referee = side;
+    }
+    const ball = balls.find((x) => x.id === b.id) || balls[0];
+    drag = { side, id: ball.id, x: p.x, y: p.y, t: performance.now(), samples: [{ x: p.x, y: p.y, t: performance.now() }] };
+    ball.x = p.x; ball.y = p.y; ball.vx = 0; ball.vy = 0;
+    try { room.setPointerCapture(e.pointerId); } catch (_) {}
+  }
+  function onMove(e) {
+    if (!drag || e.currentTarget.dataset.side !== drag.side) return;
+    const p = localPoint(e.currentTarget, e);
+    const b = balls.find((x) => x.id === drag.id);
+    if (!b) return;
+    const now = performance.now();
+    b.vx = (p.x - drag.x) / Math.max(0.016, (now - drag.t) / 1000);
+    b.vy = (p.y - drag.y) / Math.max(0.016, (now - drag.t) / 1000);
+    b.x = p.x; b.y = p.y;
+    drag.x = p.x; drag.y = p.y; drag.t = now;
+    drag.samples.push({ x: p.x, y: p.y, t: now });
+    drag.samples = drag.samples.filter((s) => now - s.t < 80);
+  }
+  function onUp(e) {
+    if (!drag || e.currentTarget.dataset.side !== drag.side) return;
+    const b = balls.find((x) => x.id === drag.id);
+    const s = drag.samples;
+    if (b && s.length >= 2) {
+      const a = s[0], c = s[s.length - 1];
+      const dt = Math.max(0.016, (c.t - a.t) / 1000);
+      b.vx = (c.x - a.x) / dt;
+      b.vy = (c.y - a.y) / dt;
+    }
+    drag = null;
+  }
+  Object.values(rooms).forEach((room) => {
+    room.addEventListener("pointerdown", onDown);
+    room.addEventListener("pointermove", onMove);
+    room.addEventListener("pointerup", onUp);
+    room.addEventListener("pointercancel", onUp);
+  });
+
+  function setRain(on) {
+    rain = on;
+    if (on && balls.length < 7) {
+      for (let i = balls.length; i < 7; i++) balls.push(makeBall(i, true));
+    }
+    if (!on) balls = balls.filter((b) => b.id === 0);
+    paintRoom("m");
+    paintRoom("f");
+    shown.m = cloneBalls(balls);
+    shown.f = cloneBalls(balls);
+  }
+  $("delay").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    delay = Number(b.dataset.ms);
+    $("delay").querySelectorAll("button").forEach((el) => el.classList.toggle("on", el === b));
+  });
+  $("mode").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    mode = b.dataset.mode;
+    $("mode").querySelectorAll("button").forEach((el) => el.classList.toggle("on", el === b));
+  });
+  $("rain").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    setRain(b.dataset.rain === "1");
+    $("rain").querySelectorAll("button").forEach((el) => el.classList.toggle("on", el === b));
+  });
+  $("focus").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    $("phones").className = "phones view-" + b.dataset.view;
+    $("focus").querySelectorAll("button").forEach((el) => el.classList.toggle("on", el === b));
+  });
+  window.addEventListener("resize", () => { paintRoom("m"); paintRoom("f"); });
+})();
+</script>
+</body>
+</html>
