@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v62.00">
+<meta name="sc-shell" content="v62.01">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -911,6 +911,7 @@
       <span class="c-doodle-name">塗鴉板<span class="c-doodle-rings" id="doodleRings"></span></span>
       <button type="button" class="c-doodle-mini" id="doodleGallery">作品</button>
       <button type="button" class="c-doodle-mini" id="doodleSave">存檔</button>
+      <button type="button" class="c-doodle-mini" id="doodleClear">清除</button>
       <button type="button" class="c-doodle-mini" id="doodleClose">關閉</button>
     </div>
     <div class="c-doodle-tools">
@@ -950,6 +951,16 @@
       <div class="c-gx-row">
         <button class="c-gx-ghost" type="button" id="doodleAskNo">拒絕／稍後</button>
         <button class="c-gx-go" type="button" id="doodleAskYes">同意</button>
+      </div>
+    </div>
+  </div>
+  <div class="c-gx" id="doodleClearAsk" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <h2 id="doodleClearTitle">清除</h2>
+      <p id="doodleClearText">確定清除整張板嗎？不會存進作品集。</p>
+      <div class="c-gx-row">
+        <button class="c-gx-ghost" type="button" id="doodleClearNo">取消</button>
+        <button class="c-gx-go" type="button" id="doodleClearYes">送出請求</button>
       </div>
     </div>
   </div>
