@@ -70,7 +70,7 @@
   .row.me .bub { background: var(--me); color: #fff; border-bottom-right-radius: 6px; }
   .row.you .bub { border-bottom-left-radius: 6px; }
   .composer {
-    flex: 0 0 auto; z-index: 8; display: flex; gap: 8px; align-items: flex-end;
+    flex: 0 0 auto; z-index: 10; display: flex; gap: 8px; align-items: flex-end;
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--line); background: var(--bg);
   }
@@ -94,18 +94,26 @@
   .sub { padding: 0 6px 6px 14px; display: none; }
   .sub.open { display: block; }
   .call { width: 100%; display: flex; align-items: center; justify-content: space-between; border: 0; background: transparent; border-radius: 10px; padding: 9px 8px; }
-  .duo { display: flex; gap: 6px; }
-  .duo .call { flex: 1 1 0; width: auto; min-width: 0; min-height: 44px; gap: 4px; padding: 6px 8px; }
-  .duo .call span { white-space: nowrap; font-size: 14px; }
-  .duo .call b { min-width: 32px; height: 26px; padding: 0 6px; font-size: 12px; }
+  .doodle-line {
+    min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 4px 8px; border-radius: 10px;
+  }
+  .doodle-line > span { font-size: 15px; white-space: nowrap; }
+  .doodle-acts { display: flex; gap: 6px; flex: none; }
+  .doodle-acts button {
+    min-width: 44px; height: 32px; padding: 0 10px; border: 0; border-radius: 999px;
+    background: rgba(255,255,255,.1); font-weight: 680; font-size: 13px;
+  }
+  .doodle-acts button.on { background: #3d7aee; }
   .call b {
     min-width: 44px; height: 28px; border-radius: 999px; display: grid; place-items: center;
     background: rgba(255,255,255,.08); font-weight: 650; font-size: 13px;
   }
   .sheet {
-    position: absolute; z-index: 6; left: 50%; top: calc(var(--bar) + 8px);
-    width: min(90%, 380px);
-    height: min(85%, calc(100% - var(--bar) - var(--in) - 12px));
+    position: absolute; z-index: 9; left: 50%;
+    top: max(4px, calc(100% - var(--in) - 90%));
+    width: min(94%, 440px);
+    height: min(90%, calc(100% - var(--in) - 4px));
     transform: translateX(-50%) translateY(10px) scale(.98);
     opacity: 0; pointer-events: none;
     display: flex; flex-direction: column;
@@ -134,20 +142,20 @@
   .tools { padding: 4px 8px 6px; display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
   .rowt { display: flex; gap: 4px; align-items: center; }
   select.brush, .sz {
-    height: 36px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18);
-    background: #12161e; color: #f4f7fb; padding: 0 8px; font-size: 13px;
+    height: 30px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18);
+    background: #12161e; color: #f4f7fb; padding: 0 8px; font-size: 12px;
   }
   select.brush { flex: 1 1 auto; min-width: 0; }
-  .sz { flex: 0 0 36px; padding: 0; }
+  .sz { flex: 0 0 30px; padding: 0; }
   .sz.on { background: #3d7aee; border-color: transparent; }
-  .chip { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #fff; padding: 0; flex: none; }
+  .chip { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; padding: 0; flex: none; }
   .iconrow { display: flex; gap: 4px; }
   .ib {
-    flex: 1 1 0; min-width: 0; height: 40px; border-radius: 12px; border: 1px solid rgba(255,255,255,.16);
+    flex: 1 1 0; min-width: 0; height: 30px; border-radius: 10px; border: 1px solid rgba(255,255,255,.16);
     background: rgba(255,255,255,.06); color: #f4f7fb; padding: 0;
     display: grid; place-items: center;
   }
-  .ib svg { width: 20px; height: 20px; display: block; }
+  .ib svg { width: 16px; height: 16px; display: block; }
   .ib.on { background: #3d7aee; border-color: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
   .veil {
     position: absolute; inset: 0; z-index: 20; background: rgba(0,0,0,.45);
@@ -225,6 +233,24 @@
     opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 30;
   }
   .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .floaters {
+    position: absolute; z-index: 11; left: 14px; right: 14px;
+    bottom: calc(var(--in) + 8px);
+    display: flex; flex-direction: column; pointer-events: none;
+  }
+  .floater {
+    align-self: flex-start; max-width: 78%; margin-top: 8px; padding: 8px 12px;
+    border-radius: 18px 18px 18px 6px; background: rgba(92,98,110,.94); color: #fff;
+    font-size: 15px; line-height: 1.45; box-shadow: 0 8px 22px rgba(0,0,0,.35);
+    pointer-events: none; overflow: hidden; max-height: 96px;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity .45s ease, transform .45s cubic-bezier(.2,.8,.2,1), max-height .45s ease, margin-top .45s ease, padding .45s ease;
+  }
+  .floater.show { opacity: 1; transform: none; }
+  .floater.mai { background: rgba(76,141,255,.94); }
+  .floater.xin { background: rgba(255,122,162,.94); }
+  .floater.plain { background: rgba(92,98,110,.94); }
+  .floater.out { opacity: 0; transform: translateY(-8px); max-height: 0; margin-top: 0; padding-top: 0; padding-bottom: 0; }
   .picker {
     position: absolute; z-index: 24; left: 50%; top: 12%;
     width: min(300px, calc(100% - 36px));
@@ -277,9 +303,12 @@
       <button class="call" type="button"><span>命運輪盤</span><b>轉</b></button>
       <button class="call" type="button"><span>呼叫</span><b>☎</b></button>
       <button class="call" type="button"><span>愛我嗎?</span><b>♥</b></button>
-      <div class="duo">
-        <button class="call" id="btnInvite" type="button"><span>邀請塗鴉</span><b>邀</b></button>
-        <button class="call" id="btnBoard" type="button"><span>塗鴉板</span><b id="boardMark">關</b></button>
+      <div class="doodle-line">
+        <span>塗鴉板</span>
+        <span class="doodle-acts">
+          <button id="btnInvite" type="button">邀</button>
+          <button id="btnBoard" type="button" aria-label="打開塗鴉板">開</button>
+        </span>
       </div>
     </div>
   </div>
@@ -311,10 +340,11 @@
         <button class="sz" data-sz="l" type="button">大</button>
       </div>
       <div class="iconrow">
+        <button class="ib on" data-mode="draw" type="button" aria-label="自由畫"><svg viewBox="0 0 24 24"><path d="M4.6 19.4 9 18.2 18.6 8.6a1.7 1.7 0 0 0 0-2.4l-.8-.8a1.7 1.7 0 0 0-2.4 0L5.8 15 4.6 19.4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m13.2 6.8 4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
         <button class="ib" data-mode="circle" type="button" aria-label="畫圈"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
         <button class="ib" data-mode="line" type="button" aria-label="直線"><svg viewBox="0 0 24 24"><path d="M6 18 18 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
         <button class="ib" data-mode="rect" type="button" aria-label="方塊"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
-        <button class="ib" id="btnUndo" type="button" aria-label="上一步"><svg viewBox="0 0 24 24"><path d="M8 8H4v4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 12a8 8 0 1 0 2-5.3L4 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+        <button class="ib" id="btnUndo" type="button" aria-label="上一步"><svg viewBox="0 0 24 24"><path d="M9 8.2H6.2L8.2 6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.4 8.5a6 6 0 1 1-1.4 4.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       </div>
     </div>
     <div class="paper" id="paper">
@@ -322,6 +352,8 @@
       <i class="nib" id="nib"></i>
     </div>
   </div>
+
+  <div class="floaters" id="floaters"></div>
 
   <form class="composer" id="form">
     <input id="text" placeholder="輸入訊息" autocomplete="off" enterkeyhint="send">
@@ -369,6 +401,7 @@
     <button class="wide" id="simDraw" type="button">對方畫幾筆</button>
     <button class="wide" id="simBoard" type="button">對方開關白板</button>
     <button class="wide" id="simInvite" type="button">對方發邀請</button>
+    <button class="wide" id="simSay" type="button">對方傳訊息</button>
   </div>
   <div class="picker" id="picker">
     <div class="swatches" id="swatches"></div>
@@ -439,7 +472,9 @@
   function paintWho() {
     $("whoM").classList.toggle("on", true);
     $("whoF").classList.toggle("on", true);
-    $("boardMark").textContent = people[me].open ? "開" : "關";
+    $("btnBoard").textContent = people[me].open ? "關" : "開";
+    $("btnBoard").classList.toggle("on", people[me].open);
+    $("btnBoard").setAttribute("aria-label", people[me].open ? "關閉塗鴉板" : "打開塗鴉板");
     $("segMe").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.me === me));
     const peer = other();
     $("segBind").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.bind === people[peer].bind));
@@ -899,6 +934,37 @@
     toast(people[who].name + (people[who].open ? " 打開了白板" : " 關掉了白板"));
   });
   $("simInvite").addEventListener("click", () => { $("sim").classList.remove("open"); showAsk(other()); });
+  const peerLines = ["我看到了", "這筆好好看", "再畫一點", "我在下面"];
+  let peerLine = 0;
+  $("simSay").addEventListener("click", () => {
+    $("sim").classList.remove("open");
+    addLine(peerLines[peerLine++ % peerLines.length], other());
+  });
+
+  function floaterTone(who) {
+    const b = people[who].bind;
+    return b === "m" ? "mai" : b === "f" ? "xin" : "plain";
+  }
+  function addLine(text, who) {
+    const row = document.createElement("div");
+    row.className = "row " + (who === "m" ? "me" : "you");
+    row.innerHTML = "<div class='bub'></div>";
+    row.querySelector(".bub").textContent = text;
+    $("msgs").appendChild(row);
+    $("msgs").scrollTop = $("msgs").scrollHeight;
+    if (!$("sheet").classList.contains("on")) return;
+    const el = document.createElement("div");
+    el.className = "floater " + floaterTone(who);
+    el.textContent = text;
+    $("floaters").appendChild(el);
+    requestAnimationFrame(() => el.classList.add("show"));
+    setTimeout(() => {
+      el.classList.add("out");
+      const done = () => el.remove();
+      el.addEventListener("transitionend", done, { once: true });
+      setTimeout(done, 700);
+    }, 5000);
+  }
 
   const text = $("text");
   text.addEventListener("input", () => { $("btnSend").disabled = !text.value.trim(); });
@@ -906,12 +972,7 @@
     e.preventDefault();
     const v = text.value.trim();
     if (!v) return;
-    const row = document.createElement("div");
-    row.className = "row " + (me === "m" ? "me" : "you");
-    row.innerHTML = "<div class='bub'></div>";
-    row.querySelector(".bub").textContent = v;
-    $("msgs").appendChild(row);
-    $("msgs").scrollTop = $("msgs").scrollHeight;
+    addLine(v, me);
     text.value = "";
     $("btnSend").disabled = true;
   });
