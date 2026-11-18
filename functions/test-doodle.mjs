@@ -99,6 +99,68 @@ const nested = flattenStrokes({
 assert.equal(nested.length, 2);
 assert.equal(nested.find((s) => s.by === "bob").tool, "line");
 
+/* Firebase ChildrenNode.val()：整數鍵且 max < 2 * count 時收成陣列，
+   而且只寫入有值的索引，所以從 1 起的筆畫會在 index 0 留洞。 */
+function firebaseChildrenVal(obj) {
+  const box = {};
+  let count = 0;
+  let max = 0;
+  let numeric = true;
+  for (const key of Object.keys(obj)) {
+    box[key] = obj[key];
+    count++;
+    if (numeric && /^(0|[1-9]\d*)$/.test(key)) max = Math.max(max, Number(key));
+    else numeric = false;
+  }
+  if (numeric && max < 2 * count) {
+    const arr = [];
+    for (const key in box) arr[key] = box[key];
+    return arr;
+  }
+  return box;
+}
+const alicePen = encodeStroke({ by: "alice", tool: "pen", color: "#1a1a1a", z: "m", t: 10, pts: [{ x: 0.1, y: 0.2, r: 0.02 }] });
+const aliceCircle = encodeStroke({ by: "alice", tool: "circle", color: "#e23b3b", z: "l", t: 12, a: { x: 0.2, y: 0.2 }, b: { x: 0.5, y: 0.6 } });
+const bobLine = encodeStroke({ by: "bob", tool: "line", color: "#ffffff", z: "m", t: 11, a: { x: 0, y: 0 }, b: { x: 1, y: 1 } });
+const bobPen = encodeStroke({ by: "bob", tool: "pen", color: "#2f6fed", z: "s", t: 13, pts: [{ x: 0.8, y: 0.3, r: 0.02 }] });
+const sharedSnap = {
+  alice: firebaseChildrenVal({ 1: alicePen, 2: aliceCircle }),
+  bob: firebaseChildrenVal({ 1: bobLine, 2: bobPen }),
+};
+assert.equal(Array.isArray(sharedSnap.alice), true);
+assert.equal(0 in sharedSnap.alice, false);
+assert.equal(1 in sharedSnap.alice, true);
+const shared = flattenStrokes(sharedSnap);
+assert.equal(shared.length, 4);
+assert.equal(shared.filter((s) => s.by === "alice").length, 2);
+assert.equal(shared.filter((s) => s.by === "bob").length, 2);
+assert.equal(shared.find((s) => s.id === "alice/1").tool, "pen");
+assert.equal(shared.find((s) => s.id === "alice/2").tool, "circle");
+assert.equal(shared.find((s) => s.id === "bob/1").tool, "line");
+assert.equal(shared.find((s) => s.id === "bob/2").tool, "pen");
+const firstOnly = flattenStrokes({
+  alice: firebaseChildrenVal({ 1: alicePen }),
+  bob: firebaseChildrenVal({ 1: bobLine }),
+});
+assert.equal(firstOnly.length, 2);
+const drawing = { id: "alice/3", by: "alice", tool: "pen", color: "#1a1a1a", z: "m", t: 30, pts: [{ x: 0.2, y: 0.2, r: 0.02 }] };
+const live = mergeStrokes(shared, [drawing]);
+assert.equal(live.some((s) => s.id === "alice/3"), true);
+assert.equal(live.some((s) => s.id === "bob/1"), true);
+assert.equal(live.some((s) => s.id === "bob/2"), true);
+assert.equal(ownUndoId(live, "alice"), "alice/3");
+assert.equal(ownUndoId(live, "bob"), "bob/2");
+const afterUndo = flattenStrokes({
+  alice: firebaseChildrenVal({ 1: alicePen, 2: aliceCircle }),
+  bob: firebaseChildrenVal({ 1: bobLine }),
+});
+assert.equal(afterUndo.some((s) => s.id === "bob/2"), false);
+assert.equal(afterUndo.some((s) => s.id === "bob/1"), true);
+assert.equal(afterUndo.some((s) => s.id === "alice/2"), true);
+const reopened = mergeStrokes(shared, []);
+assert.equal(reopened.length, 4);
+assert.equal(new Set(reopened.map((s) => s.by)).size, 2);
+
 const now = Date.now();
 assert.equal(inviteEffect({ id: "a1", by: "alice", phase: "ask", t: now }, "bob", now, "").dialog, true);
 assert.equal(inviteEffect({ id: "a1", by: "alice", phase: "ask", t: now }, "bob", now, "a1").dialog, false);
@@ -126,7 +188,7 @@ const app = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
 const board = fs.readFileSync(new URL("../doodle.js", import.meta.url), "utf8");
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../style.css", import.meta.url), "utf8");
-assert.match(app, /const APP_VERSION = "v61\.99"/);
+assert.match(app, /const APP_VERSION = "v62\.00"/);
 assert.match(app, /S\.doodle\?\.open/);
 assert.match(board, /rooms\/\$\{room\}\/doodle/);
 assert.match(html, /塗鴉板/);
