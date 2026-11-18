@@ -94,6 +94,10 @@
   .sub { padding: 0 6px 6px 14px; display: none; }
   .sub.open { display: block; }
   .call { width: 100%; display: flex; align-items: center; justify-content: space-between; border: 0; background: transparent; border-radius: 10px; padding: 9px 8px; }
+  .duo { display: flex; gap: 6px; }
+  .duo .call { flex: 1 1 0; width: auto; min-width: 0; min-height: 44px; gap: 4px; padding: 6px 8px; }
+  .duo .call span { white-space: nowrap; font-size: 14px; }
+  .duo .call b { min-width: 32px; height: 26px; padding: 0 6px; font-size: 12px; }
   .call b {
     min-width: 44px; height: 28px; border-radius: 999px; display: grid; place-items: center;
     background: rgba(255,255,255,.08); font-weight: 650; font-size: 13px;
@@ -236,6 +240,13 @@
   .sv { position: relative; height: 160px; border-radius: 12px; touch-action: none; }
   .hue { position: relative; height: 28px; margin: 12px 0; border-radius: 999px; touch-action: none;
     background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 0 0 12px; }
+  .swatches button {
+    width: 28px; height: 28px; border-radius: 50%; padding: 0; flex: none;
+    border: 2px solid rgba(255,255,255,.45);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.28);
+  }
+  .swatches button.on { box-shadow: 0 0 0 2px #8eb8ff, inset 0 0 0 1px rgba(0,0,0,.28); }
   .knob {
     position: absolute; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff;
     box-shadow: 0 1px 4px rgba(0,0,0,.45); transform: translate(-9px, -9px); pointer-events: none;
@@ -266,8 +277,10 @@
       <button class="call" type="button"><span>命運輪盤</span><b>轉</b></button>
       <button class="call" type="button"><span>呼叫</span><b>☎</b></button>
       <button class="call" type="button"><span>愛我嗎?</span><b>♥</b></button>
-      <button class="call" id="btnInvite" type="button"><span>邀請塗鴉</span><b>邀</b></button>
-      <button class="call" id="btnBoard" type="button"><span>塗鴉板</span><b id="boardMark">關</b></button>
+      <div class="duo">
+        <button class="call" id="btnInvite" type="button"><span>邀請塗鴉</span><b>邀</b></button>
+        <button class="call" id="btnBoard" type="button"><span>塗鴉板</span><b id="boardMark">關</b></button>
+      </div>
     </div>
   </div>
 
@@ -298,7 +311,6 @@
         <button class="sz" data-sz="l" type="button">大</button>
       </div>
       <div class="iconrow">
-        <button class="ib" id="btnEraser" type="button" aria-label="橡皮擦"><svg viewBox="0 0 24 24"><path d="M4 14.5 13.2 5.3a2 2 0 0 1 2.8 0l2.7 2.7a2 2 0 0 1 0 2.8L10 19.5H5.2L4 14.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 19.5h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
         <button class="ib" data-mode="circle" type="button" aria-label="畫圈"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
         <button class="ib" data-mode="line" type="button" aria-label="直線"><svg viewBox="0 0 24 24"><path d="M6 18 18 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
         <button class="ib" data-mode="rect" type="button" aria-label="方塊"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
@@ -359,6 +371,7 @@
     <button class="wide" id="simInvite" type="button">對方發邀請</button>
   </div>
   <div class="picker" id="picker">
+    <div class="swatches" id="swatches"></div>
     <div class="sv" id="sv"><i class="knob" id="svDot"></i></div>
     <div class="hue" id="hue"><i class="knob" id="hueDot"></i></div>
     <div class="btns">
@@ -454,16 +467,6 @@
     const pts = s.pts;
     if (!pts || !pts.length) return;
     ctx.save();
-    if (s.eraser) {
-      ctx.globalCompositeOperation = "destination-out";
-      pts.forEach((p, i) => {
-        const q = px(p.x, p.y);
-        stamp(q.x, q.y, radius(p.r), "#000", 1);
-        if (i) link(pts[i - 1], p, "#000", 1, "destination-out");
-      });
-      ctx.restore();
-      return;
-    }
     if (s.tool === "water") {
       pts.forEach((p) => blot(p, s.color));
     } else if (s.tool === "brush") {
@@ -584,7 +587,6 @@
     if (tool === "high") k = 1.35;
     if (tool === "water") k = 1.05;
     if (tool === "pen") k = 0.55;
-    if (mode === "erase") k = 1.4;
     return SIZE[size] * k;
   }
   function down(e) {
@@ -597,7 +599,7 @@
       redraw();
       return;
     }
-    drawing = { owner: me, tool, color, eraser: mode === "erase", pts: [], last: null, t: performance.now() };
+    drawing = { owner: me, tool, color, pts: [], last: null, t: performance.now() };
     pushPoint(p, performance.now());
   }
   function move(e) {
@@ -708,7 +710,6 @@
         owner: who,
         tool: ["pen", "marker", "brush", "water", "high"][n % 5],
         color: ["#1a1a1a", "#e23b3b", "#2f6fed", "#2f9e57", "#7a4de0"][n % 5],
-        eraser: false,
         pts: []
       };
       strokes.push(stroke);
@@ -735,9 +736,12 @@
 
   function syncMode() {
     document.querySelectorAll(".ib").forEach((el) => {
-      const m = el.id === "btnEraser" ? "erase" : el.dataset.mode;
-      el.classList.toggle("on", !!m && m === mode);
+      el.classList.toggle("on", !!el.dataset.mode && el.dataset.mode === mode);
     });
+  }
+  const SWATCHES = ["#1a1a1a", "#ffffff", "#e23b3b", "#f08a24", "#f2c14e", "#2f9e57", "#2f6fed", "#7a4de0", "#e56aaa", "#8a5a3b"];
+  function paintSwatches() {
+    document.querySelectorAll("#swatches button").forEach((b) => b.classList.toggle("on", b.dataset.hex === (draft || "").toLowerCase()));
   }
   function hsvToRgb(h, s, v) {
     const c = v * s, hp = h / 60, x = c * (1 - Math.abs(hp % 2 - 1));
@@ -769,6 +773,7 @@
     $("hueDot").style.left = (hsv.h / 360 * 100) + "%";
     $("hueDot").style.top = "50%";
     $("hueDot").style.background = "hsl(" + hsv.h + ",100%,50%)";
+    paintSwatches();
   }
   function dragPad(el, move) {
     const go = (e) => {
@@ -794,12 +799,24 @@
   $("pickYes").addEventListener("click", () => {
     color = draft || color;
     $("chip").style.background = color;
-    if (mode === "erase") mode = "draw";
+    mode = "draw";
     syncMode();
     $("picker").classList.remove("on");
   });
+  SWATCHES.forEach((hex) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.hex = hex;
+    b.style.background = hex;
+    b.setAttribute("aria-label", hex === "#ffffff" ? "白色" : hex);
+    b.addEventListener("click", () => {
+      const rgb = rgbOf(hex);
+      hsv = rgbToHsv(rgb[0], rgb[1], rgb[2]);
+      paintPicker();
+    });
+    $("swatches").appendChild(b);
+  });
   document.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => { mode = b.dataset.mode; syncMode(); }));
-  $("btnEraser").addEventListener("click", () => { mode = mode === "erase" ? "draw" : "erase"; syncMode(); });
 
   cv.addEventListener("pointerdown", down);
   cv.addEventListener("pointermove", move);
