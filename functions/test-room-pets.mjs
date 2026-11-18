@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { decodeQuokkaGif, quokkaFrame, quokkaMirror, QUOKKA_CSS_AT_REF } from '../quokka-gif.js';
 import { Bobo } from '../bobo.js';
-import { petGroupsFromSnap, loadPetGroups, savePetGroups } from '../droop.js';
+import { petGroupsFromSnap, loadPetGroups, savePetGroups, normalizePetGroups, showPetBall } from '../droop.js';
 
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -251,19 +251,27 @@ assert.match(html, /id="setPets"/);
 assert.match(html, /聊天室貓咪與趣味特效/);
 assert.match(app, /KEY: "sc-pets"/);
 
-assert.deepEqual(petGroupsFromSnap(null), { cats: true, quokka: true, rooster: true, catPregnant: false, kittens: false });
-assert.deepEqual(petGroupsFromSnap({}), { cats: true, quokka: true, rooster: true, catPregnant: false, kittens: false });
-assert.deepEqual(petGroupsFromSnap({ quokka: { on: false, t: 1, by: "abc" } }), { cats: true, quokka: false, rooster: true, catPregnant: false, kittens: false });
+assert.deepEqual(petGroupsFromSnap(null), { cats: true, quokka: true, rooster: true, ball: true, catPregnant: false, kittens: false });
+assert.deepEqual(petGroupsFromSnap({}), { cats: true, quokka: true, rooster: true, ball: true, catPregnant: false, kittens: false });
+assert.deepEqual(petGroupsFromSnap({ quokka: { on: false, t: 1, by: "abc" } }), { cats: true, quokka: false, rooster: true, ball: true, catPregnant: false, kittens: false });
 assert.equal(petGroupsFromSnap({ cats: { on: true, t: 1, by: "abc" } }).cats, true);
 assert.equal(petGroupsFromSnap({ catPregnant: { on: true, t: 1, by: "a" } }).catPregnant, true);
 assert.equal(petGroupsFromSnap({ kittens: { on: false, t: 1, by: "a" } }).kittens, false);
+const catsOff = petGroupsFromSnap({ cats: { on: false, t: 1, by: "a" } });
+assert.equal(catsOff.cats, false);
+assert.equal(catsOff.ball, true);
+assert.equal(showPetBall(true, catsOff, "loose"), true);
+assert.equal(showPetBall(false, catsOff, "loose"), false);
+assert.equal(showPetBall(true, petGroupsFromSnap({ ball: { on: false, t: 1, by: "a" } }), "loose"), false);
+assert.equal(showPetBall(true, petGroupsFromSnap(null), "hidden"), false);
+assert.equal(normalizePetGroups({ cats: false, quokka: true, rooster: false, catPregnant: false, kittens: false }).ball, true);
 const mem = new Map();
 globalThis.localStorage = {
   getItem: (k) => (mem.has(k) ? mem.get(k) : null),
   setItem: (k, v) => mem.set(k, String(v)),
   removeItem: (k) => mem.delete(k),
 };
-const off = { cats: false, quokka: false, rooster: false, catPregnant: true, kittens: true };
+const off = { cats: false, quokka: false, rooster: false, ball: false, catPregnant: true, kittens: true };
 savePetGroups("room-a", off);
 assert.deepEqual(loadPetGroups("room-a"), off);
 assert.equal(loadPetGroups("room-b"), null);
@@ -276,8 +284,11 @@ assert.match(app, /savePetGroups\(roomId, g\)/);
 assert.match(app, /ready: !!ready/);
 assert.match(pets, /groupsReady = false/);
 assert.match(pets, /d\.ready === false/);
-assert.match(pets, /groups\.cats === false \|\| ball\.state === "hidden"/);
+assert.match(pets, /showPetBall\(groupsReady, groups, ball\.state\)/);
+assert.match(pets, /groups\.ball = d\.ball !== false/);
 assert.match(css, /#chat\.pets-hold #cats/);
+assert.match(html, /id="zooBall"/);
+assert.match(app, /kind !== "ball"/);
 assert.match(html, /灰貓懷孕/);
 assert.match(html, /召喚幼貓 ×2/);
 assert.match(html, /id="zooCatMore"/);
@@ -294,6 +305,7 @@ assert.equal(petRules.$other['.validate'], false);
 assert.match(petRules['.validate'], /\$kind === 'quokka'/);
 assert.match(petRules['.validate'], /\$kind === 'cats'/);
 assert.match(petRules['.validate'], /\$kind === 'rooster'/);
+assert.match(petRules['.validate'], /\$kind === 'ball'/);
 assert.match(petRules['.validate'], /catPregnant/);
 assert.match(petRules['.validate'], /kittens/);
 assert.match(petRules.on['.validate'], /isBoolean/);
@@ -307,6 +319,8 @@ const petCtx = {
     hasChildren: (keys) => keys.every((k) => ["on", "t", "by"].includes(k)),
   },
 };
+assert.equal(vm.runInNewContext(petRules['.validate'], petCtx), true);
+petCtx.$kind = "ball";
 assert.equal(vm.runInNewContext(petRules['.validate'], petCtx), true);
 petCtx.$kind = "bear";
 assert.equal(vm.runInNewContext(petRules['.validate'], petCtx), false);

@@ -1,5 +1,5 @@
 /* 聊天室裡的兩隻擬真貓（棕色虎斑、灰貓）、螢光球、咬泡泡、吊著與談戀愛。只在這台瀏覽器裡跑，不上傳。 */
-import { Droop } from "./droop.js";
+import { Droop, showPetBall } from "./droop.js";
 import { tiltAngle, tiltAcquire, tiltRelease, tiltAsk, tiltAccelX } from "./tilt.js";
 import { REAL } from "./real-cats.js";
 import { attachRooster } from "./rooster-room.js";
@@ -617,7 +617,7 @@ export function mountRoomPets() {
       ballEl.style.zIndex = host === layer ? "5" : "";
     }
     function renderBall(now) {
-      if (!groupsReady || groups.cats === false || ball.state === "hidden") { ballEl.style.display = "none"; ballShadow.style.display = "none"; return; }
+      if (!showPetBall(groupsReady, groups, ball.state)) { ballEl.style.display = "none"; ballShadow.style.display = "none"; return; }
       ballEl.style.display = ""; ballShadow.style.display = "";
       /* 叼著的球跟叼牠的貓在同一層：在牠頭上、但在前面那隻貓後面（貓是 1 或 3，球就是 2 或 4） */
       const carrier = ball.state === "carried" ? ball.carrier : null;
@@ -3693,7 +3693,7 @@ export function mountRoomPets() {
        總開關 sc-pets 關掉時這台裝置全部不顯示，分組狀態仍留在房間裡。
        現場切換才跑進跑出；晚進房或總開關重新打開只對齊目前狀態。 */
     let groupsReady = false;
-    let groups = { cats: false, quokka: false, rooster: false };
+    let groups = { cats: false, quokka: false, rooster: false, ball: false };
     let phase = { cats: "gone", quokka: "gone", rooster: "gone" };
     function motionOk() {
       try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (_) { return true; }
@@ -4064,12 +4064,14 @@ export function mountRoomPets() {
       const now = performance.now();
       if (!d || d.ready === false) {
         groupsReady = false;
+        groups.ball = false;
         applyGroups({ cats: false, quokka: false, rooster: false, catPregnant: false, kittens: false }, false, now);
         ballEl.style.display = "none";
         ballShadow.style.display = "none";
         return;
       }
       groupsReady = true;
+      groups.ball = d.ball !== false;
       applyGroups({
         cats: d.cats !== false,
         quokka: d.quokka !== false,
