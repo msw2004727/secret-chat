@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v61.96">
+<meta name="sc-shell" content="v61.97">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -383,6 +383,13 @@
           <button type="button" class="c-zoo-callbtn is-love" id="zooLove" aria-label="愛我嗎?">
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 20.4 4.6 13.2C2.4 11 2.5 7.6 4.8 5.6a4.4 4.4 0 0 1 6 .3l.2.2.2-.2a4.4 4.4 0 0 1 6-.3c2.3 2 2.4 5.4.2 7.6L12 20.4z"/></svg>
           </button>
+        </div>
+        <div class="c-zoo-row c-doodle-line">
+          <span>塗鴉板</span>
+          <span class="c-doodle-acts">
+            <button type="button" id="doodleInvite">邀</button>
+            <button type="button" id="doodleBoard" aria-label="打開塗鴉板">開</button>
+          </span>
         </div>
           </div>
         </div>
@@ -899,6 +906,93 @@
   <div class="c-plantbg" id="plantBg" aria-hidden="true" hidden></div>
 
   <!-- 兩隻貓和螢光球走在輸入列上方。不吃點擊，長按訊息與清空都從這一層穿過去。 -->
+  <div class="c-doodle" id="doodleSheet" aria-hidden="true">
+    <div class="c-doodle-hd">
+      <span class="c-doodle-name">塗鴉板<span class="c-doodle-rings" id="doodleRings"></span></span>
+      <button type="button" class="c-doodle-mini" id="doodleGallery">作品</button>
+      <button type="button" class="c-doodle-mini" id="doodleSave">存檔</button>
+      <button type="button" class="c-doodle-mini" id="doodleClose">關閉</button>
+    </div>
+    <div class="c-doodle-tools">
+      <div class="c-doodle-row">
+        <select id="doodleBrush" aria-label="畫筆">
+          <option value="pen">原子筆</option>
+          <option value="marker">麥克筆</option>
+          <option value="high">螢光筆</option>
+          <option value="brush">毛筆</option>
+          <option value="water">水彩筆</option>
+        </select>
+        <button type="button" class="c-doodle-chip" id="doodleChip" aria-label="調色盤"></button>
+        <button type="button" class="c-doodle-sz" data-doodle-size="s">小</button>
+        <button type="button" class="c-doodle-sz on" data-doodle-size="m">中</button>
+        <button type="button" class="c-doodle-sz" data-doodle-size="l">大</button>
+      </div>
+      <div class="c-doodle-icons">
+        <button type="button" class="c-doodle-ib on" data-doodle-mode="draw" aria-label="自由畫"><svg viewBox="0 0 24 24"><path d="M4.6 19.4 9 18.2 18.6 8.6a1.7 1.7 0 0 0 0-2.4l-.8-.8a1.7 1.7 0 0 0-2.4 0L5.8 15 4.6 19.4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m13.2 6.8 4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+        <button type="button" class="c-doodle-ib" data-doodle-mode="circle" aria-label="畫圈"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
+        <button type="button" class="c-doodle-ib" data-doodle-mode="line" aria-label="直線"><svg viewBox="0 0 24 24"><path d="M6 18 18 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+        <button type="button" class="c-doodle-ib" data-doodle-mode="rect" aria-label="方塊"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
+        <button type="button" class="c-doodle-ib" id="doodleUndo" aria-label="上一步"><svg viewBox="0 0 24 24"><path d="M9 8.2H6.2L8.2 6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.4 8.5a6 6 0 1 1-1.4 4.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+    <div class="c-doodle-paper" id="doodlePaper">
+      <div class="c-doodle-stage" id="doodleStage">
+        <canvas id="doodleCv"></canvas>
+        <div class="c-doodle-nibs" id="doodleNibs"></div>
+      </div>
+    </div>
+  </div>
+  <div class="c-doodle-floats" id="doodleFloats"></div>
+  <div class="c-gx" id="doodleAsk" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <h2>邀請你一起塗鴉</h2>
+      <p>要打開共同白板嗎？</p>
+      <div class="c-gx-row">
+        <button class="c-gx-ghost" type="button" id="doodleAskNo">先不要</button>
+        <button class="c-gx-go" type="button" id="doodleAskYes">打開</button>
+      </div>
+    </div>
+  </div>
+  <div class="c-gx" id="doodleConfirm" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <h2 id="doodleConfirmTitle">存檔</h2>
+      <p id="doodleConfirmText">確定存檔並清空嗎？</p>
+      <div class="c-gx-row">
+        <button class="c-gx-ghost" type="button" id="doodleSaveNo">取消</button>
+        <button class="c-gx-go" type="button" id="doodleSaveYes">確定</button>
+      </div>
+    </div>
+  </div>
+  <div class="c-gx c-doodle-sheet" id="doodleGal" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <button class="c-gx-x c-doodle-x" type="button" id="doodleGalX" aria-label="關閉"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <h2>作品集</h2>
+      <div class="c-doodle-grid" id="doodleGrid"></div>
+    </div>
+  </div>
+  <div class="c-gx" id="doodleView" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <button class="c-gx-x c-doodle-x" type="button" id="doodleViewX" aria-label="關閉"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <img id="doodleViewImg" alt="">
+      <p id="doodleViewTime"></p>
+      <div class="c-gx-row">
+        <button class="c-gx-ghost" type="button" id="doodleViewDown">下載</button>
+        <button class="c-gx-ghost" type="button" id="doodleViewDel">刪除</button>
+      </div>
+    </div>
+  </div>
+  <div class="c-gx" id="doodlePicker" hidden>
+    <div class="c-gx-card" role="dialog" aria-modal="true">
+      <div class="c-doodle-swatches" id="doodleSwatches"></div>
+      <div class="c-doodle-sv" id="doodleSv"><i id="doodleSvDot"></i></div>
+      <div class="c-doodle-hue" id="doodleHue"><i id="doodleHueDot"></i></div>
+      <div class="c-gx-row">
+        <button class="c-gx-ghost" type="button" id="doodlePickNo">取消</button>
+        <button class="c-gx-go" type="button" id="doodlePickYes">確認</button>
+      </div>
+    </div>
+  </div>
+
   <div id="cats" aria-hidden="true"></div>
 
   <div class="c-input" id="sendForm">

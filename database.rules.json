@@ -674,6 +674,64 @@
             ".validate": false
           }
         },
+        "doodle": {
+          ".read": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+          ".write": "auth != null && $roomId.length == 32 && (root.child('acl/' + $roomId + '/on').val() === false || root.child('admin/' + auth.uid).val() === true || (auth.token.lp === true && root.child('acl/' + $roomId + '/ok/' + auth.uid).val() === true))",
+          "open": {
+            "$id": { ".validate": "$id.length <= 64 && newData.isBoolean()" }
+          },
+          "side": {
+            "$id": { ".validate": "$id.length <= 64 && (newData.val() == 'm' || newData.val() == 'f' || newData.val() == 'n')" }
+          },
+          "nib": {
+            "$id": {
+              ".validate": "!newData.exists() || newData.hasChildren(['x','y','on'])",
+              "x": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000 && newData.val() % 1 == 0" },
+              "y": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000 && newData.val() % 1 == 0" },
+              "on": { ".validate": "newData.isBoolean()" },
+              "$other": { ".validate": false }
+            }
+          },
+          "strokes": {
+            "$id": {
+              ".validate": "$id.matches(/^(?:[1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-3][0-9]|240)$/) && (!newData.exists() || (newData.hasChildren(['by','tool','color','z','t']) && ((newData.child('tool').val() == 'circle' || newData.child('tool').val() == 'line' || newData.child('tool').val() == 'rect') ? newData.hasChildren(['a','b']) : newData.hasChildren(['pts']))))",
+              "by": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
+              "tool": { ".validate": "newData.val() == 'pen' || newData.val() == 'marker' || newData.val() == 'high' || newData.val() == 'brush' || newData.val() == 'water' || newData.val() == 'circle' || newData.val() == 'line' || newData.val() == 'rect'" },
+              "color": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-f]{6}$/)" },
+              "z": { ".validate": "newData.val() == 's' || newData.val() == 'm' || newData.val() == 'l'" },
+              "t": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 120000" },
+              "pts": { ".validate": "newData.isString() && newData.val().length <= 6000 && newData.val().matches(/^(\\d{1,5},\\d{1,5},\\d{1,5})(;\\d{1,5},\\d{1,5},\\d{1,5}){0,179}$/)" },
+              "a": { ".validate": "newData.isString() && newData.val().matches(/^\\d{1,5},\\d{1,5}$/)" },
+              "b": { ".validate": "newData.isString() && newData.val().matches(/^\\d{1,5},\\d{1,5}$/)" },
+              "$other": { ".validate": false }
+            }
+          },
+          "g": {
+            "$id": {
+              ".validate": "$id.matches(/^(?:[1-9]|1[0-9]|20)$/) && (!newData.exists() || newData.hasChildren(['by','t','jpg']))",
+              "by": { ".validate": "newData.isString() && newData.val().length <= 64" },
+              "t": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 120000" },
+              "jpg": { ".validate": "newData.isString() && newData.val().length <= 140000 && newData.val().beginsWith('data:image/jpeg')" },
+              "$other": { ".validate": false }
+            }
+          },
+          "invite": {
+            ".validate": "!newData.exists() || newData.hasChildren(['id','by','t'])",
+            "id": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
+            "by": { ".validate": "newData.isString() && newData.val().length <= 64" },
+            "t": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 120000" },
+            "$other": { ".validate": false }
+          },
+          "save": {
+            ".validate": "!newData.exists() || newData.hasChildren(['id','by','phase','t'])",
+            "id": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
+            "by": { ".validate": "newData.isString() && newData.val().length <= 64" },
+            "phase": { ".validate": "newData.val() == 'ask' || newData.val() == 'yes' || newData.val() == 'no'" },
+            "t": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 120000" },
+            "$other": { ".validate": false }
+          },
+          "$other": { ".validate": false }
+        },
         "$other": {
           ".validate": false
         }

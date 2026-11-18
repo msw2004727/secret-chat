@@ -4216,3 +4216,105 @@ html[data-theme="light"] .ink { stroke: #1c2430; }
   12% { opacity: 1; }
   100% { transform: translate(300px, -36px) rotate(160deg); opacity: 0; }
 }
+
+/* 塗鴉板。固定直式畫布疊在聊天上，輸入列保持可打。 */
+.c-doodle-line { min-height: 44px; }
+.c-doodle-acts { display: flex; gap: 6px; flex: none; }
+.c-doodle-acts button {
+  min-width: 44px; height: 32px; padding: 0 10px; border: 0; border-radius: 999px;
+  background: rgba(127,127,127,.16); color: inherit; font: inherit; font-weight: 680; font-size: 13px;
+}
+.c-doodle-acts button.on { background: #3d7aee; color: #fff; }
+.c-doodle {
+  position: absolute; z-index: 9; left: 50%;
+  width: min(94%, 440px);
+  top: max(4px, calc(100% - var(--doodle-in, 72px) - 90%));
+  height: min(90%, calc(100% - var(--doodle-in, 72px) - 4px));
+  transform: translateX(-50%) translateY(8px) scale(.98);
+  opacity: 0; pointer-events: none;
+  display: flex; flex-direction: column;
+  border-radius: 22px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,.4);
+  background: linear-gradient(165deg, rgba(40,46,58,.94), rgba(14,16,22,.92));
+  color: #f4f7fb;
+  box-shadow: 0 18px 40px rgba(0,0,0,.4);
+  transition: opacity .28s ease, transform .28s cubic-bezier(.2,.8,.2,1);
+}
+.c-doodle.on { opacity: 1; transform: translateX(-50%); pointer-events: auto; }
+#chat.doodle-on .c-input { z-index: 12; }
+.c-doodle-hd { display: flex; align-items: center; gap: 6px; padding: 8px 8px 4px; }
+.c-doodle-name { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; font-weight: 650; }
+.c-doodle-rings { display: inline-flex; gap: 4px; min-height: 12px; }
+.c-doodle-dot { width: 11px; height: 11px; border-radius: 50%; border: 2px solid currentColor; box-sizing: border-box; }
+.c-doodle-dot.blue { color: #4c8dff; }
+.c-doodle-dot.pink { color: #ff7aa2; }
+.c-doodle-dot.gray { color: #b7c0cc; }
+.c-doodle-mini { border: 0; background: rgba(255,255,255,.1); color: #f4f7fb; border-radius: 999px; height: 28px; padding: 0 10px; font-size: 12px; }
+.c-doodle-tools { padding: 4px 8px 6px; display: flex; flex-direction: column; gap: 4px; }
+.c-doodle-row, .c-doodle-icons { display: flex; gap: 4px; align-items: center; }
+.c-doodle-row select, .c-doodle-sz, .c-doodle-ib {
+  height: 30px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18);
+  background: #12161e; color: #f4f7fb; font-size: 12px;
+}
+.c-doodle-row select { flex: 1; min-width: 0; padding: 0 8px; }
+.c-doodle-sz { flex: 0 0 30px; padding: 0; }
+.c-doodle-chip { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; padding: 0; flex: none; background: #1a1a1a; }
+.c-doodle-ib {
+  flex: 1 1 0; min-width: 0; border-radius: 10px; padding: 0;
+  display: grid; place-items: center; background: rgba(255,255,255,.06);
+}
+.c-doodle-ib svg { width: 16px; height: 16px; display: block; }
+.c-doodle-sz.on, .c-doodle-ib.on { background: #3d7aee; border-color: transparent; }
+.c-doodle-paper { flex: 1 1 auto; min-height: 0; margin: 0 8px 8px; display: grid; place-items: center; }
+.c-doodle-stage { position: relative; background: #fffdf8; border-radius: 14px; overflow: hidden; touch-action: none; }
+.c-doodle-stage canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.c-doodle-nibs { position: absolute; inset: 0; pointer-events: none; }
+.c-doodle-nib {
+  position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+.c-doodle-nib.blue { background: #4c8dff; }
+.c-doodle-nib.pink { background: #ff7aa2; }
+.c-doodle-nib.gray { background: #b7c0cc; }
+.c-doodle-floats {
+  position: absolute; z-index: 11; left: 14px; right: 14px;
+  bottom: calc(var(--doodle-in, 72px) + 8px);
+  display: flex; flex-direction: column; pointer-events: none;
+}
+.c-doodle-floater {
+  align-self: flex-start; max-width: 78%; margin-top: 8px; padding: 8px 12px;
+  border-radius: 18px 18px 18px 6px; color: #fff; font-size: 15px; line-height: 1.45;
+  pointer-events: none; overflow: hidden; max-height: 96px;
+  opacity: 0; transform: translateY(8px);
+  box-shadow: 0 8px 22px rgba(0,0,0,.35);
+  transition: opacity .45s ease, transform .45s cubic-bezier(.2,.8,.2,1), max-height .45s ease, margin-top .45s ease, padding .45s ease;
+}
+.c-doodle-floater.show { opacity: 1; transform: none; }
+.c-doodle-floater.mai { background: rgba(76,141,255,.94); }
+.c-doodle-floater.xin { background: rgba(255,122,162,.94); }
+.c-doodle-floater.plain { background: rgba(92,98,110,.94); }
+.c-doodle-floater.out { opacity: 0; transform: translateY(-8px); max-height: 0; margin-top: 0; padding-top: 0; padding-bottom: 0; }
+.c-doodle-x { display: grid; place-items: center; }
+.c-doodle-x svg { display: block; }
+.c-doodle-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 46vh; overflow: auto; }
+.c-doodle-cell { border: 0; background: rgba(255,255,255,.06); border-radius: 12px; padding: 4px; text-align: left; color: inherit; }
+.c-doodle-cell img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px; background: #fff; display: block; }
+.c-doodle-cell small, .c-doodle-empty { display: block; color: #c5ced8; font-size: 10px; margin-top: 4px; }
+#doodleViewImg { width: 100%; border-radius: 12px; background: #fff; }
+.c-doodle-swatches { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; }
+.c-doodle-swatches button {
+  width: 28px; height: 28px; border-radius: 50%; padding: 0; border: 2px solid rgba(255,255,255,.45);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.28);
+}
+.c-doodle-swatches button.on { box-shadow: 0 0 0 2px #8eb8ff, inset 0 0 0 1px rgba(0,0,0,.28); }
+.c-doodle-sv { position: relative; height: 150px; border-radius: 12px; touch-action: none; }
+.c-doodle-hue {
+  position: relative; height: 28px; margin: 12px 0; border-radius: 999px; touch-action: none;
+  background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.c-doodle-sv i, .c-doodle-hue i {
+  position: absolute; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.45); transform: translate(-9px, -9px); pointer-events: none;
+}
+.c-doodle-sheet { align-items: flex-end; }
+.c-doodle-sheet .c-gx-card { width: min(420px, 100%); border-radius: 18px 18px 0 0; }

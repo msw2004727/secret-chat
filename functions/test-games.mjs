@@ -196,7 +196,7 @@ const games = fs.readFileSync(new URL("../games.js", import.meta.url), "utf8");
 assert.match(games, /rooms\/\$\{roomId\}\/games\/ooxx/);
 assert.match(games, /rooms\/\$\{roomId\}\/ooxxWins/);
 assert.match(app, /mountGames/);
-assert.match(app, /const APP_VERSION = "v61\.96"/);
+assert.match(app, /const APP_VERSION = "v61\.97"/);
 assert.match(html, /id="gxAskClose"/);
 assert.match(css, /\.c-gx-x \{[^}]*width:\s*44px/);
 assert.match(css, /\.c-gx-x \{[^}]*top:\s*8px/);
