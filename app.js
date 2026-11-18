@@ -16,6 +16,7 @@ import { pairLocAgeSec, pairLocClock, pairLocDistance, PAIR_LOC_STALE_MS } from 
 import { mountPondShark } from "./pond-shark.js";
 import { mountPondShare } from "./pond-share.js";
 import { mountGames, snapSeals } from "./games.js";
+import { mountDoodle } from "./doodle.js";
 attachBubbleFx(Droop);
 
 const CFG = window.CONFIG;
@@ -26,7 +27,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v61.96";
+const APP_VERSION = "v61.97";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5380,6 +5381,7 @@ async function enterChat() {
   Acl.watch(f, S.roomId);
   S.share?.open(f, S.roomId, S.subs, () => S.gen === myGen && !$("chat").hidden);
   S.games?.open(f, S.roomId, S.subs, () => S.gen === myGen && !$("chat").hidden);
+  S.doodle?.open(f, S.roomId, S.subs, () => S.gen === myGen && !$("chat").hidden, { id: S.clientId, side: pairSide() });
 
   /* --- 6.1 在線狀態 --- */
   const meRef = ref(db, `${base}/p/${S.clientId}`);
@@ -8693,6 +8695,7 @@ function appendMsg(m) {
         只要有一則含「愛」就會當場噴 100 顆 —— 每次進房都滿天愛心。
         往上翻舊訊息走的是另一條路（直接 prepend），本來就不會經過這裡。 */
   Love.maybeBurst(m);
+  try { S.doodle?.note(m); } catch (_) {}
   tryMarkRecv();     // 先回報「收到」—— 不受遮罩／捲動位置影響
   tryMarkRead();     // 再看夠不夠格算「看到」
 }
@@ -9352,6 +9355,7 @@ function bindChatUI() {
   });
   S.share = mountPondShare($("pondShare"));
   S.games = mountGames(document, { toast, getSide: pairSide });
+  S.doodle = mountDoodle(document, { toast, closeGear: () => S.closeGear?.() });
   bindSettings();
   bindNotes();
   bindHeart();
@@ -10296,6 +10300,7 @@ function leaveChat() {
   FilePicker.pending = null;
   HomeSwitch.lock();
   // 1. 解除這一輪房間的所有訂閱，避免舊房的狀態滲進下一輪
+  try { S.doodle?.close(); } catch (_) {}
   (S.subs || []).forEach((off) => { try { off(); } catch (_) {} });
   S.subs = [];
   S.messagePresence = null;
@@ -13596,6 +13601,7 @@ function pairSide() {
 }
 function bindPairSide(side) {
   try { localStorage.setItem(pairSideKey(), side); } catch (_) {}
+  try { S.doodle?.setSide(side); } catch (_) {}
 }
 function paintPair() {
   const now = nowServer();
@@ -13703,6 +13709,7 @@ async function tapPair(side) {
 }
 function unbindPair() {
   try { localStorage.removeItem(pairSideKey()); } catch (_) {}
+  try { S.doodle?.setSide(""); } catch (_) {}
   const ask = $("pairAsk");
   if (ask) ask.hidden = true;
   paintPair();
