@@ -51,16 +51,16 @@
   .who.on.f { color: #ffb3c7; border-color: rgba(255,140,164,.9); }
   .link { width: 36px; height: 16px; position: relative; display: grid; place-items: center; }
   .link svg { width: 36px; height: 12px; color: rgba(232,234,237,.34); }
-  .peer {
-    position: absolute; width: 8px; height: 8px; border-radius: 50%;
-    box-shadow: 0 0 0 2px var(--bg);
-    transform: scale(.4); opacity: 0; pointer-events: none;
+  .board-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex: none;
+    box-shadow: 0 0 0 2px rgba(14,16,22,.9);
+    transform: scale(.4); opacity: 0;
     transition: transform .22s cubic-bezier(.2,.8,.2,1), opacity .22s ease;
   }
-  .peer.show { transform: scale(1); opacity: 1; }
-  .peer.blue { background: var(--blue); }
-  .peer.pink { background: var(--pink); }
-  .peer.green { background: var(--green); }
+  .board-dot.show { transform: scale(1); opacity: 1; }
+  .board-dot.blue { background: var(--blue); }
+  .board-dot.pink { background: var(--pink); }
+  .board-dot.green { background: var(--green); }
   .right { margin-left: auto; display: flex; align-items: center; }
   .msgs { flex: 1 1 auto; overflow-y: auto; padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 8px; }
   .row { display: flex; }
@@ -102,8 +102,8 @@
   }
   .sheet {
     position: absolute; z-index: 6; left: 50%; top: calc(var(--bar) + 8px);
-    width: min(84%, 340px);
-    height: min(60%, calc(100% - var(--bar) - var(--in) - 24px));
+    width: min(90%, 380px);
+    height: min(85%, calc(100% - var(--bar) - var(--in) - 12px));
     transform: translateX(-50%) translateY(10px) scale(.98);
     opacity: 0; pointer-events: none;
     display: flex; flex-direction: column;
@@ -117,7 +117,7 @@
   .sheet head, .sheet .hd {
     display: flex; align-items: center; gap: 6px; padding: 8px 8px 4px; color: #f4f7fb;
   }
-  .hd span { font-size: 14px; font-weight: 650; margin-right: auto; }
+  .hd .name { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 650; margin-right: auto; }
   .mini {
     border: 0; background: rgba(255,255,255,.1); color: #f4f7fb; border-radius: 999px;
     height: 28px; padding: 0 10px; font-size: 12px;
@@ -133,16 +133,15 @@
   .rowt { display: flex; gap: 6px; align-items: center; }
   .rowt .scroll { display: flex; gap: 6px; overflow-x: auto; flex: 1; scrollbar-width: none; }
   .rowt .scroll::-webkit-scrollbar { display: none; }
-  .tool, .sz, .act {
-    flex: 0 0 auto; height: 32px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18);
-    background: rgba(255,255,255,.06); color: #f4f7fb; padding: 0 10px; font-size: 12px;
+  select.brush, .sz, .act {
+    flex: 0 0 auto; height: 36px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18);
+    background: #12161e; color: #f4f7fb; padding: 0 10px; font-size: 13px;
   }
-  .tool.on, .sz.on, .act.on { background: #3d7aee; border-color: transparent; }
-  .swatch {
-    width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; padding: 0; flex: none;
+  select.brush { flex: 1; min-width: 0; }
+  .sz.on, .act.on { background: #3d7aee; border-color: transparent; }
+  .chip {
+    width: 36px; height: 36px; border-radius: 50%; border: 2px solid #fff; padding: 0; flex: none;
   }
-  .swatch.on { border-color: #fff; }
-  input[type="color"] { width: 26px; height: 26px; border: 0; padding: 0; background: transparent; flex: none; }
   .veil {
     position: absolute; inset: 0; z-index: 20; background: rgba(0,0,0,.45);
     display: flex; align-items: flex-end; justify-content: center;
@@ -155,7 +154,14 @@
     transform: translateY(16px); transition: transform .28s cubic-bezier(.2,.8,.2,1);
   }
   .veil.on .card { transform: none; }
+  .card { position: relative; }
   .card h3 { margin: 0 0 10px; font-size: 16px; text-align: center; }
+  .x {
+    position: absolute; top: 8px; right: 8px; z-index: 2;
+    width: 44px; height: 44px; border: 0; border-radius: 50%;
+    background: rgba(255,255,255,.16); color: #fff; font-size: 28px; line-height: 1;
+  }
+  .view > .x { top: max(12px, env(safe-area-inset-top)); right: 12px; }
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 46vh; overflow: auto; }
   .cell { border: 0; background: var(--bg-soft); border-radius: 12px; padding: 4px; text-align: left; }
   .cell img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px; background: #fff; display: block; }
@@ -167,13 +173,14 @@
     transform: translateX(-50%) translateY(8px) scale(.96);
     opacity: 0; pointer-events: none;
     border-radius: 22px; padding: 18px 16px 14px; text-align: center; color: #f4f7fb;
-    border: 1px solid rgba(255,255,255,.46);
-    background: linear-gradient(165deg, rgba(255,255,255,.16), rgba(16,18,24,.72));
-    box-shadow: 0 18px 40px rgba(0,0,0,.38);
+    border: 1px solid rgba(255,255,255,.22);
+    background: #1b2130;
+    color: #f7f8fa;
+    box-shadow: 0 18px 40px rgba(0,0,0,.62);
     transition: opacity .28s ease, transform .28s cubic-bezier(.2,.8,.2,1);
   }
   .ask.on, .confirm.on { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
-  .ask p, .confirm p { margin: 8px 0 14px; }
+  .ask p, .confirm p, .picker p { margin: 8px 0 14px; color: #f7f8fa; }
   .btns { display: flex; gap: 8px; }
   .btns button { flex: 1; min-height: 44px; border: 0; border-radius: 999px; font-weight: 680; }
   .go { background: linear-gradient(180deg, #8eb8ff, #1c4eaf); color: #fff; }
@@ -205,6 +212,25 @@
     opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 30;
   }
   .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .picker {
+    position: absolute; z-index: 24; left: 50%; top: 12%;
+    width: min(300px, calc(100% - 36px));
+    transform: translateX(-50%) translateY(8px) scale(.96);
+    opacity: 0; pointer-events: none;
+    border-radius: 22px; padding: 16px; text-align: center;
+    background: #1b2130; color: #f7f8fa;
+    border: 1px solid rgba(255,255,255,.22);
+    box-shadow: 0 18px 40px rgba(0,0,0,.62);
+    transition: opacity .28s ease, transform .28s cubic-bezier(.2,.8,.2,1);
+  }
+  .picker.on { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
+  .sv { position: relative; height: 160px; border-radius: 12px; touch-action: none; }
+  .hue { position: relative; height: 28px; margin: 12px 0; border-radius: 999px; touch-action: none;
+    background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+  .knob {
+    position: absolute; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.45); transform: translate(-9px, -9px); pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -216,7 +242,6 @@
       <button class="who m on" id="whoM" type="button">麥</button>
       <div class="link" aria-hidden="true">
         <svg viewBox="0 0 36 12"><path d="M4 6h28" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
-        <i class="peer" id="peerDot"></i>
       </div>
       <button class="who f on" id="whoF" type="button">辛</button>
     </div>
@@ -244,7 +269,7 @@
 
   <div class="sheet" id="sheet">
     <div class="hd">
-      <span>塗鴉板</span>
+      <span class="name">塗鴉板<i class="board-dot" id="peerDot"></i></span>
       <button class="mini" id="btnGallery" type="button">作品</button>
       <button class="mini" id="btnSave" type="button">存檔</button>
       <button class="mini" id="btnClose" type="button">關閉</button>
@@ -254,15 +279,28 @@
       <i class="nib" id="nib"></i>
     </div>
     <div class="tools">
-      <div class="rowt scroll" id="brushes"></div>
       <div class="rowt">
+        <select class="brush" id="brush">
+          <option value="pen">原子筆</option>
+          <option value="marker">麥克筆</option>
+          <option value="high">螢光筆</option>
+          <option value="brush">毛筆</option>
+          <option value="water">水彩筆</option>
+        </select>
+        <button class="chip" id="chip" type="button" aria-label="調色盤"></button>
+      </div>
+      <div class="rowt scroll">
         <button class="sz" data-sz="s" type="button">小</button>
         <button class="sz on" data-sz="m" type="button">中</button>
         <button class="sz" data-sz="l" type="button">大</button>
         <button class="act" id="btnEraser" type="button">橡皮</button>
         <button class="act" id="btnUndo" type="button">上一步</button>
+        <button class="act" data-mode="circle" type="button">圓圈</button>
+        <button class="act" data-mode="rect" type="button">方塊</button>
+        <button class="act" data-mode="line" type="button">直線</button>
+        <button class="act" data-mode="fill" type="button">油漆桶</button>
+        <button class="act" data-mode="pick" type="button">吸色</button>
       </div>
-      <div class="rowt"><div class="scroll" id="colors"></div></div>
     </div>
   </div>
 
@@ -289,12 +327,14 @@
   </div>
   <div class="veil" id="gallery">
     <div class="card">
+      <button class="x" id="galX" type="button" aria-label="關閉">×</button>
       <h3>作品集</h3>
       <div class="grid" id="grid"></div>
       <button class="mini" id="galClose" type="button" style="margin-top:10px;width:100%">收合</button>
     </div>
   </div>
   <div class="view" id="view">
+    <button class="x" id="viewX" type="button" aria-label="關閉">×</button>
     <img id="viewImg" alt="">
     <small id="viewTime"></small>
     <div class="btns" style="width:min(320px,100%)">
@@ -311,29 +351,37 @@
     <button class="wide" id="simBoard" type="button">對方開關白板</button>
     <button class="wide" id="simInvite" type="button">對方發邀請</button>
   </div>
+  <div class="picker" id="picker">
+    <div class="sv" id="sv"><i class="knob" id="svDot"></i></div>
+    <div class="hue" id="hue"><i class="knob" id="hueDot"></i></div>
+    <div class="btns">
+      <button class="ghost" id="pickNo" type="button">取消</button>
+      <button class="go" id="pickYes" type="button">確認</button>
+    </div>
+  </div>
   <div class="toast" id="toast"></div>
 </div>
 <script>
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const TOOLS = [
-    ["pen", "原子筆"], ["marker", "麥克筆"], ["high", "螢光筆"], ["brush", "毛筆"], ["water", "水彩筆"]
-  ];
-  const COLORS = ["#1a1a1a", "#f4f1ea", "#e23b3b", "#f08a24", "#e2b143", "#2f9e57", "#2f6fed", "#7a4de0", "#e85aa0", "#8a5a3a"];
   const SIZE = { s: 0.012, m: 0.022, l: 0.038 };
+  const SHAPES = { circle: 1, rect: 1, line: 1 };
   const people = {
     m: { name: "麥", bind: "m", open: false },
     f: { name: "辛", bind: "f", open: false }
   };
   let me = "m";
   let tool = "pen";
+  let mode = "draw";
   let size = "m";
-  let color = COLORS[0];
-  let eraser = false;
+  let color = "#1a1a1a";
+  let hsv = { h: 0, s: 0, v: 0.1 };
+  let draft = null;
   const strokes = [];
   const gallery = [];
   let drawing = null;
+  let shape = null;
   let peerTimer = 0;
   let viewId = "";
   let toastTimer = 0;
@@ -361,7 +409,7 @@
   function paintDot() {
     const peer = other();
     const dot = $("peerDot");
-    dot.className = "peer " + bindColor(peer) + (people[peer].open ? " show" : "");
+    dot.className = "board-dot " + bindColor(peer) + (people[peer].open ? " show" : "");
   }
   function paintWho() {
     $("whoM").classList.toggle("on", true);
@@ -403,6 +451,8 @@
       ctx.restore();
       return;
     }
+    if (SHAPES[s.tool]) { drawShape(s); ctx.restore(); return; }
+    if (s.tool === "fill") { flood(s.x, s.y, s.color); ctx.restore(); return; }
     if (s.tool === "water") {
       pts.forEach((p) => blot(p, s.color));
     } else if (s.tool === "brush") {
@@ -470,6 +520,72 @@
       ctx.restore();
     }
   }
+  function drawShape(s) {
+    const a = px(s.a.x, s.a.y), b = px(s.b.x, s.b.y);
+    ctx.save();
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = Math.max(1.5, radius(s.r) * 2);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    if (s.tool === "line") { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    else if (s.tool === "rect") ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+    else {
+      ctx.ellipse((a.x + b.x) / 2, (a.y + b.y) / 2, Math.max(1, Math.abs(b.x - a.x) / 2), Math.max(1, Math.abs(b.y - a.y) / 2), 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function rgbOf(hex) {
+    const n = hex.replace("#", "");
+    const v = parseInt(n.length === 3 ? n.split("").map((c) => c + c).join("") : n, 16);
+    return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+  }
+  function hexOf(r, g, b) {
+    return "#" + [r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("");
+  }
+  function flood(nx, ny, hex) {
+    const w = cv.width, h = cv.height;
+    if (!w || !h) return;
+    const x0 = Math.max(0, Math.min(w - 1, Math.floor(nx * w)));
+    const y0 = Math.max(0, Math.min(h - 1, Math.floor(ny * h)));
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const img = ctx.getImageData(0, 0, w, h);
+    const d = img.data;
+    const i0 = (y0 * w + x0) * 4;
+    const sr = d[i0], sg = d[i0 + 1], sb = d[i0 + 2];
+    const fill = rgbOf(hex);
+    const tol = 36;
+    const near = (i) => Math.abs(d[i] - sr) + Math.abs(d[i + 1] - sg) + Math.abs(d[i + 2] - sb) <= tol;
+    if (Math.abs(sr - fill[0]) + Math.abs(sg - fill[1]) + Math.abs(sb - fill[2]) <= 8) { ctx.restore(); return; }
+    const seen = new Uint8Array(w * h);
+    const stack = [x0, y0];
+    while (stack.length) {
+      const y = stack.pop();
+      let x = stack.pop();
+      let p = y * w + x;
+      while (x >= 0 && !seen[p] && near(p * 4)) { x--; p--; }
+      x++; p++;
+      let up = false, dn = false;
+      while (x < w && !seen[p] && near(p * 4)) {
+        seen[p] = 1;
+        const o = p * 4;
+        d[o] = fill[0]; d[o + 1] = fill[1]; d[o + 2] = fill[2]; d[o + 3] = 255;
+        if (y > 0) {
+          if (!seen[p - w] && near((p - w) * 4)) { if (!up) { stack.push(x, y - 1); up = true; } }
+          else up = false;
+        }
+        if (y < h - 1) {
+          if (!seen[p + w] && near((p + w) * 4)) { if (!dn) { stack.push(x, y + 1); dn = true; } }
+          else dn = false;
+        }
+        x++; p++;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    ctx.restore();
+  }
   function hexA(hex, a) {
     const n = hex.replace("#", "");
     const v = parseInt(n.length === 3 ? n.split("").map((c) => c + c).join("") : n, 16);
@@ -482,6 +598,7 @@
     ctx.fillStyle = "#fffdf8";
     ctx.fillRect(0, 0, w, h);
     strokes.forEach(drawStroke);
+    if (shape) drawShape(shape);
   }
 
   function localPoint(e) {
@@ -498,17 +615,42 @@
     if (tool === "high") k = 1.35;
     if (tool === "water") k = 1.05;
     if (tool === "pen") k = 0.55;
-    if (eraser) k = 1.4;
+    if (mode === "erase") k = 1.4;
     return SIZE[size] * k;
   }
   function down(e) {
     if (!$("sheet").classList.contains("on")) return;
-    cv.setPointerCapture(e.pointerId);
+    if (e.button && e.button !== 0) return;
     const p = localPoint(e);
-    drawing = { owner: me, tool: eraser ? "pen" : tool, color, eraser, pts: [], last: null, t: performance.now() };
+    if (mode === "pick") {
+      const x = Math.max(0, Math.min(cv.width - 1, Math.floor(p.x * cv.width)));
+      const y = Math.max(0, Math.min(cv.height - 1, Math.floor(p.y * cv.height)));
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const pix = ctx.getImageData(x, y, 1, 1).data;
+      ctx.restore();
+      color = hexOf(pix[0], pix[1], pix[2]);
+      hsv = rgbToHsv(pix[0], pix[1], pix[2]);
+      $("chip").style.background = color;
+      mode = "draw";
+      syncMode();
+      return;
+    }
+    if (mode === "fill") {
+      strokes.push({ owner: me, tool: "fill", color, x: p.x, y: p.y });
+      redraw();
+      return;
+    }
+    cv.setPointerCapture(e.pointerId);
+    if (SHAPES[mode]) {
+      shape = { owner: me, tool: mode, color, r: SIZE[size], a: p, b: { ...p } };
+      redraw();
+      return;
+    }
+    drawing = { owner: me, tool, color, eraser: mode === "erase", pts: [], last: null, t: performance.now() };
     pushPoint(p, performance.now());
   }
   function move(e) {
+    if (shape) { shape.b = localPoint(e); redraw(); return; }
     if (!drawing) return;
     pushPoint(localPoint(e), performance.now());
   }
@@ -526,6 +668,13 @@
     redraw();
   }
   function up() {
+    if (shape) {
+      const far = Math.hypot(shape.a.x - shape.b.x, shape.a.y - shape.b.y);
+      if (far > 0.01) strokes.push(shape);
+      shape = null;
+      redraw();
+      return;
+    }
     if (!drawing) return;
     const pts = drawing.pts;
     if (drawing.tool === "brush" && pts.length > 4) {
@@ -607,7 +756,7 @@
       const stroke = {
         owner: who,
         tool: ["pen", "marker", "brush", "water", "high"][n % 5],
-        color: COLORS[(n * 3) % COLORS.length],
+        color: ["#1a1a1a", "#e23b3b", "#2f6fed", "#2f9e57", "#7a4de0"][n % 5],
         eraser: false,
         pts: []
       };
@@ -623,7 +772,7 @@
         nib.hidden = false;
         nib.style.left = (x * 100) + "%";
         nib.style.top = (y * 100) + "%";
-        nib.style.background = people[who].bind === "m" ? "var(--blue)" : people[who].bind === "f" ? "var(--pink)" : "var(--green)";
+        nib.style.background = bindColor(who) === "blue" ? "var(--blue)" : bindColor(who) === "pink" ? "var(--pink)" : "var(--green)";
         redraw();
         i++;
         peerTimer = setTimeout(step, 36);
@@ -633,41 +782,73 @@
     next();
   }
 
-  function buildTools() {
-    const box = $("brushes");
-    TOOLS.forEach(([id, name]) => {
-      const b = document.createElement("button");
-      b.className = "tool" + (id === tool ? " on" : "");
-      b.type = "button";
-      b.textContent = name;
-      b.dataset.tool = id;
-      b.addEventListener("click", () => {
-        tool = id; eraser = false;
-        $("btnEraser").classList.remove("on");
-        box.querySelectorAll(".tool").forEach((el) => el.classList.toggle("on", el.dataset.tool === id));
-      });
-      box.appendChild(b);
+  function syncMode() {
+    document.querySelectorAll("[data-mode], #btnEraser").forEach((el) => {
+      const m = el.id === "btnEraser" ? "erase" : el.dataset.mode;
+      el.classList.toggle("on", m === mode);
     });
-    const colors = $("colors");
-    COLORS.forEach((c) => {
-      const b = document.createElement("button");
-      b.className = "swatch" + (c === color ? " on" : "");
-      b.type = "button";
-      b.style.background = c;
-      b.addEventListener("click", () => {
-        color = c; eraser = false;
-        $("btnEraser").classList.remove("on");
-        colors.querySelectorAll(".swatch").forEach((el) => el.classList.remove("on"));
-        b.classList.add("on");
-      });
-      colors.appendChild(b);
-    });
-    const pick = document.createElement("input");
-    pick.type = "color";
-    pick.value = "#2f6fed";
-    pick.addEventListener("input", () => { color = pick.value; eraser = false; $("btnEraser").classList.remove("on"); });
-    colors.appendChild(pick);
   }
+  function hsvToRgb(h, s, v) {
+    const c = v * s, hp = h / 60, x = c * (1 - Math.abs(hp % 2 - 1));
+    let r = 0, g = 0, b = 0;
+    if (hp < 1) { r = c; g = x; } else if (hp < 2) { r = x; g = c; } else if (hp < 3) { g = c; b = x; }
+    else if (hp < 4) { g = x; b = c; } else if (hp < 5) { r = x; b = c; } else { r = c; b = x; }
+    const m = v - c;
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  }
+  function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d) {
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+    }
+    return { h, s: max ? d / max : 0, v: max };
+  }
+  function paintPicker() {
+    const rgb = hsvToRgb(hsv.h, hsv.s, hsv.v);
+    draft = hexOf(rgb[0], rgb[1], rgb[2]);
+    $("sv").style.background = "linear-gradient(to top,#000,transparent), linear-gradient(to right,#fff,hsl(" + hsv.h + ",100%,50%))";
+    $("svDot").style.left = (hsv.s * 100) + "%";
+    $("svDot").style.top = ((1 - hsv.v) * 100) + "%";
+    $("svDot").style.background = draft;
+    $("hueDot").style.left = (hsv.h / 360 * 100) + "%";
+    $("hueDot").style.top = "50%";
+    $("hueDot").style.background = "hsl(" + hsv.h + ",100%,50%)";
+  }
+  function dragPad(el, move) {
+    const go = (e) => {
+      const r = el.getBoundingClientRect();
+      move(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)));
+      paintPicker();
+    };
+    el.addEventListener("pointerdown", (e) => { el.setPointerCapture(e.pointerId); go(e); });
+    el.addEventListener("pointermove", (e) => { if (el.hasPointerCapture(e.pointerId)) go(e); });
+  }
+
+  $("brush").addEventListener("change", () => { tool = $("brush").value; mode = "draw"; syncMode(); });
+  $("chip").style.background = color;
+  $("chip").addEventListener("click", () => {
+    const rgb = rgbOf(color);
+    hsv = rgbToHsv(rgb[0], rgb[1], rgb[2]);
+    paintPicker();
+    $("picker").classList.add("on");
+  });
+  dragPad($("sv"), (x, y) => { hsv.s = x; hsv.v = 1 - y; });
+  dragPad($("hue"), (x) => { hsv.h = x * 360; });
+  $("pickNo").addEventListener("click", () => $("picker").classList.remove("on"));
+  $("pickYes").addEventListener("click", () => {
+    color = draft || color;
+    $("chip").style.background = color;
+    if (mode === "erase" || mode === "pick") mode = "draw";
+    syncMode();
+    $("picker").classList.remove("on");
+  });
+  document.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => { mode = b.dataset.mode; syncMode(); }));
+  $("btnEraser").addEventListener("click", () => { mode = mode === "erase" ? "draw" : "erase"; syncMode(); });
 
   cv.addEventListener("pointerdown", down);
   cv.addEventListener("pointermove", move);
@@ -689,11 +870,6 @@
     people[other()].pending = true;
   });
   $("btnUndo").addEventListener("click", undo);
-  $("btnEraser").addEventListener("click", () => {
-    eraser = !eraser;
-    $("btnEraser").classList.toggle("on", eraser);
-    if (eraser) $("brushes").querySelectorAll(".tool").forEach((el) => el.classList.remove("on"));
-  });
   document.querySelectorAll(".sz").forEach((b) => b.addEventListener("click", () => {
     size = b.dataset.sz;
     document.querySelectorAll(".sz").forEach((el) => el.classList.toggle("on", el === b));
@@ -703,7 +879,11 @@
   $("saveYes").addEventListener("click", () => { $("confirm").classList.remove("on"); saveWork(); });
   $("btnGallery").addEventListener("click", () => { renderGallery(); $("gallery").classList.add("on"); });
   $("galClose").addEventListener("click", () => $("gallery").classList.remove("on"));
+  $("galX").addEventListener("click", () => $("gallery").classList.remove("on"));
+  $("gallery").addEventListener("click", (e) => { if (e.target === $("gallery")) $("gallery").classList.remove("on"); });
   $("viewClose").addEventListener("click", () => $("view").classList.remove("on"));
+  $("viewX").addEventListener("click", () => $("view").classList.remove("on"));
+  $("view").addEventListener("click", (e) => { if (e.target === $("view")) $("view").classList.remove("on"); });
   $("viewDel").addEventListener("click", () => {
     const i = gallery.findIndex((g) => g.id === viewId);
     if (i >= 0) gallery.splice(i, 1);
@@ -766,7 +946,6 @@
     if (!$("sim").contains(e.target) && e.target !== $("btnSim")) $("sim").classList.remove("open");
   });
 
-  buildTools();
   paintWho();
   requestAnimationFrame(fit);
 })();
