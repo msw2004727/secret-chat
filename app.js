@@ -15,7 +15,6 @@ import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RIN
 import { pairLocAgeSec, pairLocClock, pairLocDistance, PAIR_LOC_STALE_MS } from "./pair-loc.js";
 import { mountPondShark } from "./pond-shark.js";
 import { mountPondShare } from "./pond-share.js";
-import { claimBallAuth, publishBallAuth, releaseBallAuth } from "./ball-sync.js";
 import { mountGames, snapSeals } from "./games.js";
 import { mountDoodle } from "./doodle.js";
 attachBubbleFx(Droop);
@@ -28,7 +27,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.03";
+const APP_VERSION = "v62.04";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5951,9 +5950,6 @@ async function enterChat() {
         leaveChat() 已經清空過的 S.subs 上 —— 變成解不掉的孤兒，
         人已經回到偽裝首頁了，那間房的密文還在背景一直下載。 */
   if (myGen !== S.gen) return;
-
-  /* 黃球同步。時鐘校完才掛，寫進去的 t 才跟伺服器時間同一套。 */
-  bindBallSync(f, S.roomId, S.clientId, S.subs);
 
   /* 順手清掉別人留下的殘留在線節點。
      ⚠️ 這是「清乾淨」不是「修正確性」—— 正確性已經由新鮮度判斷擋住了。
@@ -12981,86 +12977,6 @@ function bindAdmin() {
     if (fired) { fired = false; return; }
     toast("按住 2 秒才會清空");
   });
-}
-
-/* 黃球位置：rooms/<房>/ballLive。摸球用交易搶裁判，先被伺服器收下的贏。
-   離開房間就拆掉監聽，不再寫。 */
-function bindBallSync(f, roomId, clientId, bag) {
-  const node = f.ref(f.db, `rooms/${roomId}/ballLive`);
-  let alive = true;
-  let flight = null;
-  let latest = null;
-  const api = {
-    me: clientId,
-    auth: null,
-    state: null,
-    now: () => nowServer(),
-    peers: () => livePeers(S.presence, clientId, nowServer()),
-  };
-  function remember(v) {
-    if (!v) return;
-    api.auth = v;
-    api.state = v;
-  }
-  function pump() {
-    const job = latest;
-    latest = null;
-    if (!job || !alive) { flight = null; return Promise.resolve(null); }
-    const at = nowServer();
-    flight = f.runTransaction(node, (cur) => publishBallAuth(cur, clientId, job.seq, job.pose, at))
-      .catch(() => null)
-      .then((res) => {
-        if (res && res.committed) remember(res.snapshot.val());
-        if (latest && alive) return pump();
-        flight = null;
-        return res;
-      });
-    return flight;
-  }
-  api.claim = (pose) => {
-    const at = nowServer();
-    const go = () => {
-      if (!alive) return Promise.resolve(null);
-      return f.runTransaction(node, (cur) => claimBallAuth(cur, clientId, at, pose)).then((res) => {
-        if (!alive || !res || !res.committed) return null;
-        const v = res.snapshot.val();
-        remember(v);
-        return v && v.by === clientId ? v : null;
-      }).catch(() => null);
-    };
-    return flight ? flight.then(go, go) : go();
-  };
-  api.release = (pose, seq) => {
-    const at = nowServer();
-    const go = () => {
-      if (!alive) return Promise.resolve();
-      return f.runTransaction(node, (cur) => releaseBallAuth(cur, clientId, seq, pose, at)).then((res) => {
-        if (res && res.committed) remember(res.snapshot.val());
-      }).catch(() => {});
-    };
-    latest = null;
-    return flight ? flight.then(go, go) : go();
-  };
-  api.publish = (pose, seq) => {
-    if (!alive) return Promise.resolve();
-    latest = { pose, seq };
-    return flight ? flight : pump();
-  };
-  window.BallSync = api;
-  const off = f.onValue(node, (snap) => {
-    if (!alive) return;
-    const v = snap.val();
-    api.auth = v;
-    api.state = v;
-  });
-  const stop = () => {
-    alive = false;
-    latest = null;
-    if (window.BallSync === api) window.BallSync = null;
-    try { off(); } catch (_) {}
-  };
-  if (bag) bag.push(stop);
-  return stop;
 }
 
 /* 動物分組寫進 rooms/<房>/pets。第一包快照不播跑走，之後的切換才播。

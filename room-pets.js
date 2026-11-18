@@ -1,5 +1,5 @@
 /* 聊天室裡的兩隻擬真貓（棕色虎斑、灰貓）、螢光球、咬泡泡、吊著與談戀愛。
-   貓的動作只在這台瀏覽器裡跑。黃球在房間裡有別人、而且開關開著時，由最後摸到的那台算物理並寫進 ballLive。 */
+   貓和黃球都只在這台裝置上算。進房不會建立 BallSync，所以不會讀寫 ballLive；傾斜跟單機時一樣。 */
 import { Droop, showPetBall } from "./droop.js";
 import { tiltAngle, tiltAcquire, tiltRelease, tiltAsk, tiltAccelX } from "./tilt.js";
 import { ballPublishDecision, ballSyncActive, ballSyncRole, ballTiltScale, followBall, mapBallToLocal, packBallPose, predictBallNorm, viewBallState } from "./ball-sync.js";
