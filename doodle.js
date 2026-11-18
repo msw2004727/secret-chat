@@ -78,9 +78,67 @@ export function decodeXY(raw) {
   if (!m) return null;
   return { x: dequant(m[1]), y: dequant(m[2]) };
 }
+export function simplifyPts(pts, max = MAX_POINTS) {
+  const list = Array.isArray(pts) ? pts.filter((p) => p && Number.isFinite(Number(p.x))) : [];
+  if (list.length <= max) return list;
+  if (max < 2) return list.slice(0, Math.max(0, max));
+  const out = [];
+  for (let i = 0; i < max; i++) out.push(list[Math.round(i * (list.length - 1) / (max - 1))]);
+  return out;
+}
 export function encodePts(pts) {
-  const list = Array.isArray(pts) ? pts.slice(0, MAX_POINTS) : [];
-  return list.map((p) => quantize(p.x) + "," + quantize(p.y) + "," + quantize(p.r)).join(";");
+  return simplifyPts(pts).map((p) => quantize(p.x) + "," + quantize(p.y) + "," + quantize(p.r)).join(";");
+}
+export function strokeToken(s) {
+  if (!s) return "";
+  if (s.tool === "circle" || s.tool === "line" || s.tool === "rect") {
+    const a = s.a || {}, b = s.b || {};
+    return [s.tool, s.by, s.t, s.color, quantize(a.x), quantize(a.y), quantize(b.x), quantize(b.y)].join(":");
+  }
+  const pts = s.pts || [];
+  const last = pts[pts.length - 1] || { x: 0, y: 0 };
+  return [s.tool, s.by, s.t, s.color, pts.length, quantize(last.x), quantize(last.y)].join(":");
+}
+export function flattenStrokes(val) {
+  const out = [];
+  if (!val || typeof val !== "object") return out;
+  const rows = Array.isArray(val) ? val.map((v, i) => [String(i), v]) : Object.entries(val);
+  for (const [key, node] of rows) {
+    if (!node || typeof node !== "object") continue;
+    if (node.tool) {
+      const s = decodeStroke(key, node);
+      if (s) out.push(s);
+      continue;
+    }
+    const kids = Array.isArray(node) ? node.map((v, i) => [String(i), v]) : Object.entries(node);
+    for (const [slot, raw] of kids) {
+      if (!raw || typeof raw !== "object") continue;
+      const s = decodeStroke(key + "/" + slot, raw);
+      if (s) out.push(s);
+    }
+  }
+  return out;
+}
+export function mergeStrokes(remote, pending) {
+  const remoteById = new Map((remote || []).map((s) => [String(s.id), s]));
+  const keep = [];
+  for (const p of pending || []) {
+    if (!p) continue;
+    const r = remoteById.get(String(p.id));
+    if (!r || strokeToken(r) !== strokeToken(p)) keep.push(p);
+  }
+  const hide = new Set(keep.map((s) => String(s.id)));
+  return (remote || []).filter((s) => !hide.has(String(s.id))).concat(keep);
+}
+const INVITE_MS = 120000;
+export function inviteEffect(rec, me, now, seenId) {
+  if (!rec || !rec.id || rec.phase == null) return { dialog: false, open: false, tell: "" };
+  const fresh = now - Number(rec.t || 0) < INVITE_MS;
+  if (!fresh) return { dialog: false, open: false, tell: "" };
+  if (rec.phase === "yes") return { dialog: false, open: true, tell: "" };
+  if (rec.phase === "no" && rec.by === me) return { dialog: false, open: false, tell: "對方這次先不畫" };
+  if (rec.phase === "ask" && rec.by !== me && rec.id !== seenId) return { dialog: true, open: false, tell: "" };
+  return { dialog: false, open: false, tell: "" };
 }
 export function decodePts(raw) {
   if (!raw) return [];
@@ -181,9 +239,11 @@ export function mountDoodle(doc, hooks) {
 
   function toast(text) { try { hooks.toast?.(text); } catch (_) {} }
   function strokes() {
-    const ids = new Set(server.map((s) => s.id));
-    const extra = [...pending.values()].filter((s) => s && !ids.has(s.id));
-    return server.concat(extra).sort((a, b) => (a.t || 0) - (b.t || 0) || String(a.id).localeCompare(String(b.id)));
+    return mergeStrokes(server, [...pending.values()]).sort((a, b) => (a.t || 0) - (b.t || 0) || String(a.id).localeCompare(String(b.id)));
+  }
+  function strokePath(s) {
+    const slot = s.slot || String(s.id).split("/").pop();
+    return `rooms/${room}/doodle/strokes/${s.by}/${slot}`;
   }
   function layout() {
     const paper = $(doc, "doodlePaper");
@@ -307,8 +367,7 @@ export function mountDoodle(doc, hooks) {
     const packed = encodeStroke(drawing);
     if (!packed.pts) return;
     pending.set(drawing.id, { ...drawing, pts: drawing.pts.slice() });
-    const ref = api.ref(api.db, `rooms/${room}/doodle/strokes/${drawing.id}`);
-    api.set(ref, packed).catch(() => {});
+    api.set(api.ref(api.db, strokePath(drawing)), packed).catch(() => {});
     if (final) drawing = null;
   }
   function down(e) {
@@ -322,8 +381,8 @@ export function mountDoodle(doc, hooks) {
       paint();
       return;
     }
-    const id = takeStrokeId();
-    drawing = { id, by: me, tool, color, z: size, t: Date.now(), pts: [], last: null, at: performance.now() };
+    const slot = takeStrokeId();
+    drawing = { id: me + "/" + slot, slot, by: me, tool, color, z: size, t: Date.now(), pts: [], last: null, at: performance.now() };
     pushPoint(p, drawing.at);
   }
   function move(e) {
@@ -339,7 +398,7 @@ export function mountDoodle(doc, hooks) {
     const dt = prev ? Math.max(8, now - drawing.at) : 16;
     const dist = prev ? Math.hypot((p.x - prev.x) * DOODLE_W, (p.y - prev.y) * DOODLE_H) : 0;
     const pt = { x: p.x, y: p.y, r: radius(dist / dt) };
-    if (drawing.pts.length >= MAX_POINTS) return;
+    if (drawing.pts.length >= MAX_POINTS) drawing.pts = simplifyPts(drawing.pts, MAX_POINTS - 1);
     drawing.pts.push(pt);
     drawing.last = p;
     drawing.at = now;
@@ -352,12 +411,13 @@ export function mountDoodle(doc, hooks) {
     if (shape) {
       const far = Math.hypot(shape.a.x - shape.b.x, shape.a.y - shape.b.y);
       if (far > 0.01) {
-        const id = takeStrokeId();
-        shape.id = id;
+        const slot = takeStrokeId();
+        shape.id = me + "/" + slot;
+        shape.slot = slot;
         shape.by = me;
         shape.t = Date.now();
-        pending.set(id, shape);
-        if (api) api.set(api.ref(api.db, `rooms/${room}/doodle/strokes/${id}`), encodeStroke(shape)).catch(() => {});
+        pending.set(shape.id, shape);
+        if (api) api.set(api.ref(api.db, strokePath(shape)), encodeStroke(shape)).catch(() => {});
       }
       shape = null;
       paint();
@@ -376,13 +436,14 @@ export function mountDoodle(doc, hooks) {
     paint();
   }
   function takeStrokeId() {
-    const all = strokes();
-    const free = allocSlot(all.map((s) => s.id), MAX_STROKES);
+    const mine = strokes().filter((s) => s.by === me);
+    const used = mine.map((s) => String(s.id).split("/").pop());
+    const free = allocSlot(used, MAX_STROKES);
     if (free) return free;
-    const oldest = all.slice().sort((a, b) => (a.t || 0) - (b.t || 0) || String(a.id).localeCompare(String(b.id)))[0];
+    const oldest = mine.slice().sort((a, b) => (a.t || 0) - (b.t || 0) || String(a.id).localeCompare(String(b.id)))[0];
     pending.delete(oldest.id);
     server = server.filter((s) => s.id !== oldest.id);
-    return String(oldest.id);
+    return String(oldest.id).split("/").pop();
   }
   function undo() {
     const id = ownUndoId(strokes(), me);
@@ -390,7 +451,8 @@ export function mountDoodle(doc, hooks) {
     pending.delete(id);
     server = server.filter((s) => s.id !== id);
     paint();
-    if (api) api.remove(api.ref(api.db, `rooms/${room}/doodle/strokes/${id}`)).catch(() => {});
+    const mine = id.startsWith(me + "/") ? id.slice(me.length + 1) : id;
+    if (api) api.remove(api.ref(api.db, `rooms/${room}/doodle/strokes/${me}/${mine}`)).catch(() => {});
   }
   function show(el, on) {
     if (!el) return;
@@ -490,8 +552,13 @@ export function mountDoodle(doc, hooks) {
       e.stopPropagation();
       hooks.closeGear?.();
       if (!api) { toast("還在連線中，請稍候一下"); return; }
-      const id = Date.now().toString(36);
-      api.set(api.ref(api.db, `rooms/${room}/doodle/invite`), { id, by: me, t: Date.now() }).catch(() => toast("邀請沒送出"));
+      const now = Date.now();
+      if (inviteRec && inviteRec.by === me && inviteRec.phase === "ask" && now - Number(inviteRec.t || 0) < 120000) {
+        toast("已經邀請了");
+        return;
+      }
+      const id = now.toString(36);
+      api.set(api.ref(api.db, `rooms/${room}/doodle/invite`), { id, by: me, phase: "ask", t: now }).catch(() => toast("邀請沒送出"));
       toast("已邀請對方一起塗鴉");
     });
     $(doc, "doodleBoard")?.addEventListener("click", (e) => {
@@ -549,10 +616,14 @@ export function mountDoodle(doc, hooks) {
       a.download = "doodle-" + formatStamp(g.t || Date.now()).replace(/[/: ]/g, "") + ".jpg";
       a.click();
     });
-    $(doc, "doodleAskYes")?.addEventListener("click", () => { show($(doc, "doodleAsk"), false); setBoard(true); });
+    $(doc, "doodleAskYes")?.addEventListener("click", () => {
+      show($(doc, "doodleAsk"), false);
+      if (api && inviteRec) api.update(api.ref(api.db, `rooms/${room}/doodle/invite`), { phase: "yes" }).catch(() => {});
+      setBoard(true);
+    });
     $(doc, "doodleAskNo")?.addEventListener("click", () => {
       show($(doc, "doodleAsk"), false);
-      if (api && inviteRec) api.remove(api.ref(api.db, `rooms/${room}/doodle/invite`)).catch(() => {});
+      if (api && inviteRec) api.update(api.ref(api.db, `rooms/${room}/doodle/invite`), { phase: "no" }).catch(() => {});
     });
     cv.addEventListener("pointerdown", down);
     cv.addEventListener("pointermove", move);
@@ -619,17 +690,11 @@ export function mountDoodle(doc, hooks) {
     });
   }
   function applyServer(val) {
-    const next = [];
-    if (val && typeof val === "object") {
-      for (const id of Object.keys(val)) {
-        const s = decodeStroke(id, val[id]);
-        if (s) next.push(s);
-      }
+    server = flattenStrokes(val);
+    for (const [id, p] of [...pending.entries()]) {
+      const remote = server.find((s) => s.id === id);
+      if (remote && strokeToken(remote) === strokeToken(p)) pending.delete(id);
     }
-    next.sort((a, b) => (a.t || 0) - (b.t || 0) || String(a.id).localeCompare(String(b.id)));
-    if (next.length > MAX_STROKES) next.splice(0, next.length - MAX_STROKES);
-    server = next;
-    for (const id of [...pending.keys()]) if (server.some((s) => s.id === id)) pending.delete(id);
     paint();
   }
   bindUI();
@@ -667,11 +732,19 @@ export function mountDoodle(doc, hooks) {
       watch(base + "/side", (val) => { sideMap = val && typeof val === "object" ? val : {}; paintRings(); paintNibs(); });
       watch(base + "/nib", (val) => { nibMap = val && typeof val === "object" ? val : {}; paintNibs(); });
       watch(base + "/g", (val) => { gallery = val && typeof val === "object" ? val : {}; if (!$(doc, "doodleGal")?.hidden) renderGallery(); });
+      let toldNo = "";
       watch(base + "/invite", (val) => {
         inviteRec = val && val.id ? val : null;
-        if (!inviteRec || inviteRec.by === me || inviteRec.id === seenInvite) return;
-        seenInvite = inviteRec.id;
-        show($(doc, "doodleAsk"), true);
+        const effect = inviteEffect(inviteRec, me, Date.now(), seenInvite);
+        if (effect.dialog) {
+          seenInvite = inviteRec.id;
+          show($(doc, "doodleAsk"), true);
+        }
+        if (effect.open) setBoard(true);
+        if (effect.tell && toldNo !== inviteRec.id) {
+          toldNo = inviteRec.id;
+          toast(effect.tell);
+        }
       });
       watch(base + "/save", (val) => {
         saveRec = val && val.id ? val : null;
