@@ -299,12 +299,10 @@
       </div>
       <div class="iconrow">
         <button class="ib" id="btnEraser" type="button" aria-label="橡皮擦"><svg viewBox="0 0 24 24"><path d="M4 14.5 13.2 5.3a2 2 0 0 1 2.8 0l2.7 2.7a2 2 0 0 1 0 2.8L10 19.5H5.2L4 14.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 19.5h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
-        <button class="ib" id="btnUndo" type="button" aria-label="上一步"><svg viewBox="0 0 24 24"><path d="M8 8H4v4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 12a8 8 0 1 0 2-5.3L4 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
-        <button class="ib" data-mode="circle" type="button" aria-label="圓圈"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
-        <button class="ib" data-mode="rect" type="button" aria-label="方塊"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
+        <button class="ib" data-mode="circle" type="button" aria-label="畫圈"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
         <button class="ib" data-mode="line" type="button" aria-label="直線"><svg viewBox="0 0 24 24"><path d="M6 18 18 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
-        <button class="ib" data-mode="fill" type="button" aria-label="油漆桶"><svg viewBox="0 0 24 24"><path d="M8 13.5 14.2 7.3l3 3L11 16.5H8v-3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14.2 7.3 16.5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M7 18.5h8.5a2.2 2.2 0 0 0 0-4.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
-        <button class="ib" data-mode="pick" type="button" aria-label="吸色器"><svg viewBox="0 0 24 24"><path d="m14.5 5.5 4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m13 7 4 4-6.2 6.2a2 2 0 0 1-2.8 0L6.6 15.8a2 2 0 0 1 0-2.8L13 7Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M5 19.5c.8-.2 1.6-.8 2-1.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+        <button class="ib" data-mode="rect" type="button" aria-label="方塊"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
+        <button class="ib" id="btnUndo" type="button" aria-label="上一步"><svg viewBox="0 0 24 24"><path d="M8 8H4v4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 12a8 8 0 1 0 2-5.3L4 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
       </div>
     </div>
     <div class="paper" id="paper">
@@ -407,7 +405,7 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.remove("on"), 1600);
   }
-  function stamp(d) {
+  function formatStamp(d) {
     const p = (n) => String(n).padStart(2, "0");
     return d.getFullYear() + "/" + p(d.getMonth() + 1) + "/" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
   }
@@ -452,8 +450,9 @@
   }
 
   function drawStroke(s) {
+    if (SHAPES[s.tool]) { drawShape(s); return; }
     const pts = s.pts;
-    if (!pts.length) return;
+    if (!pts || !pts.length) return;
     ctx.save();
     if (s.eraser) {
       ctx.globalCompositeOperation = "destination-out";
@@ -465,8 +464,6 @@
       ctx.restore();
       return;
     }
-    if (SHAPES[s.tool]) { drawShape(s); ctx.restore(); return; }
-    if (s.tool === "fill") { flood(s.x, s.y, s.color); ctx.restore(); return; }
     if (s.tool === "water") {
       pts.forEach((p) => blot(p, s.color));
     } else if (s.tool === "brush") {
@@ -558,48 +555,6 @@
   function hexOf(r, g, b) {
     return "#" + [r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("");
   }
-  function flood(nx, ny, hex) {
-    const w = cv.width, h = cv.height;
-    if (!w || !h) return;
-    const x0 = Math.max(0, Math.min(w - 1, Math.floor(nx * w)));
-    const y0 = Math.max(0, Math.min(h - 1, Math.floor(ny * h)));
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    const img = ctx.getImageData(0, 0, w, h);
-    const d = img.data;
-    const i0 = (y0 * w + x0) * 4;
-    const sr = d[i0], sg = d[i0 + 1], sb = d[i0 + 2];
-    const fill = rgbOf(hex);
-    const tol = 36;
-    const near = (i) => Math.abs(d[i] - sr) + Math.abs(d[i + 1] - sg) + Math.abs(d[i + 2] - sb) <= tol;
-    if (Math.abs(sr - fill[0]) + Math.abs(sg - fill[1]) + Math.abs(sb - fill[2]) <= 8) { ctx.restore(); return; }
-    const seen = new Uint8Array(w * h);
-    const stack = [x0, y0];
-    while (stack.length) {
-      const y = stack.pop();
-      let x = stack.pop();
-      let p = y * w + x;
-      while (x >= 0 && !seen[p] && near(p * 4)) { x--; p--; }
-      x++; p++;
-      let up = false, dn = false;
-      while (x < w && !seen[p] && near(p * 4)) {
-        seen[p] = 1;
-        const o = p * 4;
-        d[o] = fill[0]; d[o + 1] = fill[1]; d[o + 2] = fill[2]; d[o + 3] = 255;
-        if (y > 0) {
-          if (!seen[p - w] && near((p - w) * 4)) { if (!up) { stack.push(x, y - 1); up = true; } }
-          else up = false;
-        }
-        if (y < h - 1) {
-          if (!seen[p + w] && near((p + w) * 4)) { if (!dn) { stack.push(x, y + 1); dn = true; } }
-          else dn = false;
-        }
-        x++; p++;
-      }
-    }
-    ctx.putImageData(img, 0, 0);
-    ctx.restore();
-  }
   function hexA(hex, a) {
     const n = hex.replace("#", "");
     const v = parseInt(n.length === 3 ? n.split("").map((c) => c + c).join("") : n, 16);
@@ -636,25 +591,7 @@
     if (!$("sheet").classList.contains("on")) return;
     if (e.button && e.button !== 0) return;
     const p = localPoint(e);
-    if (mode === "pick") {
-      const x = Math.max(0, Math.min(cv.width - 1, Math.floor(p.x * cv.width)));
-      const y = Math.max(0, Math.min(cv.height - 1, Math.floor(p.y * cv.height)));
-      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-      const pix = ctx.getImageData(x, y, 1, 1).data;
-      ctx.restore();
-      color = hexOf(pix[0], pix[1], pix[2]);
-      hsv = rgbToHsv(pix[0], pix[1], pix[2]);
-      $("chip").style.background = color;
-      mode = "draw";
-      syncMode();
-      return;
-    }
-    if (mode === "fill") {
-      strokes.push({ owner: me, tool: "fill", color, x: p.x, y: p.y });
-      redraw();
-      return;
-    }
-    cv.setPointerCapture(e.pointerId);
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
     if (SHAPES[mode]) {
       shape = { owner: me, tool: mode, color, r: SIZE[size], a: p, b: { ...p } };
       redraw();
@@ -722,7 +659,7 @@
   }
   function saveWork() {
     const url = cv.toDataURL("image/png");
-    gallery.unshift({ id: Date.now().toString(36), url, ts: stamp(new Date()), by: me });
+    gallery.unshift({ id: Date.now().toString(36), url, ts: formatStamp(new Date()), by: me });
     strokes.splice(0, strokes.length);
     redraw();
     toast("已存進作品集");
@@ -857,7 +794,7 @@
   $("pickYes").addEventListener("click", () => {
     color = draft || color;
     $("chip").style.background = color;
-    if (mode === "erase" || mode === "pick") mode = "draw";
+    if (mode === "erase") mode = "draw";
     syncMode();
     $("picker").classList.remove("on");
   });
