@@ -51,16 +51,14 @@
   .who.on.f { color: #ffb3c7; border-color: rgba(255,140,164,.9); }
   .link { width: 36px; height: 16px; position: relative; display: grid; place-items: center; }
   .link svg { width: 36px; height: 12px; color: rgba(232,234,237,.34); }
+  .rings { display: inline-flex; align-items: center; gap: 4px; min-height: 12px; }
   .board-dot {
-    width: 8px; height: 8px; border-radius: 50%; flex: none;
-    box-shadow: 0 0 0 2px rgba(14,16,22,.9);
-    transform: scale(.4); opacity: 0;
-    transition: transform .22s cubic-bezier(.2,.8,.2,1), opacity .22s ease;
+    width: 11px; height: 11px; border-radius: 50%; flex: none; background: transparent;
+    border: 2px solid currentColor; box-sizing: border-box;
   }
-  .board-dot.show { transform: scale(1); opacity: 1; }
-  .board-dot.blue { background: var(--blue); }
-  .board-dot.pink { background: var(--pink); }
-  .board-dot.green { background: var(--green); }
+  .board-dot.blue { color: var(--blue); }
+  .board-dot.pink { color: var(--pink); }
+  .board-dot.green { color: var(--green); }
   .right { margin-left: auto; display: flex; align-items: center; }
   .msgs { flex: 1 1 auto; overflow-y: auto; padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 8px; }
   .row { display: flex; }
@@ -129,19 +127,24 @@
     border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); pointer-events: none;
     transition: left .05s linear, top .05s linear;
   }
-  .tools { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 6px; }
-  .rowt { display: flex; gap: 6px; align-items: center; }
-  .rowt .scroll { display: flex; gap: 6px; overflow-x: auto; flex: 1; scrollbar-width: none; }
-  .rowt .scroll::-webkit-scrollbar { display: none; }
-  select.brush, .sz, .act {
-    flex: 0 0 auto; height: 36px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18);
-    background: #12161e; color: #f4f7fb; padding: 0 10px; font-size: 13px;
+  .tools { padding: 4px 8px 6px; display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
+  .rowt { display: flex; gap: 4px; align-items: center; }
+  select.brush, .sz {
+    height: 36px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18);
+    background: #12161e; color: #f4f7fb; padding: 0 8px; font-size: 13px;
   }
-  select.brush { flex: 1; min-width: 0; }
-  .sz.on, .act.on { background: #3d7aee; border-color: transparent; }
-  .chip {
-    width: 36px; height: 36px; border-radius: 50%; border: 2px solid #fff; padding: 0; flex: none;
+  select.brush { flex: 1 1 auto; min-width: 0; }
+  .sz { flex: 0 0 36px; padding: 0; }
+  .sz.on { background: #3d7aee; border-color: transparent; }
+  .chip { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #fff; padding: 0; flex: none; }
+  .iconrow { display: flex; gap: 4px; }
+  .ib {
+    flex: 1 1 0; min-width: 0; height: 40px; border-radius: 12px; border: 1px solid rgba(255,255,255,.16);
+    background: rgba(255,255,255,.06); color: #f4f7fb; padding: 0;
+    display: grid; place-items: center;
   }
+  .ib svg { width: 20px; height: 20px; display: block; }
+  .ib.on { background: #3d7aee; border-color: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
   .veil {
     position: absolute; inset: 0; z-index: 20; background: rgba(0,0,0,.45);
     display: flex; align-items: flex-end; justify-content: center;
@@ -158,9 +161,15 @@
   .card h3 { margin: 0 0 10px; font-size: 16px; text-align: center; }
   .x {
     position: absolute; top: 8px; right: 8px; z-index: 2;
-    width: 44px; height: 44px; border: 0; border-radius: 50%;
-    background: rgba(255,255,255,.16); color: #fff; font-size: 28px; line-height: 1;
+    width: 44px; height: 44px; border: 0; border-radius: 50%; padding: 0;
+    color: #f4f7fb; display: grid; place-items: center;
+    background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.08));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 0 0 1px rgba(255,255,255,.22);
+    backdrop-filter: blur(8px);
+    transition: transform .12s ease, filter .12s ease;
   }
+  .x svg { width: 18px; height: 18px; display: block; }
+  .x:active { transform: scale(.96); filter: brightness(.92); }
   .view > .x { top: max(12px, env(safe-area-inset-top)); right: 12px; }
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 46vh; overflow: auto; }
   .cell { border: 0; background: var(--bg-soft); border-radius: 12px; padding: 4px; text-align: left; }
@@ -269,18 +278,14 @@
 
   <div class="sheet" id="sheet">
     <div class="hd">
-      <span class="name">塗鴉板<i class="board-dot" id="peerDot"></i></span>
+      <span class="name">塗鴉板<span class="rings" id="rings"></span></span>
       <button class="mini" id="btnGallery" type="button">作品</button>
       <button class="mini" id="btnSave" type="button">存檔</button>
       <button class="mini" id="btnClose" type="button">關閉</button>
     </div>
-    <div class="paper" id="paper">
-      <canvas id="cv"></canvas>
-      <i class="nib" id="nib"></i>
-    </div>
     <div class="tools">
       <div class="rowt">
-        <select class="brush" id="brush">
+        <select class="brush" id="brush" aria-label="畫筆">
           <option value="pen">原子筆</option>
           <option value="marker">麥克筆</option>
           <option value="high">螢光筆</option>
@@ -288,19 +293,23 @@
           <option value="water">水彩筆</option>
         </select>
         <button class="chip" id="chip" type="button" aria-label="調色盤"></button>
-      </div>
-      <div class="rowt scroll">
         <button class="sz" data-sz="s" type="button">小</button>
         <button class="sz on" data-sz="m" type="button">中</button>
         <button class="sz" data-sz="l" type="button">大</button>
-        <button class="act" id="btnEraser" type="button">橡皮</button>
-        <button class="act" id="btnUndo" type="button">上一步</button>
-        <button class="act" data-mode="circle" type="button">圓圈</button>
-        <button class="act" data-mode="rect" type="button">方塊</button>
-        <button class="act" data-mode="line" type="button">直線</button>
-        <button class="act" data-mode="fill" type="button">油漆桶</button>
-        <button class="act" data-mode="pick" type="button">吸色</button>
       </div>
+      <div class="iconrow">
+        <button class="ib" id="btnEraser" type="button" aria-label="橡皮擦"><svg viewBox="0 0 24 24"><path d="M4 14.5 13.2 5.3a2 2 0 0 1 2.8 0l2.7 2.7a2 2 0 0 1 0 2.8L10 19.5H5.2L4 14.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 19.5h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+        <button class="ib" id="btnUndo" type="button" aria-label="上一步"><svg viewBox="0 0 24 24"><path d="M8 8H4v4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 12a8 8 0 1 0 2-5.3L4 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+        <button class="ib" data-mode="circle" type="button" aria-label="圓圈"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
+        <button class="ib" data-mode="rect" type="button" aria-label="方塊"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
+        <button class="ib" data-mode="line" type="button" aria-label="直線"><svg viewBox="0 0 24 24"><path d="M6 18 18 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+        <button class="ib" data-mode="fill" type="button" aria-label="油漆桶"><svg viewBox="0 0 24 24"><path d="M8 13.5 14.2 7.3l3 3L11 16.5H8v-3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14.2 7.3 16.5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M7 18.5h8.5a2.2 2.2 0 0 0 0-4.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+        <button class="ib" data-mode="pick" type="button" aria-label="吸色器"><svg viewBox="0 0 24 24"><path d="m14.5 5.5 4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m13 7 4 4-6.2 6.2a2 2 0 0 1-2.8 0L6.6 15.8a2 2 0 0 1 0-2.8L13 7Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M5 19.5c.8-.2 1.6-.8 2-1.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+    <div class="paper" id="paper">
+      <canvas id="cv"></canvas>
+      <i class="nib" id="nib"></i>
     </div>
   </div>
 
@@ -318,8 +327,8 @@
     </div>
   </div>
   <div class="confirm" id="confirm">
-    <h3>存檔</h3>
-    <p>確定存檔並清空嗎？</p>
+    <h3 id="confirmTitle">存檔</h3>
+    <p id="confirmText">確定存檔並清空嗎？</p>
     <div class="btns">
       <button class="ghost" id="saveNo" type="button">取消</button>
       <button class="go" id="saveYes" type="button">確定</button>
@@ -327,14 +336,14 @@
   </div>
   <div class="veil" id="gallery">
     <div class="card">
-      <button class="x" id="galX" type="button" aria-label="關閉">×</button>
+      <button class="x" id="galX" type="button" aria-label="關閉"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       <h3>作品集</h3>
       <div class="grid" id="grid"></div>
       <button class="mini" id="galClose" type="button" style="margin-top:10px;width:100%">收合</button>
     </div>
   </div>
   <div class="view" id="view">
-    <button class="x" id="viewX" type="button" aria-label="關閉">×</button>
+    <button class="x" id="viewX" type="button" aria-label="關閉"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
     <img id="viewImg" alt="">
     <small id="viewTime"></small>
     <div class="btns" style="width:min(320px,100%)">
@@ -407,9 +416,14 @@
     return b === "m" ? "blue" : b === "f" ? "pink" : "green";
   }
   function paintDot() {
-    const peer = other();
-    const dot = $("peerDot");
-    dot.className = "board-dot " + bindColor(peer) + (people[peer].open ? " show" : "");
+    const box = $("rings");
+    box.replaceChildren();
+    [me, other()].forEach((who) => {
+      if (!people[who].open) return;
+      const i = document.createElement("i");
+      i.className = "board-dot " + bindColor(who);
+      box.appendChild(i);
+    });
   }
   function paintWho() {
     $("whoM").classList.toggle("on", true);
@@ -783,9 +797,9 @@
   }
 
   function syncMode() {
-    document.querySelectorAll("[data-mode], #btnEraser").forEach((el) => {
+    document.querySelectorAll(".ib").forEach((el) => {
       const m = el.id === "btnEraser" ? "erase" : el.dataset.mode;
-      el.classList.toggle("on", m === mode);
+      el.classList.toggle("on", !!m && m === mode);
     });
   }
   function hsvToRgb(h, s, v) {
@@ -874,7 +888,14 @@
     size = b.dataset.sz;
     document.querySelectorAll(".sz").forEach((el) => el.classList.toggle("on", el === b));
   }));
-  $("btnSave").addEventListener("click", () => $("confirm").classList.add("on"));
+  $("btnSave").addEventListener("click", () => {
+    const peerOn = people[other()].open;
+    $("confirmTitle").textContent = peerOn ? people[other()].name + "同意存檔" : "存檔";
+    $("confirmText").textContent = "確定存檔並清空嗎？";
+    $("saveYes").textContent = peerOn ? "同意" : "確定";
+    $("saveNo").textContent = peerOn ? "先不要" : "取消";
+    $("confirm").classList.add("on");
+  });
   $("saveNo").addEventListener("click", () => $("confirm").classList.remove("on"));
   $("saveYes").addEventListener("click", () => { $("confirm").classList.remove("on"); saveWork(); });
   $("btnGallery").addEventListener("click", () => { renderGallery(); $("gallery").classList.add("on"); });
