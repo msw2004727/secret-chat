@@ -1,6 +1,8 @@
-/* 聊天室裡的兩隻擬真貓（棕色虎斑、灰貓）、螢光球、咬泡泡、吊著與談戀愛。只在這台瀏覽器裡跑，不上傳。 */
+/* 聊天室裡的兩隻擬真貓（棕色虎斑、灰貓）、螢光球、咬泡泡、吊著與談戀愛。
+   貓的動作只在這台瀏覽器裡跑。黃球在房間裡有別人、而且開關開著時，由最後摸到的那台算物理並寫進 ballLive。 */
 import { Droop, showPetBall } from "./droop.js";
 import { tiltAngle, tiltAcquire, tiltRelease, tiltAsk, tiltAccelX } from "./tilt.js";
+import { ballPublishDecision, ballSyncActive, ballSyncRole, ballTiltScale, followBall, mapBallToLocal, packBallPose, predictBallNorm, viewBallState } from "./ball-sync.js";
 import { REAL } from "./real-cats.js";
 import { attachRooster } from "./rooster-room.js";
 import { attachBobo } from "./bobo-room.js";
@@ -451,6 +453,10 @@ export function mountRoomPets() {
     layer.appendChild(ballShadow);
     layer.appendChild(ballEl);
     const ball = { x: 0, y: 0, vx: 0, vy: 0, state: "loose", carrier: null, dragId: null, samples: [], squashAt: -1e9, spin: 0, stillSince: 0, lastPoke: 0, init: false };
+    let syncShown = null;
+    let syncSeq = 0;
+    let pubCursor = { lastAt: -1e9, settled: true, pose: null };
+    const syncTouch = { want: false, inflight: false, token: 0 };
     let lastFightAt = -1e9;
     const FIGHT_COOLDOWN = 45000;
     function fightOK(now) { return now - lastFightAt > FIGHT_COOLDOWN; }
@@ -567,7 +573,14 @@ export function mountRoomPets() {
       }
     }
     function ballPhysics(dt, now, shapes) {
-      if (!ball.init) { ball.init = true; ball.x = areaW * 0.5; ball.y = topY + 30; ball.vx = rand(-120, 120); ball.vy = 0; }
+      const role = currentRole();
+      if (role === "follow") return;
+      if (!ball.init) {
+        ball.init = true;
+        if (!(role !== "solo" && seedBallFromSync())) {
+          ball.x = areaW * 0.5; ball.y = topY + 30; ball.vx = rand(-120, 120); ball.vy = 0;
+        }
+      }
       if (!Number.isFinite(ball.x) || !Number.isFinite(ball.y) || !Number.isFinite(ball.vx) || !Number.isFinite(ball.vy)) {
         ball.x = areaW * 0.5; ball.y = topY + 30; ball.vx = 0; ball.vy = 0; ball.state = "loose"; ball.carrier = null;
       }
@@ -577,7 +590,7 @@ export function mountRoomPets() {
       const steps = Math.max(1, Math.min(16, Math.ceil(sp * dt / (BR * 0.6))));
       const h = dt / steps;
       const L = BR, R = areaW - BR;
-      const ax = tiltAccelX(tiltAngle());
+      const ax = tiltAccelX(tiltAngle()) * ballTiltScale(role !== "solo");
       for (let i = 0; i < steps; i++) {
         const T = topY + BR, F = floorY - BR;
         ball.vx += ax * h;
@@ -618,6 +631,7 @@ export function mountRoomPets() {
     }
     function renderBall(now) {
       if (!showPetBall(groupsReady, groups, ball.state)) { ballEl.style.display = "none"; ballShadow.style.display = "none"; return; }
+      if (currentRole() === "follow" && !syncShown && ball.state !== "drag") { ballEl.style.display = "none"; ballShadow.style.display = "none"; return; }
       ballEl.style.display = ""; ballShadow.style.display = "";
       /* 叼著的球跟叼牠的貓在同一層：在牠頭上、但在前面那隻貓後面（貓是 1 或 3，球就是 2 或 4） */
       const carrier = ball.state === "carried" ? ball.carrier : null;
@@ -638,8 +652,107 @@ export function mountRoomPets() {
     }
 
     /* ----- 拖曳、丟球 ----- */
+    function ballLink() {
+      const api = window.BallSync;
+      if (!api || typeof api.peers !== "function" || typeof api.now !== "function") return null;
+      return api;
+    }
+    function ballFrame() {
+      return { w: Math.max(1, areaW), span: Math.max(1, floorY - topY), top: topY };
+    }
+    function ballOn() {
+      return showPetBall(groupsReady, groups, "loose");
+    }
+    function currentRole() {
+      const api = ballLink();
+      if (!api || !ballOn()) return "solo";
+      const peers = api.peers() || [];
+      if (!ballSyncActive(peers.length, true)) return "solo";
+      return ballSyncRole(api.auth, api.me, peers, true);
+    }
+    function mySyncSeq() {
+      const api = ballLink();
+      if (!api || !api.auth || api.auth.by !== api.me) return 0;
+      const seq = Math.round(+api.auth.seq);
+      return seq > 0 ? seq : 0;
+    }
+    function seedBallFromSync() {
+      const api = ballLink();
+      const view = api && viewBallState(api.state);
+      if (!view) return false;
+      const local = mapBallToLocal(view, ballFrame());
+      ball.x = clamp(local.x, BR, Math.max(BR, areaW - BR));
+      ball.y = clamp(local.y, topY + BR, Math.max(topY + BR, floorY - BR));
+      ball.vx = local.vx;
+      ball.vy = local.vy;
+      ball.spin = local.spin;
+      return true;
+    }
+    function dropSyncHold() {
+      syncTouch.want = false;
+      const api = ballLink();
+      const seq = mySyncSeq();
+      if (!api || !seq || typeof api.release !== "function") return;
+      try { api.release(packBallPose(ball, ballFrame()), seq); } catch (_) {}
+      pubCursor = { lastAt: performance.now(), settled: false, pose: null };
+    }
+    function beginSyncTouch() {
+      const api = ballLink();
+      if (!api || typeof api.claim !== "function") return;
+      if (syncTouch.want || syncTouch.inflight) return;
+      syncTouch.want = true;
+      syncTouch.inflight = true;
+      const token = ++syncTouch.token;
+      let pose = null;
+      try { pose = packBallPose(ball, ballFrame()); } catch (_) { pose = null; }
+      api.claim(pose).then((won) => {
+        if (syncTouch.token !== token) return;
+        syncTouch.inflight = false;
+        if (!won) {
+          syncTouch.want = false;
+          if (ball.state === "drag") {
+            ball.state = "loose";
+            ball.dragId = null;
+            document.documentElement.classList.remove("room-pet-drag");
+          }
+          return;
+        }
+        if (!syncTouch.want) dropSyncHold();
+      }).catch(() => { syncTouch.inflight = false; });
+    }
+    function applyRemoteBall(dt) {
+      if (ball.state === "drag") return;
+      const api = ballLink();
+      const view = api && viewBallState(api.state);
+      const auth = api && api.auth;
+      if (!view || !auth || view.by !== auth.by || view.seq !== Math.round(+auth.seq)) return;
+      if (ball.state === "carried") { ball.state = "loose"; ball.carrier = null; }
+      const age = (api.now() - view.t) / 1000;
+      const pred = predictBallNorm(view, age);
+      if (syncSeq !== view.seq) syncShown = null;
+      syncSeq = view.seq;
+      syncShown = followBall(syncShown, pred, dt);
+      const local = mapBallToLocal(syncShown, ballFrame());
+      ball.x = clamp(local.x, BR, Math.max(BR, areaW - BR));
+      ball.y = clamp(local.y, topY + BR, Math.max(topY + BR, floorY - BR));
+      ball.vx = local.vx;
+      ball.vy = local.vy;
+      ball.spin = local.spin;
+      ball.init = true;
+    }
+    function publishLiveBall(now) {
+      if (currentRole() !== "authority" || ball.state === "hidden" || !ballOn()) return;
+      const api = ballLink();
+      const seq = mySyncSeq();
+      if (!api || !seq || typeof api.publish !== "function") return;
+      const pose = packBallPose(ball, ballFrame());
+      const decision = ballPublishDecision(pubCursor, now, pose, ball.state === "drag" || syncTouch.want);
+      pubCursor = decision;
+      if (!decision.write) return;
+      try { api.publish(pose, seq); } catch (_) {}
+    }
     function ballHit(cx, cy) {
-      if (ball.state === "hidden" || !chatR) return false;
+      if (!showPetBall(groupsReady, groups, ball.state) || !chatR) return false;
       const x = cx - chatR.left, y = cy - chatR.top;
       const d = Math.hypot(x - ball.x, y - ball.y);
       /* 球被叼到泡泡後面時，點到的是泡泡（長按選單照常）；平常球的可點範圍只比球大一圈 */
@@ -666,6 +779,16 @@ export function mountRoomPets() {
       ball.y = clamp(e.clientY - chatR.top, topY + BR, floorY - BR);
       ball.samples.push({ t: now, x: ball.x, y: ball.y });
       while (ball.samples.length > 2 && now - ball.samples[0].t > 90) ball.samples.shift();
+      const recent = ball.samples;
+      if (recent.length >= 2) {
+        const a = recent[0], b = recent[recent.length - 1];
+        const t = Math.max(16, b.t - a.t) / 1000;
+        let vx = (b.x - a.x) / t, vy = (b.y - a.y) / t;
+        const sp = Math.hypot(vx, vy);
+        if (sp > MAXV) { vx *= MAXV / sp; vy *= MAXV / sp; }
+        ball.vx = vx; ball.vy = vy;
+      }
+      if (currentRole() !== "solo") beginSyncTouch();
     }
     function releaseBall(e, now, cancel) {
       if (!cancel) dragBall(e, now);
@@ -682,6 +805,9 @@ export function mountRoomPets() {
       ball.state = "loose";
       ball.dragId = null;
       document.documentElement.classList.remove("room-pet-drag");
+      const synced = syncTouch.want || syncTouch.inflight;
+      syncTouch.want = false;
+      if (synced && !syncTouch.inflight && currentRole() === "authority") dropSyncHold();
       onThrow(now);
     }
     window.addEventListener("touchmove", (e) => { if (ball.state === "drag") e.preventDefault(); }, { passive: false });
@@ -699,6 +825,7 @@ export function mountRoomPets() {
       }
     }
     function popBall(now) {
+      if (currentRole() === "follow") return;
       const s = soc && soc.fight;
       const cx = s && s.drawnX != null ? s.drawnX + FW * S / 2 : areaW / 2;
       ball.state = "loose";
@@ -715,6 +842,7 @@ export function mountRoomPets() {
     function ballBusy(cat, now) { return ball.carrier === cat || wants(cat, now); }
     const BALL_ACTS = { ballchase: 1, carry: 1, steal: 1 };
     function desiredBallAct(cat, now) {
+      if (currentRole() === "follow") return null;
       if (ball.carrier === cat && ball.state === "carried") return "carry";
       if (!wants(cat, now)) return null;
       if (ball.state === "loose" || ball.state === "drag") return "ballchase";
@@ -744,6 +872,7 @@ export function mountRoomPets() {
       return true;
     }
     function catchBall(cat, now) {
+      if (currentRole() === "follow") return;
       ball.state = "carried";
       ball.carrier = cat;
       ball.vx = ball.vy = 0;
@@ -761,7 +890,7 @@ export function mountRoomPets() {
       }
     }
     function tryCatch(cat, now, inAir) {
-      if (ball.state !== "loose" || now < cat.catchCd) return;
+      if (currentRole() === "follow" || ball.state !== "loose" || now < cat.catchCd) return;
       const m = mouthPos(cat);
       if (Math.hypot(ball.x - m.x, ball.y - m.y) > BR + (inAir ? 14 : 12)) return;
       const sp = Math.hypot(ball.vx, ball.vy);
@@ -775,6 +904,7 @@ export function mountRoomPets() {
       say(cat, "note", now, 0.4);
     }
     function dropBall(cat, now) {
+      if (currentRole() === "follow") return;
       if (ball.carrier !== cat) return;
       const m = mouthPos(cat);
       ball.state = "loose";
@@ -3873,7 +4003,7 @@ export function mountRoomPets() {
         holdTilt(false);
         rafId = 0;
         document.documentElement.classList.remove("room-pet-drag");
-        if (ball.state === "drag") { ball.state = "loose"; ball.dragId = null; }
+        if (ball.state === "drag") { ball.state = "loose"; ball.dragId = null; dropSyncHold(); }
         /* 停下來（切到背景、聊天室收起來）：咬著／吊著的放開，泡泡不會變形卡在畫面上 */
         for (const c of cats) if (c.act && (c.act.type === "bite" || c.act.type === "hang")) petSafeReset(c, now);
         for (const j of jellies.slice()) resetJelly(j);
@@ -3906,6 +4036,7 @@ export function mountRoomPets() {
         else nextSocialAt = now + 400;
       }
       ballPhysics(dt, now, shapes);
+      if (currentRole() === "follow") applyRemoteBall(dt);
       if (catsOn) {
       for (const c of cats) {
         if (!inSoc(c) && !(c.act && (c.act.type === "funny" || c.act.type === "poop" || c.act.enter))) ballThink(c, now, false);
@@ -3957,6 +4088,7 @@ export function mountRoomPets() {
         for (const k of kits) k.el.hidden = true;
       }
       renderBall(now);
+      publishLiveBall(now);
       drawShade(now, dt, shapes);
       } catch (err) {
         /* 任何一步出錯：兩隻都安全坐下、泡泡復原，下一格照常跑 */
@@ -4022,7 +4154,10 @@ export function mountRoomPets() {
         }
       }
       for (const j of jellies.slice()) resetJelly(j);
-      if (ball.state === "carried" || ball.state === "drag") { ball.state = "loose"; ball.carrier = null; ball.dragId = null; }
+      if (ball.state === "carried" || ball.state === "drag") {
+        if (ball.state === "drag") dropSyncHold();
+        ball.state = "loose"; ball.carrier = null; ball.dragId = null;
+      }
       ball.vx = 0; ball.vy = 0;
       petsOn = false;
       clearClawMarks(); /* 貓關掉：爪痕一起清掉，也不再留新的 */
