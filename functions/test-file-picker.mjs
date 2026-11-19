@@ -18,4 +18,9 @@ assert.equal(p.take($('photoInput')).length,1);assert.equal(p.active(),false);as
 p.open('photoInput');S.key={};assert.equal(p.take($('photoInput')).length,0);
 p.open('photoInput');now=120001;assert.equal(p.take($('photoInput')).length,0);
 p.open('photoInput');$('chat').hidden=true;assert.equal(p.take($('photoInput')).length,0);
+const plus=src.slice(src.indexOf('const plus = $("btnPlus")'),src.indexOf('bindMsgMenu()'));
+assert.match(plus,/const keepTypingFocus = \(e\) => \{\n    if \(document\.activeElement === input\) e\.preventDefault\(\);\n  \}/);
+assert.match(plus,/plus\?\.addEventListener\("mousedown", keepTypingFocus\)/);
+assert.match(plus,/\$\("plusPhoto"\)\?\.addEventListener\("mousedown", keepTypingFocus\)/);
+assert.match(plus,/\$\("plusVideo"\)\?\.addEventListener\("mousedown", keepTypingFocus\)/);
 console.log('PASS: native picker background uses forced password veil, ordinary app switch exits, change clears exemption, room change/expiry/exit discards selection.');

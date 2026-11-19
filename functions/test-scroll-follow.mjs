@@ -153,11 +153,11 @@ function boot() {
   assert.match(app, /follow\.shouldFollow\(sc\)/);
   assert.match(app, /follow\.stickIfStill\(sc\)/);
   assert.doesNotMatch(app, /scrollTop - sc\.clientHeight < 90/);
-  assert.match(app, /const APP_VERSION = "v62\.07"/);
+  assert.match(app, /const APP_VERSION = "v62\.08"/);
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(html, /sc-shell" content="v62\.07"/);
-  assert.match(sw, /const VERSION = "sc-v62\.07"/);
+  assert.match(html, /sc-shell" content="v62\.08"/);
+  assert.match(sw, /const VERSION = "sc-v62\.08"/);
   assert.match(app, /scrollTo\(\{ top: sc\.scrollHeight, behavior: "smooth" \}\)/);
 }
 
