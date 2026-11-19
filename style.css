@@ -453,7 +453,11 @@ html[data-theme="dark"] .update-banner {
         拿掉的話愛心會往上找到別的祖先，飄到畫面別的地方去。 */
   position: relative;
   z-index: 8; /* 高於貓、雞、球、對白和特效（最高 7），動物飛到頂端時從標題後面過去 */
-  display: flex; align-items: center; gap: 2px;
+  /* 左右各 1fr、中間 auto。狀態字再長也只能縮在左欄，定位組停在正中間。
+     minmax(0, 1fr) 加上子項 min-width: 0，左欄才不會把中間撐歪。 */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
   padding: 0 6px;
   padding-top: env(safe-area-inset-top);
   height: calc(54px + env(safe-area-inset-top));
@@ -465,8 +469,6 @@ html[data-theme="dark"] .update-banner {
 /* ⚠️ 省略號要掛在「裝文字的那個元素」上。
       .c-title 是 flex 容器，text-overflow 對它的子元素不會自動生效 ——
       少了這一條，窄機上狀態文字會被切在半個字中間（不是省略號）。 */
-/* 狀態從左邊起算。麥／辛改以整列置中之後，窄螢幕放不下最長的
-   「有人正在輸入…」時，在碰到中間那組之前改成省略號，不蓋上去。 */
 #peerText {
   flex: 1 1 auto;
   min-width: 0;
@@ -474,17 +476,45 @@ html[data-theme="dark"] .update-banner {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+#peerText.swap { animation: peer-in .46s cubic-bezier(.16, 1, .3, 1); }
+@keyframes peer-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.peer-dots {
+  display: inline-flex; align-items: flex-end; gap: 2px;
+  height: .85em; margin-left: 1px; vertical-align: baseline;
+}
+.peer-dots i {
+  width: 3px; height: 3px; border-radius: 50%; background: currentColor;
+  opacity: .25; animation: peer-dot 1.05s ease-in-out infinite;
+}
+.peer-dots i:nth-child(2) { animation-delay: .16s; }
+.peer-dots i:nth-child(3) { animation-delay: .32s; }
+@keyframes peer-dot {
+  0%, 70%, 100% { opacity: .22; transform: translateY(0); }
+  35% { opacity: 1; transform: translateY(-1.5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #peerText.swap, .peer-dots i { animation: none; }
+  .peer-dots i { opacity: 1; }
+}
 
 .c-title {
   flex: 1 1 auto; min-width: 0;
   display: flex; align-items: center; gap: 7px;
   font-size: 13px; color: var(--txt-dim);
   padding-left: 4px;
-  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  /* 省略號做在 #peerText。這裡若 overflow:hidden，換句時的 5px 位移會被裁掉。 */
+  overflow: visible; white-space: nowrap;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+}
+.c-title.no-dot .c-dot { display: none; }
+@media (max-width: 390px) {
+  .c-title { font-size: 12px; gap: 5px; }
 }
 .c-dot {
   width: 7px; height: 7px; border-radius: 50%;
@@ -492,33 +522,32 @@ html[data-theme="dark"] .update-banner {
   transition: background .25s;
 }
 .c-dot[data-on="true"] { background: #34a853; box-shadow: 0 0 0 3px rgba(52,168,83,.16); }
-/* 麥／距離／辛以標題列（整個視窗）的中線置中。
-   左右兩組用絕對定位釘在原處，這組不再吃它們中間剩下的空間。
-   窄螢幕時整組最寬收到兩邊各留約 98px，中間連線跟著縮，避免蓋住返回鍵、狀態、倒數或齒輪。 */
+/* 麥／距離／辛在中間那一欄，左右欄等寬，所以整組的中心就是螢幕中線。
+   窄螢幕連線仍可縮到 max-width 以內，避免蓋住返回鍵、狀態、倒數或齒輪。 */
 .c-bar-side {
-  position: absolute;
-  top: env(safe-area-inset-top);
+  position: relative;
   height: 54px;
   display: flex;
   align-items: center;
   gap: 2px;
+  min-width: 0;
   z-index: 3;
 }
 .c-bar-side.is-left {
-  left: 6px;
-  right: calc(50% + 92px);
+  grid-column: 1;
   overflow: hidden;
   justify-content: flex-start;
+  padding-right: 6px;
 }
 .c-bar-side.is-right {
-  right: 6px;
+  grid-column: 3;
   justify-content: flex-end;
+  padding-left: 6px;
 }
 .c-pair {
-  position: absolute;
-  left: 50%;
-  top: env(safe-area-inset-top);
-  transform: translateX(-50%);
+  grid-column: 2;
+  position: relative;
+  justify-self: center;
   z-index: 2;
   display: flex;
   align-items: center;
@@ -528,7 +557,7 @@ html[data-theme="dark"] .update-banner {
   margin: 0;
   padding: 0;
   width: max-content;
-  max-width: min(220px, calc(100% - 156px));
+  max-width: min(220px, calc(100vw - 156px));
   min-width: 0;
 }
 .c-pair-slot { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; width: 26px; height: 54px; flex: 0 0 auto; }
@@ -568,7 +597,6 @@ html[data-theme="dark"] .update-banner {
 }
 .c-pair-link svg { width: 100%; height: 12px; display: block; overflow: visible; }
 @media (min-width: 480px) {
-  .c-bar-side.is-left { right: calc(50% + 108px); }
   .c-pair-link { max-width: 56px; }
 }
 .c-seal { display: inline-flex; align-items: center; gap: 1px; height: 20px; flex: 0 0 auto; color: #f7f3ea; }
@@ -1116,7 +1144,7 @@ html[data-theme="light"] .th-moon { display: none; }
 @media (max-width: 360px) {
   .c-icon { width: 38px; height: 38px; }
   .c-count { min-width: 24px; padding: 0 5px; }
-  .c-title { font-size: 12.5px; gap: 5px; }
+  .c-title { font-size: 11.5px; gap: 4px; }
 }
 
 /* ---------- 斷線橫幅 ---------- */
