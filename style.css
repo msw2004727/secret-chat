@@ -3405,12 +3405,31 @@ html[data-theme="dark"] .c-veil { background: rgba(0,0,0,.46); }
   display: flex; align-items: center; justify-content: center;
   cursor: zoom-out;
   padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+  overflow: hidden;
+  overscroll-behavior: none;
+  user-select: none;
 }
-.lightbox img { max-width: 92vw; max-height: 84dvh; border-radius: 8px; }
+/* 照片燈箱自己處理雙指。影片模式不設，免得播放器的拖曳被吃掉。 */
+.lightbox:not(.isvideo) { touch-action: none; }
+.lightbox img {
+  max-width: 92vw; max-height: 84dvh; border-radius: 8px;
+  position: relative; z-index: 1;
+  transform-origin: center center;
+  touch-action: none;
+  -webkit-user-drag: none;
+  user-select: none;
+  cursor: zoom-in;
+}
+.lightbox.lb-zoomed { cursor: default; }
+.lightbox.lb-zoomed img { cursor: grab; }
+.lightbox.lb-dragging,
+.lightbox.lb-dragging img { cursor: grabbing; }
+.lightbox.isvideo img { cursor: default; }
 /* 抓原圖的時候：縮圖先擺著（會有點糊），轉圈疊在上面 */
 .lightbox.loading img { filter: blur(1.5px); opacity: .8; }
 .lb-spin {
   position: absolute;
+  z-index: 2;
   width: 26px; height: 26px; border-radius: 50%;
   border: 2.5px solid rgba(255,255,255,.28); border-top-color: #fff;
   animation: spin .7s linear infinite;
@@ -3419,29 +3438,79 @@ html[data-theme="dark"] .c-veil { background: rgba(0,0,0,.46); }
 .lightbox.loading .lb-spin { display: block; }
 .lb-note {
   position: absolute; left: 50%; bottom: 6dvh; transform: translateX(-50%);
+  z-index: 2;
   max-width: 82vw; text-align: center;
   font-size: 12px; line-height: 1.5; color: #fff;
   background: rgba(0,0,0,.6); border-radius: 10px; padding: 8px 12px;
 }
 
 /* 影片播放（v23）。
-   ⚠️ 燈箱本身是「點一下就關」的（cursor: zoom-out），
-      所以播放器一定要 stopPropagation，不然按暫停就把整個燈箱關掉了。 */
+   ⚠️ 沒放大時點暗處會關燈箱（cursor: zoom-out），
+      所以播放器的 click 不能冒泡，不然按暫停就把整個燈箱關掉了。 */
 .lb-video {
   max-width: 92vw; max-height: 84dvh;
   border-radius: 8px; background: #000;
   cursor: default;
+  position: relative; z-index: 1;
 }
 /* 影片載入中不要把封面糊掉 —— 影片本來就要等，糊掉只會看起來像壞了 */
 .lightbox.isvideo.loading img { filter: none; opacity: .55; }
 /* 放不出來時的退路：存下來用別的播放器開 */
 .lb-save {
   position: absolute; left: 50%; bottom: 15dvh; transform: translateX(-50%);
+  z-index: 2;
   font-size: 13px; font-weight: 600; text-decoration: none;
   color: #fff; background: var(--me, #1a73e8);
   border-radius: 999px; padding: 9px 20px;
   cursor: pointer;
 }
+.lb-tools {
+  position: absolute;
+  z-index: 3;
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lb-zoomgroup {
+  display: flex;
+  align-items: stretch;
+  height: 40px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(32,33,36,.82);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.16);
+}
+.lb-zoom, .lb-x {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.lb-zoom { width: 44px; height: 40px; }
+.lb-zoom + .lb-zoom { box-shadow: inset 1px 0 0 rgba(255,255,255,.16); }
+.lb-zoom:disabled { opacity: .38; cursor: default; }
+.lb-x {
+  width: 40px; height: 40px; border-radius: 999px;
+  background: rgba(32,33,36,.82);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.16);
+}
+@media (hover: hover) and (pointer: fine) {
+  .lb-zoom:hover:not(:disabled),
+  .lb-x:hover { background: rgba(255,255,255,.14); }
+}
+.lb-zoom:focus-visible, .lb-x:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.lightbox.isvideo .lb-zoomgroup { display: none; }
 
 /* --- 捲軸美化（手機沒有捲軸，只影響桌機） --- */
 .c-scroll::-webkit-scrollbar, .c-sticker-grid::-webkit-scrollbar, .c-text::-webkit-scrollbar { width: 8px; }

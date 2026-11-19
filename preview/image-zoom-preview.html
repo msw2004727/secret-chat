@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>圖片放大預覽</title>
+<style>
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #111;
+    color: #fff;
+    font-family: arial, "Helvetica Neue", Helvetica, "PingFang TC", "Noto Sans TC", sans-serif;
+  }
+  .reopen {
+    min-height: 100%;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 24px;
+  }
+  .reopen button {
+    font: inherit;
+    font-size: 15px;
+    color: #fff;
+    background: #1a73e8;
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 22px;
+    cursor: pointer;
+  }
+  .reopen p { color: #bbb; font-size: 13px; line-height: 1.6; max-width: 28em; }
+
+  /* 與 style.css 的燈箱同一套，另加放大／平移。 */
+  .lightbox {
+    position: fixed; inset: 0; z-index: 70;
+    background: rgba(0,0,0,.9);
+    display: flex; align-items: center; justify-content: center;
+    cursor: zoom-out;
+    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+    overflow: hidden;
+    overscroll-behavior: none;
+    user-select: none;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif;
+  }
+  .lightbox:not(.isvideo) { touch-action: none; }
+  .lightbox img {
+    max-width: 92vw; max-height: 84dvh; border-radius: 8px;
+    position: relative; z-index: 1;
+    transform-origin: center center;
+    touch-action: none;
+    -webkit-user-drag: none;
+    user-select: none;
+    cursor: zoom-in;
+  }
+  .lightbox.lb-zoomed { cursor: default; }
+  .lightbox.lb-zoomed img { cursor: grab; }
+  .lightbox.lb-dragging,
+  .lightbox.lb-dragging img { cursor: grabbing; }
+  .lightbox.isvideo img { cursor: default; }
+  .lightbox.loading img { filter: blur(1.5px); opacity: .8; }
+  .lb-spin {
+    position: absolute;
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,.28); border-top-color: #fff;
+    animation: spin .7s linear infinite;
+    display: none;
+    z-index: 2;
+  }
+  .lightbox.loading .lb-spin { display: block; }
+  .lb-note {
+    position: absolute; left: 50%; bottom: 6dvh; transform: translateX(-50%);
+    max-width: 82vw; text-align: center;
+    font-size: 12px; line-height: 1.5; color: #fff;
+    background: rgba(0,0,0,.6); border-radius: 10px; padding: 8px 12px;
+    z-index: 2;
+  }
+  .lb-video {
+    max-width: 92vw; max-height: 84dvh;
+    border-radius: 8px; background: #000;
+    cursor: default;
+    position: relative; z-index: 1;
+  }
+  .lightbox.isvideo.loading img { filter: none; opacity: .55; }
+  .lb-save {
+    position: absolute; left: 50%; bottom: 15dvh; transform: translateX(-50%);
+    font-size: 13px; font-weight: 600; text-decoration: none;
+    color: #fff; background: #1a73e8;
+    border-radius: 999px; padding: 9px 20px;
+    cursor: pointer;
+    z-index: 2;
+  }
+  .lb-tools {
+    position: absolute;
+    z-index: 3;
+    top: calc(12px + env(safe-area-inset-top));
+    right: calc(12px + env(safe-area-inset-right));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .lb-zoomgroup {
+    display: flex;
+    align-items: stretch;
+    height: 40px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(32,33,36,.82);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.16);
+  }
+  .lb-zoom, .lb-x {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+  .lb-zoom { width: 44px; height: 40px; }
+  .lb-zoom + .lb-zoom { box-shadow: inset 1px 0 0 rgba(255,255,255,.16); }
+  .lb-zoom:disabled { opacity: .38; cursor: default; }
+  .lb-x {
+    width: 40px; height: 40px; border-radius: 999px;
+    background: rgba(32,33,36,.82);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.16);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .lb-zoom:hover:not(:disabled),
+    .lb-x:hover { background: rgba(255,255,255,.14); }
+  }
+  .lb-zoom:focus-visible, .lb-x:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+  .lightbox.isvideo .lb-zoomgroup { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="reopen" id="reopen" hidden>
+  <div>
+    <button type="button" id="reopenBtn">開啟圖片</button>
+    <p>桌機：滾輪對著游標放大，放大後可拖曳。雙擊圖片在放大與還原之間切換。沒放大時點暗處、關閉鈕或 Esc 會關掉。</p>
+  </div>
+</div>
+
+<div id="lightbox" class="lightbox">
+  <img id="lightboxImg" alt="" draggable="false">
+  <video id="lightboxVideo" class="lb-video" playsinline controls preload="auto" hidden></video>
+  <span class="lb-spin"></span>
+  <div class="lb-note" id="lightboxNote" hidden></div>
+  <a id="lightboxSave" class="lb-save" download hidden>儲存影片</a>
+  <div class="lb-tools" id="lightboxTools">
+    <div class="lb-zoomgroup">
+      <button type="button" class="lb-zoom" id="lbZoomOut" aria-label="縮小" title="縮小">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="10.2" cy="10.2" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14.4 14.4L19.5 19.5M7.7 10.2h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" class="lb-zoom" id="lbZoomReset" aria-label="還原" title="還原">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M8 4H4v4M16 4h4v4M20 16v4h-4M4 16v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" class="lb-zoom" id="lbZoomIn" aria-label="放大" title="放大">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="10.2" cy="10.2" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14.4 14.4L19.5 19.5M10.2 7.7v5M7.7 10.2h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <button type="button" class="lb-x" id="lbClose" aria-label="關閉" title="關閉">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</div>
+
+<script type="module">
+/* __ZOOM_SRC_START__ */
+/* ============================================================
+ *  圖片燈箱的放大與平移
+ *
+ *  只動 transform（translate3d + scale）。
+ *  ⚠️ 不要用 CSS transition：滾輪每個刻度都會把動畫切掉重來，畫面會頓。
+ *     這裡用一個 requestAnimationFrame 把「目前」追向「目標」，
+ *     時間常數固定，所以幀率忽高忽低也不會一下子跳、一下子黏。
+ *  ⚠️ 靜止在一倍時要把 transform 清掉。留著 scale(1) 時，
+ *     有些瀏覽器會多開一層合成，照片看起來發糊。
+ *  ⚠️ 度量用燈箱內容區的中心，不要讀圖片的 getBoundingClientRect。
+ *     那個矩形已經含目前的位移與縮放，拿來當原點會越算越漂。
+ * ============================================================ */
+
+export const ZOOM_MIN = 1;
+export const ZOOM_MAX = 6;
+export const ZOOM_STEP = 1.4;
+export const ZOOM_DOUBLE = 2.5;
+const TAU_MS = 80;
+
+export function clampScale(scale) {
+  if (!Number.isFinite(scale)) return ZOOM_MIN;
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale));
+}
+
+function clampNum(v, min, max) {
+  const n = Number.isFinite(v) ? v : 0;
+  return Math.min(max, Math.max(min, n));
+}
+
+/* 圖片比視窗小：整張留在畫面裡。比視窗大：邊緣最多貼齊視窗，不能拖到完全離開。
+   scale 回到 1 時強制回版面原點 (0,0) —— 那就是 CSS 置中的位置。 */
+export function clampPan(scale, x, y, view) {
+  const s = clampScale(scale);
+  if (s <= ZOOM_MIN) return { scale: ZOOM_MIN, x: 0, y: 0 };
+  const iw = Math.max(1, view?.iw || 1);
+  const ih = Math.max(1, view?.ih || 1);
+  const vw = Math.max(1, view?.w || 1);
+  const vh = Math.max(1, view?.h || 1);
+  const ox = view?.ox || 0;
+  const oy = view?.oy || 0;
+  const lim = (vis, box, origin) => {
+    const half = Math.abs(vis - box) / 2;
+    return { min: -half - origin, max: half - origin };
+  };
+  const lx = lim(iw * s, vw, ox);
+  const ly = lim(ih * s, vh, oy);
+  return { scale: s, x: clampNum(x, lx.min, lx.max), y: clampNum(y, ly.min, ly.max) };
+}
+
+/* focal 是相對於「未平移時的圖片中心」的座標。縮放後同一個圖上的點仍留在游標下。 */
+export function zoomAround(state, focalX, focalY, nextScale, view) {
+  const s0 = state && state.scale > 0 && Number.isFinite(state.scale) ? state.scale : 1;
+  const x0 = state && Number.isFinite(state.x) ? state.x : 0;
+  const y0 = state && Number.isFinite(state.y) ? state.y : 0;
+  const fx = Number.isFinite(focalX) ? focalX : 0;
+  const fy = Number.isFinite(focalY) ? focalY : 0;
+  const s1 = clampScale(nextScale);
+  const localX = (fx - x0) / s0;
+  const localY = (fy - y0) / s0;
+  return clampPan(s1, fx - localX * s1, fy - localY * s1, view);
+}
+
+/* 滾輪向上（deltaY 負）放大。觸控板的小增量與滑鼠一格都走同一條曲線，單次有上限。 */
+export function wheelFactor(deltaY, deltaMode = 0) {
+  let dy = Number(deltaY) || 0;
+  if (deltaMode === 1) dy *= 16;
+  else if (deltaMode === 2) dy *= 800;
+  const capped = Math.max(-120, Math.min(120, dy));
+  return Math.exp(-capped * 0.0024);
+}
+
+function prefersReduced() {
+  try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  catch (_) { return false; }
+}
+
+export function attachImageZoom({ box, img, zoomIn, zoomOut, resetBtn }) {
+  const state = { scale: 1, x: 0, y: 0 };
+  const target = { scale: 1, x: 0, y: 0 };
+  const view = { w: 1, h: 1, iw: 1, ih: 1, ox: 0, oy: 0, cx: 0, cy: 0 };
+  const pointers = new Map();
+  let raf = 0;
+  let lastTs = 0;
+  let dragging = false;
+  let dragMoved = false;
+  let gesture = false;
+  let hold = false;
+  let pinch = null;
+  let activePointer = null;
+  let dragOrigin = null;
+  let swallowUntil = 0;
+  let shownZoomed = false;
+  let shownDrag = false;
+  let shownAnim = false;
+  let viewOk = false;
+  /* 預設跟「有沒有滑鼠」走。真正的 pointerdown 再覆蓋：
+     觸控點圖片要能關掉（手機原本就是點一下就收），滑鼠點圖片則留給雙擊放大。 */
+  let imageTapCloses = true;
+  try { imageTapCloses = !window.matchMedia("(hover: hover) and (pointer: fine)").matches; }
+  catch (_) { imageTapCloses = true; }
+  let lastTapAt = 0;
+  let lastTapX = 0;
+  let lastTapY = 0;
+  let lastToggleAt = 0;
+
+  function enabled() {
+    return !!(box && img) && !box.hidden && !img.hidden && !box.classList.contains("isvideo");
+  }
+
+  function isZoomed() {
+    return target.scale > 1.02 || state.scale > 1.02;
+  }
+
+  /* 滾輪會連續進來。每次都重算版面會強迫重排，放大時就頓。
+     尺寸只在開圖、載入、視窗改變時失效。 */
+  function measure() {
+    if (viewOk) return true;
+    const rect = box.getBoundingClientRect();
+    const cs = getComputedStyle(box);
+    const padL = parseFloat(cs.paddingLeft) || 0;
+    const padR = parseFloat(cs.paddingRight) || 0;
+    const padT = parseFloat(cs.paddingTop) || 0;
+    const padB = parseFloat(cs.paddingBottom) || 0;
+    view.w = Math.max(1, rect.width);
+    view.h = Math.max(1, rect.height);
+    view.ox = (padL - padR) / 2;
+    view.oy = (padT - padB) / 2;
+    view.cx = rect.left + rect.width / 2 + view.ox;
+    view.cy = rect.top + rect.height / 2 + view.oy;
+    view.iw = img.offsetWidth;
+    view.ih = img.offsetHeight;
+    viewOk = view.iw > 1 && view.ih > 1;
+    return viewOk;
+  }
+
+  function syncButtons() {
+    if (zoomOut) zoomOut.disabled = target.scale <= 1.02;
+    if (zoomIn) zoomIn.disabled = target.scale >= ZOOM_MAX - 0.02;
+    if (resetBtn) resetBtn.disabled = target.scale <= 1.02 && Math.abs(target.x) < 0.5 && Math.abs(target.y) < 0.5;
+  }
+
+  function paint() {
+    const zoomed = isZoomed();
+    const anim = raf !== 0;
+    if (zoomed !== shownZoomed) { box.classList.toggle("lb-zoomed", zoomed); shownZoomed = zoomed; }
+    if (dragging !== shownDrag) { box.classList.toggle("lb-dragging", dragging); shownDrag = dragging; }
+    if (anim !== shownAnim) { box.classList.toggle("lb-anim", anim); shownAnim = anim; }
+    if (state.scale <= 1.001 && Math.abs(state.x) < 0.2 && Math.abs(state.y) < 0.2) img.style.transform = "";
+    else img.style.transform = `translate3d(${state.x}px, ${state.y}px, 0) scale(${state.scale})`;
+    syncButtons();
+  }
+
+  function cancelAnim() {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+    if (shownAnim) { box.classList.remove("lb-anim"); shownAnim = false; }
+  }
+
+  function tick(ts) {
+    if (hold) { raf = 0; if (shownAnim) { box.classList.remove("lb-anim"); shownAnim = false; } return; }
+    const dt = lastTs ? Math.min(34, ts - lastTs) : 16;
+    lastTs = ts;
+    const alpha = 1 - Math.exp(-dt / TAU_MS);
+    state.scale += (target.scale - state.scale) * alpha;
+    state.x += (target.x - state.x) * alpha;
+    state.y += (target.y - state.y) * alpha;
+    const c = clampPan(state.scale, state.x, state.y, view);
+    state.scale = c.scale;
+    state.x = c.x;
+    state.y = c.y;
+    const done = Math.abs(target.scale - state.scale) < 0.0008
+      && Math.abs(target.x - state.x) < 0.15
+      && Math.abs(target.y - state.y) < 0.15;
+    if (done) {
+      const snapped = clampPan(target.scale, target.x, target.y, view);
+      state.scale = target.scale = snapped.scale;
+      state.x = target.x = snapped.x;
+      state.y = target.y = snapped.y;
+      raf = 0;
+      paint();
+      return;
+    }
+    paint();
+    raf = requestAnimationFrame(tick);
+  }
+
+  function kick() {
+    syncButtons();
+    const zoomed = isZoomed();
+    if (zoomed !== shownZoomed) { box.classList.toggle("lb-zoomed", zoomed); shownZoomed = zoomed; }
+    if (raf) return;
+    lastTs = 0;
+    raf = requestAnimationFrame(tick);
+    if (!shownAnim) { box.classList.add("lb-anim"); shownAnim = true; }
+  }
+
+  function setTarget(next, animate) {
+    target.scale = next.scale;
+    target.x = next.x;
+    target.y = next.y;
+    if (!animate || prefersReduced()) {
+      cancelAnim();
+      state.scale = next.scale;
+      state.x = next.x;
+      state.y = next.y;
+      paint();
+      return;
+    }
+    kick();
+  }
+
+  function reset(animate = true) {
+    pointers.clear();
+    dragging = false;
+    dragMoved = false;
+    gesture = false;
+    hold = false;
+    pinch = null;
+    activePointer = null;
+    dragOrigin = null;
+    if (box.hidden) viewOk = false;
+    else if (animate) measure();
+    setTarget({ scale: ZOOM_MIN, x: 0, y: 0 }, animate);
+  }
+
+  function zoomBy(factor) {
+    if (!enabled() || !measure()) return;
+    setTarget(zoomAround(target, 0, 0, target.scale * factor, view), true);
+  }
+
+  function zoomAt(clientX, clientY, scale) {
+    if (!enabled() || !measure()) return;
+    setTarget(zoomAround(target, clientX - view.cx, clientY - view.cy, scale, view), true);
+  }
+
+  function fromUi(targetEl) {
+    const el = targetEl && targetEl.nodeType === 1 ? targetEl : targetEl?.parentElement;
+    return !!(el && el.closest && el.closest(".lb-tools, #lightboxSave, #lightboxVideo, .lb-note"));
+  }
+
+  function beginDrag(e) {
+    hold = true;
+    cancelAnim();
+    dragging = true;
+    dragMoved = false;
+    activePointer = e.pointerId;
+    target.scale = state.scale;
+    target.x = state.x;
+    target.y = state.y;
+    dragOrigin = { x: e.clientX, y: e.clientY, sx: state.x, sy: state.y };
+    try { box.setPointerCapture(e.pointerId); } catch (_) {}
+    paint();
+  }
+
+  function onPointerDown(e) {
+    if (e.pointerType) imageTapCloses = e.pointerType === "touch";
+    if (!enabled() || fromUi(e.target)) return;
+    if (e.button != null && e.button !== 0) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size >= 2) {
+      dragging = false;
+      activePointer = null;
+      hold = true;
+      cancelAnim();
+      box.classList.remove("lb-dragging");
+      shownDrag = false;
+      if (!measure()) return;
+      const pts = [...pointers.values()];
+      pinch = {
+        dist: Math.max(8, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)),
+        midX: (pts[0].x + pts[1].x) / 2,
+        midY: (pts[0].y + pts[1].y) / 2,
+        scale: state.scale,
+        x: state.x,
+        y: state.y,
+      };
+      try { box.setPointerCapture(e.pointerId); } catch (_) {}
+      return;
+    }
+    if (isZoomed()) beginDrag(e);
+  }
+
+  function onPointerMove(e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size >= 2 && pinch && enabled()) {
+      const pts = [...pointers.values()];
+      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const midX = (pts[0].x + pts[1].x) / 2;
+      const midY = (pts[0].y + pts[1].y) / 2;
+      if (Math.abs(d - pinch.dist) > 2 || Math.hypot(midX - pinch.midX, midY - pinch.midY) > 2) gesture = true;
+      const zoomed = zoomAround(
+        { scale: pinch.scale, x: pinch.x, y: pinch.y },
+        pinch.midX - view.cx,
+        pinch.midY - view.cy,
+        pinch.scale * (Math.max(8, d) / pinch.dist),
+        view
+      );
+      const moved = clampPan(zoomed.scale, zoomed.x + (midX - pinch.midX), zoomed.y + (midY - pinch.midY), view);
+      state.scale = target.scale = moved.scale;
+      state.x = target.x = moved.x;
+      state.y = target.y = moved.y;
+      paint();
+      return;
+    }
+    if (!dragging || e.pointerId !== activePointer || !dragOrigin) return;
+    if (e.pointerType === "mouse" && e.buttons === 0) { onPointerUp(e); return; }
+    const dx = e.clientX - dragOrigin.x;
+    const dy = e.clientY - dragOrigin.y;
+    if (dx * dx + dy * dy > 36) dragMoved = true;
+    const next = clampPan(state.scale, dragOrigin.sx + dx, dragOrigin.sy + dy, view);
+    state.x = target.x = next.x;
+    state.y = target.y = next.y;
+    paint();
+  }
+
+  function onPointerUp(e) {
+    if (!pointers.has(e.pointerId) && e.pointerId !== activePointer) return;
+    pointers.delete(e.pointerId);
+    if (e.pointerId === activePointer) {
+      dragging = false;
+      activePointer = null;
+      dragOrigin = null;
+      box.classList.remove("lb-dragging");
+      shownDrag = false;
+    }
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 1 && isZoomed()) {
+      const [id, p] = [...pointers.entries()][0];
+      hold = true;
+      dragging = true;
+      dragMoved = true;
+      activePointer = id;
+      dragOrigin = { x: p.x, y: p.y, sx: state.x, sy: state.y };
+      box.classList.add("lb-dragging");
+      shownDrag = true;
+      return;
+    }
+    if (pointers.size === 0) {
+      hold = false;
+      if (dragMoved || gesture) {
+        swallowUntil = performance.now() + 400;
+        dragMoved = false;
+        gesture = false;
+      } else if (enabled()) {
+        const now = performance.now();
+        const near = Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < 48;
+        if (lastTapAt && now - lastTapAt < 650 && near && (target.scale > 1.02 || e.pointerType !== "touch")) {
+          lastTapAt = 0;
+          toggleAt(e.clientX, e.clientY);
+        } else {
+          lastTapAt = now;
+          lastTapX = e.clientX;
+          lastTapY = e.clientY;
+        }
+      }
+    }
+  }
+
+  function onWheel(e) {
+    if (!enabled()) return;
+    e.preventDefault();
+    if (hold || !measure()) return;
+    const next = zoomAround(
+      target,
+      e.clientX - view.cx,
+      e.clientY - view.cy,
+      target.scale * wheelFactor(e.deltaY, e.deltaMode),
+      view
+    );
+    setTarget(next, true);
+  }
+
+  /* 放大後會 setPointerCapture，雙擊事件的目標會變成燈箱而不是圖片。
+     所以雙擊聽在燈箱上，並且用兩次 pointerup 自己再認一次。 */
+  function toggleAt(x, y) {
+    const now = performance.now();
+    if (now - lastToggleAt < 450) return;
+    lastToggleAt = now;
+    if (target.scale > 1.02) reset(true);
+    else zoomAt(x, y, ZOOM_DOUBLE);
+  }
+
+  function onDouble(e) {
+    if (!enabled() || fromUi(e.target)) return;
+    const onImage = e.target === img || (img.contains && img.contains(e.target));
+    if (target.scale <= 1.02 && !onImage) return;
+    e.preventDefault();
+    toggleAt(e.clientX, e.clientY);
+  }
+
+  function bindPress(btn, fn) {
+    btn?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      fn();
+    });
+  }
+
+  bindPress(zoomIn, () => zoomBy(ZOOM_STEP));
+  bindPress(zoomOut, () => zoomBy(1 / ZOOM_STEP));
+  bindPress(resetBtn, () => reset(true));
+
+  box.addEventListener("pointerdown", onPointerDown);
+  window.addEventListener("pointermove", onPointerMove, { passive: true });
+  window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", onPointerUp);
+  box.addEventListener("wheel", onWheel, { passive: false });
+  box.addEventListener("dblclick", onDouble);
+  img.addEventListener("dragstart", (e) => e.preventDefault());
+  /* 全站在 document 上擋了雙指縮放。燈箱這層先攔下來，圖片自己的雙指才收得到。
+     單指、以及影片模式，都讓事件繼續往上，外面的手勢維持原樣。 */
+  box.addEventListener("touchmove", (e) => {
+    if (!enabled()) return;
+    if (e.touches.length > 1 || dragging) {
+      e.stopPropagation();
+      if (e.cancelable) e.preventDefault();
+    }
+  }, { passive: false });
+  for (const type of ["gesturestart", "gesturechange"]) {
+    box.addEventListener(type, (e) => {
+      if (!enabled()) return;
+      e.stopPropagation();
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+  }
+  window.addEventListener("resize", () => {
+    viewOk = false;
+    if (box.hidden || !measure()) return;
+    const next = clampPan(target.scale, target.x, target.y, view);
+    state.scale = target.scale = next.scale;
+    state.x = target.x = next.x;
+    state.y = target.y = next.y;
+    paint();
+  });
+  img.addEventListener("load", () => {
+    if (box.hidden) return;
+    const prevW = view.iw, prevH = view.ih;
+    viewOk = false;
+    if (!measure()) return;
+    if (prevW === view.iw && prevH === view.ih) return;
+    setTarget(clampPan(target.scale, target.x, target.y, view), false);
+  });
+
+  paint();
+
+  return {
+    reset,
+    isZoomed,
+    swallowClick() {
+      if (performance.now() > swallowUntil) return false;
+      swallowUntil = 0;
+      return true;
+    },
+    tapClosesImage() { return imageTapCloses; },
+  };
+}
+/* __ZOOM_SRC_END__ */
+
+const box = document.getElementById("lightbox");
+const img = document.getElementById("lightboxImg");
+const reopen = document.getElementById("reopen");
+const zoom = attachImageZoom({
+  box,
+  img,
+  zoomIn: document.getElementById("lbZoomIn"),
+  zoomOut: document.getElementById("lbZoomOut"),
+  resetBtn: document.getElementById("lbZoomReset"),
+});
+
+function paintSample() {
+  const c = document.createElement("canvas");
+  c.width = 2400;
+  c.height = 1600;
+  const g = c.getContext("2d");
+  const sky = g.createLinearGradient(0, 0, 0, 1100);
+  sky.addColorStop(0, "#1b2440");
+  sky.addColorStop(0.55, "#c4554a");
+  sky.addColorStop(1, "#f0b27a");
+  g.fillStyle = sky;
+  g.fillRect(0, 0, 2400, 1600);
+  g.fillStyle = "#f4e2b0";
+  g.beginPath();
+  g.arc(1880, 280, 90, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#1b2440";
+  g.beginPath();
+  g.arc(1840, 260, 78, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#f4e2b0";
+  g.beginPath();
+  g.arc(1880, 280, 90, 0, Math.PI * 2);
+  g.fill();
+  for (let i = 0; i < 40; i++) {
+    g.fillStyle = `rgba(255,255,255,${0.25 + (i % 5) * 0.1})`;
+    g.fillRect(80 + (i * 97) % 2200, 40 + (i * 53) % 420, 3, 3);
+  }
+  g.fillStyle = "#243044";
+  g.fillRect(0, 980, 2400, 620);
+  for (let i = 0; i < 12; i++) {
+    const x = 70 + i * 195;
+    const h = 220 + (i % 4) * 70;
+    g.fillStyle = i % 2 ? "#1a2233" : "#141b2b";
+    g.fillRect(x, 980 - h, 150, h);
+    for (let yy = 980 - h + 18; yy < 960; yy += 28) {
+      for (let xx = x + 14; xx < x + 136; xx += 26) {
+        g.fillStyle = (xx + yy + i) % 50 < 18 ? "#f6d98a" : "#2c3a52";
+        g.fillRect(xx, yy, 14, 16);
+      }
+    }
+  }
+  g.fillStyle = "#8fd0c6";
+  g.fillRect(180, 1040, 2040, 28);
+  g.fillStyle = "#d98b6a";
+  g.fillRect(180, 1180, 2040, 18);
+  for (let i = 0; i < 9; i++) {
+    const x = 220 + i * 220;
+    g.fillStyle = ["#e15a4a", "#f0c14a", "#7ec8a3", "#6aa7e8"][i % 4];
+    g.fillRect(x, 1088, 120, 70);
+    g.fillStyle = "#1a120c";
+    g.font = "28px sans-serif";
+    g.fillText(String(i + 1).padStart(2, "0"), x + 36, 1132);
+  }
+  g.strokeStyle = "rgba(255,255,255,.45)";
+  g.lineWidth = 2;
+  for (let i = 0; i <= 8; i++) {
+    g.beginPath();
+    g.moveTo(1480 + i * 28, 1280);
+    g.lineTo(1480 + i * 28, 1480);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(1480, 1280 + i * 25);
+    g.lineTo(1704, 1280 + i * 25);
+    g.stroke();
+  }
+  g.fillStyle = "#fff";
+  g.font = "bold 64px sans-serif";
+  g.fillText("ZOOM", 240, 1360);
+  g.font = "32px sans-serif";
+  g.fillStyle = "#f6d98a";
+  g.fillText("12.0481 / 121.5170", 240, 1420);
+  g.font = "24px sans-serif";
+  g.fillStyle = "#c9d4e5";
+  g.fillText("wheel at cursor  ·  drag when zoomed  ·  double-click", 240, 1476);
+  g.strokeStyle = "#e15a4a";
+  g.lineWidth = 6;
+  g.beginPath();
+  g.arc(980, 860, 34, 0, Math.PI * 2);
+  g.stroke();
+  g.beginPath();
+  g.moveTo(980, 800);
+  g.lineTo(980, 920);
+  g.moveTo(920, 860);
+  g.lineTo(1040, 860);
+  g.stroke();
+  img.src = c.toDataURL("image/jpeg", 0.92);
+}
+
+function closeViewer() {
+  zoom.reset(false);
+  box.hidden = true;
+  reopen.hidden = false;
+}
+
+function openViewer() {
+  reopen.hidden = true;
+  box.hidden = false;
+  zoom.reset(false);
+}
+
+document.getElementById("lbClose").addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  closeViewer();
+});
+document.getElementById("lightboxSave").addEventListener("click", (e) => e.stopPropagation());
+box.addEventListener("click", (e) => {
+  if (e.target.closest(".lb-tools, #lightboxSave, #lightboxVideo")) return;
+  if (zoom.swallowClick()) return;
+  if (zoom.isZoomed()) return;
+  if (!zoom.tapClosesImage() && e.target.closest("#lightboxImg")) return;
+  closeViewer();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || box.hidden) return;
+  e.preventDefault();
+  closeViewer();
+});
+document.getElementById("reopenBtn").addEventListener("click", openViewer);
+paintSample();
+</script>
+</body>
+</html>

@@ -19,6 +19,7 @@ import { mountPondShare } from "./pond-share.js";
 import { mountGames, snapSeals } from "./games.js";
 import { mountDoodle } from "./doodle.js";
 import { createFollowController } from "./scroll-follow.js";
+import { attachImageZoom } from "./image-zoom.mjs";
 attachBubbleFx(Droop);
 
 /* 最新訊息要不要跟著走。桌機往上滾一下就放開，回到最底才再貼。 */
@@ -32,7 +33,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.06";
+const APP_VERSION = "v62.07";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -8848,9 +8849,12 @@ function resetList() {
   paintLoadMore();
 }
 
+let imageZoom = null;
+
 function closeLightbox() {
   const box = $("lightbox"), img = $("lightboxImg"), vid = $("lightboxVideo");
   box.hidden = true;
+  imageZoom?.reset(false);
   box.classList.remove("loading", "expired", "isvideo");
   const note = $("lightboxNote");
   if (note) { note.hidden = true; note.textContent = ""; }
@@ -8876,6 +8880,7 @@ function closeLightbox() {
 }
 
 function openLightbox(src, key) {
+  imageZoom?.reset(false);
   const img = $("lightboxImg");
   img.hidden = false;
   img.src = src || "";
@@ -9528,16 +9533,36 @@ function bindChatUI() {
   });
 
   /* --- 圖片放大 --- */
-  /* ⚠️ 燈箱本來是「點一下就關」。抓失敗的時候改成「點一下＝再試一次」——
-        失敗訊息裡就是這樣寫的，兩邊要對得上。 */
-  $("lightbox").addEventListener("click", () => {
+  /* 桌機：滾輪對著游標放大、放大後拖曳，雙擊在放大與還原之間切換。
+     沒放大時點暗處才關；點在圖片上留給雙擊。手機維持點一下（圖片或暗處）就關，
+     放大之後才不關，避免拖曳結束被當成關閉。
+     ⚠️ 抓失敗的時候仍是「點一下＝再試一次」——失敗訊息裡就是這樣寫的。
+     ⚠️ 影片與「儲存影片」不能冒泡，不然按暫停或下載會把燈箱一起收掉。 */
+  $("lbClose")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeLightbox();
+  });
+  $("lightboxSave")?.addEventListener("click", (e) => e.stopPropagation());
+  $("lightbox").addEventListener("click", (e) => {
+    if (e.target.closest?.(".lb-tools, #lightboxSave, #lightboxVideo")) return;
+    if (imageZoom?.swallowClick()) return;
     const again = S.retryMedia;
     if (again && $("lightbox").classList.contains("expired")) {
       S.retryMedia = null;
       again();
       return;
     }
+    if (imageZoom?.isZoomed()) return;
+    if (imageZoom && !imageZoom.tapClosesImage() && e.target.closest?.("#lightboxImg")) return;
     closeLightbox();
+  });
+  imageZoom = attachImageZoom({
+    box: $("lightbox"),
+    img: $("lightboxImg"),
+    zoomIn: $("lbZoomIn"),
+    zoomOut: $("lbZoomOut"),
+    resetBtn: $("lbZoomReset"),
   });
 
   /* --- 捲到底就回報已讀（節流，避免每個捲動事件都寫入） --- */
