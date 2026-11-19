@@ -13,6 +13,7 @@ import { MessagePresence, NoteFeed, BubbleWindow, createShatterFx } from "./chat
 import { Droop, petGroupsFromSnap, loadPetGroups, savePetGroups } from "./droop.js";
 import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RING, fakeCallPhase, FAKE_CALL_MS, loveAskPhase, loveAskSeconds, loveAskBothAcked } from "./bubble-fx.js";
 import { pairLocAgeSec, pairLocClock, pairLocDistance, PAIR_LOC_STALE_MS } from "./pair-loc.js";
+import { TYPING_LABELS, typingCode, fitTypingText, createTypingSense } from "./typing-status.js";
 import { mountPondShark } from "./pond-shark.js";
 import { mountPondShare } from "./pond-share.js";
 import { mountGames, snapSeals } from "./games.js";
@@ -27,7 +28,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.04";
+const APP_VERSION = "v62.05";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -6063,6 +6064,7 @@ async function enterChat() {
       remove(ref(db, `${base}/read`)),
       remove(ref(db, `${base}/recv`)),
       remove(ref(db, `${base}/typing`)),
+      remove(ref(db, `${base}/typingS`)),
       remove(ref(db, `${base}/rx`)),
       remove(ref(db, `${base}/dr`)),
       remove(ref(db, `${base}/bubbleFx`)),
@@ -6097,34 +6099,72 @@ async function enterChat() {
   };
 
   /* --- 6.6b 正在輸入 ---
-     只寫一個時間戳，不寫任何內容。5 秒沒更新就當作停了。
-     斷線時 onDisconnect 會清掉，避免對方畫面卡在「正在輸入」。 */
+     typing/ 仍是時間戳，舊分頁只認得這個數字，5 秒沒更新就當作停了。
+     狀態字母寫在 typingS/，同一次寫入。斷線時兩筆一起清，避免對方畫面卡住。 */
   /* ⚠️ v56：隱身時不寫 typing。
         這裡**故意不去動 `Typing.enabled()` 本身** —— 那是使用者在設定裡按的開關，
         讓它在隱身時回 false 的話，設定面板那一格會跟著變成關閉，
         看起來像「我的偏好被偷偷改掉了」。隱身是這次進房的事，設定是長期的事。 */
+  S.typingStyles = {};
+  S.peerTypingId = "";
+  S.noteTyping = null;
+  S.ping = null;
+  S.stopTyping = null;
+  let typingTimer = 0;
   if (Typing.enabled() && !S.stealth) {
     const myTypeRef = ref(db, `${base}/typing/${S.clientId}`);
+    const myStyleRef = ref(db, `${base}/typingS/${S.clientId}`);
+    const sense = createTypingSense(Date.now());
     onDisconnect(myTypeRef).remove();
+    onDisconnect(myStyleRef).remove();
     let lastPing = 0;
-    S.ping = () => {
+    let lastCode = "";
+    const flush = (force) => {
       if (!Typing.enabled() || S.stealth) return;
       const now = Date.now();
-      if (now - lastPing < 1800) return;        // 節流，不要每個按鍵都寫
+      const code = sense.code(now) || "n";
+      const changed = code !== lastCode;
+      if (!force && !changed && now - lastPing < 1800) return;
+      if (!force && changed && now - lastPing < 300) {
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => flush(true), 300 - (now - lastPing));
+        return;
+      }
+      clearTimeout(typingTimer);
       lastPing = now;
-      set(myTypeRef, serverTimestamp()).catch(() => {});
+      lastCode = code;
+      update(ref(db, base), {
+        [`typing/${S.clientId}`]: serverTimestamp(),
+        [`typingS/${S.clientId}`]: code,
+      }).catch(() => {});
     };
-    S.stopTyping = () => { lastPing = 0; remove(myTypeRef).catch(() => {}); };
+    S.noteTyping = (evt) => sense.edit(evt);
+    S.ping = () => flush(false);
+    S.stopTyping = () => {
+      clearTimeout(typingTimer);
+      lastPing = 0;
+      lastCode = "";
+      sense.reset(Date.now());
+      remove(myTypeRef).catch(() => {});
+      remove(myStyleRef).catch(() => {});
+    };
   }
 
   S.subs.push(onValue(ref(db, `${base}/typing`), (snap) => {
     if (myGen !== S.gen) return;
     const v = snap.val() || {};
     let peer = 0;
+    let peerId = "";
     for (const [cid, ts] of Object.entries(v)) {
-      if (cid !== S.clientId && typeof ts === "number" && ts > peer) peer = ts;
+      if (cid !== S.clientId && typeof ts === "number" && ts > peer) { peer = ts; peerId = cid; }
     }
     S.peerTyping = peer;
+    S.peerTypingId = peerId;
+    paintPeerState();
+  }));
+  S.subs.push(onValue(ref(db, `${base}/typingS`), (snap) => {
+    if (myGen !== S.gen) return;
+    S.typingStyles = snap.val() || {};
     paintPeerState();
   }));
 
@@ -6207,7 +6247,9 @@ async function enterChat() {
     /* ⚠️ v61：被撤銷核准的那一刻規則已經把寫入切斷，這兩筆 remove 會被拒 ——
           那是預期的（onDisconnect 會在斷線時由伺服器收掉），不要讓它變成未處理的 rejection。 */
     try { remove(meRef).catch(() => {}); } catch (_) {}
+    try { clearTimeout(typingTimer); } catch (_) {}
     try { remove(ref(db, `${base}/typing/${S.clientId}`)).catch(() => {}); } catch (_) {}
+    try { remove(ref(db, `${base}/typingS/${S.clientId}`)).catch(() => {}); } catch (_) {}
   };
 
   /* 初次載入穩定之後，停在「上次讀到的地方」而不是最底。
@@ -7957,23 +7999,90 @@ function repaintPresence() {
   paintPeerState();
 }
 
+/* 量句子寬度，不改畫面上那一行，避免量的過程把動畫重播一次。 */
+let typingProbe = null;
+function typingLabelWidth(text, withDots) {
+  if (!typingProbe) {
+    typingProbe = document.createElement("span");
+    typingProbe.style.cssText = "position:absolute;left:-9999px;top:0;white-space:nowrap;visibility:hidden";
+    document.body.appendChild(typingProbe);
+  }
+  const live = $("peerText");
+  if (live) typingProbe.style.font = getComputedStyle(live).font;
+  typingProbe.replaceChildren();
+  const dots = withDots && text.endsWith("…");
+  const body = dots ? text.slice(0, -1) : text;
+  if (body) typingProbe.append(document.createTextNode(body));
+  if (dots) {
+    const el = document.createElement("span");
+    el.className = "peer-dots";
+    for (let i = 0; i < 3; i++) el.append(document.createElement("i"));
+    typingProbe.append(el);
+  }
+  return typingProbe.getBoundingClientRect().width;
+}
+
+function renderTypingLabel(txt, text, withDots) {
+  const dots = withDots && text.endsWith("…");
+  const body = dots ? text.slice(0, -1) : text;
+  txt.replaceChildren();
+  if (body) txt.append(document.createTextNode(body));
+  if (dots) {
+    const el = document.createElement("span");
+    el.className = "peer-dots";
+    el.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < 3; i++) el.append(document.createElement("i"));
+    txt.append(el);
+  }
+}
+
+function showPeerText(txt, label, render) {
+  if (txt.dataset.label === label) return;
+  txt.dataset.label = label;
+  render();
+  txt.classList.remove("swap");
+  void txt.offsetWidth;
+  txt.classList.add("swap");
+}
+
 function paintPeerState() {
   const dot = $("peerDot"), txt = $("peerText");
   if (!dot || !txt) return;
+  const title = txt.closest(".c-title");
   const fresh = S.peerTyping && (Date.now() + S.offset - S.peerTyping) < 5000;
   if (fresh) {
     dot.dataset.on = "true";
     /* 多人房刻意不說「誰」在輸入 —— 名冊只存在密文裡，而 typing 節點是明文的。
        要顯示名字就得把暱稱寫成明文，等於公告「這間房有哪些人」。 */
-    txt.textContent = S.open ? "有人正在輸入…" : "正在輸入…";
+    const code = typingCode(S.typingStyles && S.typingStyles[S.peerTypingId]);
+    const withDots = code === "n";
+    let variants = TYPING_LABELS[code].slice();
+    if (S.open) variants = variants.map((text) => "有人" + text);
+    let picked = variants[variants.length - 1];
+    let hideDot = true;
+    if (title) {
+      for (const hide of [false, true]) {
+        title.classList.toggle("no-dot", hide);
+        const avail = txt.clientWidth;
+        const fit = fitTypingText(variants, (text) => typingLabelWidth(text, withDots) <= avail + 0.5);
+        if (typingLabelWidth(fit, withDots) <= avail + 0.5) { picked = fit; hideDot = hide; break; }
+      }
+      title.classList.toggle("no-dot", hideDot);
+    }
     txt.classList.add("typing");
+    txt.title = variants[0];
+    showPeerText(txt, picked, () => renderTypingLabel(txt, picked, withDots));
     return;
   }
   txt.classList.remove("typing");
+  txt.title = "";
+  if (title) title.classList.remove("no-dot");
   dot.dataset.on = S.peerOnline ? "true" : "false";
   // 多人房只講「有人」，不講幾個人，也不講是誰
-  if (S.open) txt.textContent = S.peerOnline ? "有人在線上" : "目前只有你";
-  else txt.textContent = S.peerOnline ? "在線上" : "不在線";
+  const plain = S.open
+    ? (S.peerOnline ? "有人在線上" : "目前只有你")
+    : (S.peerOnline ? "在線上" : "不在線");
+  showPeerText(txt, plain, () => { txt.textContent = plain; });
 }
 
 /* 送出狀態：還沒落地的掛時鐘、失敗的掛驚嘆號、落地了什麼都不掛。
@@ -9129,7 +9238,46 @@ function bindChatUI() {
     }
   };
 
-  input.addEventListener("input", () => { if (S.ping) S.ping(); });
+  /* 組字（注音／拼音）只續命，不計入速度。確定送出的字在 compositionend 算一次，
+     避免後面那筆 input 再算第二次。 */
+  let skipCompositionInput = false;
+  input.addEventListener("beforeinput", (e) => {
+    if (!S.noteTyping || e.isComposing) return;
+    const kind = e.inputType || "";
+    if (kind.startsWith("delete") || kind === "deleteByCut") {
+      const span = Math.max(0, (e.target.selectionEnd || 0) - (e.target.selectionStart || 0));
+      const n = span || 1;
+      S.noteTyping({ t: Date.now(), kind: "del", n, draft: Math.max(0, input.value.length - n) });
+    }
+  });
+  input.addEventListener("compositionstart", () => {
+    skipCompositionInput = false;
+    if (S.noteTyping) S.noteTyping({ t: Date.now(), kind: "compose", draft: input.value.length });
+  });
+  input.addEventListener("compositionend", (e) => {
+    skipCompositionInput = true;
+    if (S.noteTyping) S.noteTyping({ t: Date.now(), kind: "add", n: String(e.data || "").length, draft: input.value.length });
+    if (S.ping) S.ping();
+  });
+  input.addEventListener("input", (e) => {
+    const kind = e.inputType || "";
+    if (e.isComposing || kind === "insertCompositionText") {
+      if (S.noteTyping) S.noteTyping({ t: Date.now(), kind: "compose", draft: input.value.length });
+    } else if (kind === "insertFromComposition") {
+      if (skipCompositionInput) skipCompositionInput = false;
+      else if (S.noteTyping) S.noteTyping({ t: Date.now(), kind: "add", n: String(e.data || "").length, draft: input.value.length });
+    } else if (kind === "insertFromPaste") {
+      if (S.noteTyping) S.noteTyping({ t: Date.now(), kind: "paste", n: String(e.data || "").length, draft: input.value.length });
+    } else if (kind.startsWith("delete") || kind === "deleteByCut") {
+      if (S.noteTyping) S.noteTyping({ t: Date.now(), kind: "draft", draft: input.value.length });
+    } else if (S.noteTyping) {
+      const n = String(e.data || "").length;
+      S.noteTyping(n
+        ? { t: Date.now(), kind: "add", n, draft: input.value.length }
+        : { t: Date.now(), kind: "draft", draft: input.value.length });
+    }
+    if (S.ping) S.ping();
+  });
 
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing && enterSends()) {
@@ -10375,7 +10523,8 @@ function leaveChat() {
   S.cleanup?.();
   S.send = null; S.wipe = null; S.cleanup = null; S.retryMedia = null; S.wipeMark = null; S.delMsg = null;
   S.loadOlder = null;
-  S.ping = null; S.stopTyping = null; S.peerTyping = 0; S.peerOnline = false;
+  S.ping = null; S.stopTyping = null; S.noteTyping = null;
+  S.peerTyping = 0; S.peerTypingId = ""; S.typingStyles = {}; S.peerOnline = false;
   S.presence = {};
   S.saveOnlineAlert = null; S.onlineOn = false;
   S.marks = []; S.saveMarks = null; S.dropMarks = null;
@@ -12716,6 +12865,7 @@ async function admWipe(i) {
       remove(ref(db, `${base}/read`)),
       remove(ref(db, `${base}/recv`)),
       remove(ref(db, `${base}/typing`)),
+      remove(ref(db, `${base}/typingS`)),
       remove(ref(db, `${base}/rx`)),
       remove(ref(db, `${base}/dr`)),
       remove(ref(db, `${base}/bubbleFx`)),

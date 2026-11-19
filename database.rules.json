@@ -204,6 +204,11 @@
             ".validate": "newData.isNumber()"
           }
         },
+        "typingS": {
+          "$clientId": {
+            ".validate": "newData.isString() && newData.val().matches(/^[dfblpn]$/)"
+          }
+        },
         "read": {
           "$clientId": {
             ".validate": "newData.isString() && newData.val().length <= 64"
