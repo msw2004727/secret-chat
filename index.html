@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v62.08">
+<meta name="sc-shell" content="v62.09">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -1058,30 +1058,41 @@
     <!-- 「＋」展開的附件選單。蓋在輸入列上方，點外面就收。
          ⚠️ 只有兩項。「檔案」評估過不做 —— 見 btnPlus 那邊的說明。 -->
     <div class="c-plus" id="plusMenu" hidden>
-      <button type="button" class="c-plus-item" id="plusPhoto">
-        <span class="c-plus-ico">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <rect x="3" y="5" width="18" height="14" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/>
-            <circle cx="8.4" cy="10" r="1.5" fill="currentColor"/>
-            <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"
-                  d="m4.2 17.2 4.3-4.3 3.2 3.2 3.1-3.1 4.9 4.9"/>
-          </svg>
+      <!-- 整列是 label，檔案欄蓋在上面、透明度 0，但不能 display:none。
+           iPhone 不會理會對隱藏檔案欄的程式點擊，手指必須真的點到它。 -->
+      <label class="c-plus-hit">
+        <span class="c-plus-item" id="plusPhoto" aria-hidden="true">
+          <span class="c-plus-ico">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <rect x="3" y="5" width="18" height="14" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <circle cx="8.4" cy="10" r="1.5" fill="currentColor"/>
+              <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"
+                    d="m4.2 17.2 4.3-4.3 3.2 3.2 3.1-3.1 4.9 4.9"/>
+            </svg>
+          </span>
+          <span class="c-plus-txt">圖片<small>保留比例，縮到 2048px</small></span>
         </span>
-        <span class="c-plus-txt">圖片<small>保留比例，縮到 2048px</small></span>
-      </button>
-      <button type="button" class="c-plus-item" id="plusVideo">
-        <span class="c-plus-ico">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <rect x="3" y="6" width="12.5" height="12" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/>
-            <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"
-                  d="M15.5 11.2 21 8.2v7.6l-5.5-3z"/>
-          </svg>
+        <input type="file" id="photoInput" class="c-plus-file" accept="image/*" multiple aria-label="圖片"
+               data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other">
+      </label>
+      <label class="c-plus-hit">
+        <span class="c-plus-item" id="plusVideo" aria-hidden="true">
+          <span class="c-plus-ico">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <rect x="3" y="6" width="12.5" height="12" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"
+                    d="M15.5 11.2 21 8.2v7.6l-5.5-3z"/>
+            </svg>
+          </span>
+          <!-- ⚠️ 這裡刻意「不寫數字」——上限由 app.js 從 config 讀出來填。
+               在 HTML 裡放第二份數字的話，改了 config 卻忘了改這裡，
+               選單就會對使用者說謊。 -->
+          <span class="c-plus-txt">影片<small id="plusVideoSub">上限讀取中…</small></span>
         </span>
-        <!-- ⚠️ 這裡刻意「不寫數字」——上限由 app.js 從 config 讀出來填。
-             在 HTML 裡放第二份數字的話，改了 config 卻忘了改這裡，
-             選單就會對使用者說謊。 -->
-        <span class="c-plus-txt">影片<small id="plusVideoSub">上限讀取中…</small></span>
-      </button>
+        <!-- ⚠️ 影片刻意「不加 multiple」—— 一次一支。 -->
+        <input type="file" id="videoInput" class="c-plus-file" accept="video/*" aria-label="影片"
+               data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other">
+      </label>
     </div>
   </div>
 
@@ -1094,13 +1105,6 @@
 
 
   <input type="file" id="fileInput" accept="image/*" hidden multiple>
-  <!-- 相簿選檔用。⚠️ 這幾個是全站唯二的 <input>，不是文字欄位，沒有自動填入問題 -->
-  <input type="file" id="photoInput" accept="image/*" hidden multiple
-         data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other">
-  <!-- ⚠️ 影片刻意「不加 multiple」—— 一次一支。
-       連傳兩支 50 MB 的檔案，手機記憶體與對方的等待時間都不划算。 -->
-  <input type="file" id="videoInput" accept="video/*" hidden
-         data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other">
 
   <!-- 失焦遮罩：解除必須重新驗證 -->
   <!-- 閒置遮罩的解鎖：跟「載入更早的訊息」用同一組九宮格。

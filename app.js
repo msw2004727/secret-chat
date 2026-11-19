@@ -33,7 +33,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.08";
+const APP_VERSION = "v62.09";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -9473,19 +9473,12 @@ function bindChatUI() {
   const vsub = $("plusVideoSub");
   if (vsub) vsub.textContent = `最長 ${CFG.videoMaxSeconds || 30} 秒 · ${CFG.videoMaxUploadMB || 50} MB 以內`;
 
-  /* ⚠️ 跟送出鈕同一個理由擋掉預設行為：焦點一離開輸入框，手機鍵盤就收起來，
-        視覺視窗變高，整條輸入列往下跳。手指是在「跳之前」的位置放開的，
-        這一下落在按鈕外面，click 根本不會發生 —— 看起來就是按了沒反應。
-        進房時輸入框會被聚焦，所以鍵盤常常本來就是開著的。
-     ⚠️ 選單裡的「圖片／影片」也要擋。只保住「＋」的話，選單打開後再點圖片，
-        鍵盤還是會收，選單跟著跑掉，檔案視窗一樣開不出來。
-     ⚠️ 只在焦點本來就在輸入框時擋。使用者自己收起鍵盤之後再點，不要把鍵盤叫回來。 */
+  /* ⚠️ 只擋「＋」這一顆。圖片／影片是透明檔案欄，手指直接點到它才開得了相簿，
+        在那裡 preventDefault 會把 iPhone 的選檔手勢吃掉。 */
   const keepTypingFocus = (e) => {
     if (document.activeElement === input) e.preventDefault();
   };
   plus?.addEventListener("mousedown", keepTypingFocus);
-  $("plusPhoto")?.addEventListener("mousedown", keepTypingFocus);
-  $("plusVideo")?.addEventListener("mousedown", keepTypingFocus);
 
   plus?.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -9499,17 +9492,31 @@ function bindChatUI() {
     if (plusMenu && !plusMenu.hidden && !plusMenu.contains(e.target) && e.target !== plus) closePlus();
   }, true);
 
-  $("plusPhoto")?.addEventListener("click", () => { closePlus(); FilePicker.open("photoInput"); });
-  $("plusVideo")?.addEventListener("click", () => { closePlus(); FilePicker.open("videoInput"); });
+  /* 圖片／影片的檔案欄自己蓋在列上。不要先關選單再 input.click()：
+     檔案欄若是 display:none，或點到的那一列在同一輪被藏起來，iPhone 不會開相簿。 */
+  const armFile = (id) => {
+    const inputEl = $(id);
+    if (!inputEl) return;
+    const arm = () => {
+      if ($("chat").hidden) return;
+      FilePicker.pending = { id, key: S.key, at: Date.now() };
+    };
+    inputEl.addEventListener("pointerdown", arm);
+    inputEl.addEventListener("click", arm);
+  };
+  armFile("photoInput");
+  armFile("videoInput");
   for (const id of ["photoInput", "videoInput", "fileInput"]) {
     $(id)?.addEventListener("cancel", () => { FilePicker.pending = null; });
   }
 
   $("photoInput")?.addEventListener("change", async (e) => {
+    closePlus();
     const files = FilePicker.take(e.target);
     if (files.length) await sendPhotos(files);
   });
   $("videoInput")?.addEventListener("change", async (e) => {
+    closePlus();
     const file = FilePicker.take(e.target)[0];
     if (file) await sendVideo(file);
   });
@@ -11576,7 +11583,11 @@ function initDisguise() {
      這樣手機的 App 切換器截到的畫面是乾淨的 Google 頁，不是模糊的聊天室。 */
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) return;
-    if (FilePicker.active()) { cover(true); return; }
+    if (FilePicker.active()) {
+      /* 同一輪就把鎖畫出來的話，iPhone 會把正在開的相簿收掉。等這一輪結束再蓋。 */
+      setTimeout(() => { if (FilePicker.active()) cover(true); }, 0);
+      return;
+    }
     if (CFG.hideOnAppSwitch) panicExit(false);
     else cover();
   });
