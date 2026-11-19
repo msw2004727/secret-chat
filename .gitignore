@@ -22,6 +22,7 @@
 !/ball-sync.js
 !/games.js
 !/doodle.js
+!/image-zoom.mjs
 !/rooster.js
 !/rooster-room.js
 !/bobo.js
@@ -46,6 +47,8 @@
 !/.github/
 !/scripts/
 !/docs/
+!/preview/
+!/preview/image-zoom-preview.html
 !/domain-redirect/
 !/functions/
 /functions/*
