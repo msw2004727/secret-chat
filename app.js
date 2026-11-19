@@ -18,7 +18,11 @@ import { mountPondShark } from "./pond-shark.js";
 import { mountPondShare } from "./pond-share.js";
 import { mountGames, snapSeals } from "./games.js";
 import { mountDoodle } from "./doodle.js";
+import { createFollowController } from "./scroll-follow.js";
 attachBubbleFx(Droop);
+
+/* 最新訊息要不要跟著走。桌機往上滾一下就放開，回到最底才再貼。 */
+const follow = createFollowController();
 
 const CFG = window.CONFIG;
 
@@ -28,7 +32,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.05";
+const APP_VERSION = "v62.06";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -7771,12 +7775,12 @@ function safeLinkHost(href) {
    縮圖框有固定 16:9，圖解碼完不會再把高度撐開。 */
 function withPreviewScroll(bub, work) {
   const sc = $("scroller");
-  const at = sc && sc.scrollHeight - sc.scrollTop - sc.clientHeight < 90;
+  const at = follow.shouldFollow(sc);
   const above = !!(sc && bub && bub.getBoundingClientRect().bottom < 8);
   const keep = above ? sc.scrollHeight - sc.scrollTop : 0;
   work();
   if (!sc) return;
-  if (at) sc.scrollTop = sc.scrollHeight;
+  if (at) follow.stickIf(sc, true);
   else if (above) sc.scrollTop = Math.max(0, sc.scrollHeight - keep);
 }
 
@@ -8457,13 +8461,12 @@ const Burn = {
    ⚠️ 不在底部就完全不動：使用者正在翻舊訊息時被拉到最底比什麼都煩。 */
 function keepBottom(work) {
   const sc = $("scroller");
-  const at = sc ? sc.scrollHeight - sc.scrollTop - sc.clientHeight < 90 : false;
+  const at = follow.shouldFollow(sc);
   work();
   if (!at || !sc) return;
-  sc.scrollTop = sc.scrollHeight;
-  requestAnimationFrame(() => {
-    if (sc.scrollHeight - sc.scrollTop - sc.clientHeight < 90) sc.scrollTop = sc.scrollHeight;
-  });
+  follow.stickIf(sc, true);
+  /* 下一幀高度還可能再變（字型、換行）。人若已往上捲，stickIfStill 不會拉回去。 */
+  requestAnimationFrame(() => follow.stickIfStill(sc));
 }
 
 /* ────────────── 置頂公告（v45）──────────────
@@ -8578,9 +8581,10 @@ function paintReactions(onlyKey) {
      畫面不跟著走的話那一顆表情就卡在可視範圍外緣被切掉，要手動往下滑才看得到。
      ⚠️ 一定要在動 DOM「之前」量。畫完再量，量到的是新高度，
         永遠會判成「不在底部」，這條就等於白做。
-     ⚠️ 只有本來就貼著底部才跟著走。使用者正在往上翻舊訊息時被硬拉到最底，
-        比看不到表情更惱人 —— 判定沿用 appendMsg 那個 90px。 */
-  const atBottom = sc ? sc.scrollHeight - sc.scrollTop - sc.clientHeight < 90 : false;
+     ⚠️ 只有本來就貼著最底才跟著走。桌機滾輪往上一下就要放開，
+        不能再用「90px 以內都算貼底」—— 那個範圍比一次滾輪還大，
+        虛擬列還原時呼叫這裡會把人拉回去。 */
+  const atBottom = follow.shouldFollow(sc);
 
   // 一次只更新改變的那一則；重新畫清單時也保留內容相同的表情列。
 
@@ -8637,13 +8641,10 @@ function paintReactions(onlyKey) {
   }
 
   if (atBottom && sc) {
-    sc.scrollTop = sc.scrollHeight;
+    follow.stickIf(sc, true);
     /* 表情的字型換好之後高度還會再動一點點，下一幀補一次。
-       ⚠️ 補的時候要再判一次「還在底部附近嗎」—— 使用者在這 16 毫秒內
-          剛好開始往上滑的話，不可以把他拉回去。 */
-    requestAnimationFrame(() => {
-      if (sc.scrollHeight - sc.scrollTop - sc.clientHeight < 90) sc.scrollTop = sc.scrollHeight;
-    });
+       ⚠️ 補的時候若使用者已經往上捲（scrollTop 變小），不可以把他拉回去。 */
+    requestAnimationFrame(() => follow.stickIfStill(sc));
   }
 }
 
@@ -8770,7 +8771,7 @@ function tryMarkRecv() {
    所以比最後一則舊的，要插回正確位置並重畫。 */
 function appendMsg(m) {
   const sc = $("scroller");
-  const atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 90;
+  const atBottom = follow.shouldFollow(sc);
 
   // 要記「最小的」key，不是「第一個解完的」，否則往上載入會跳過中間的訊息
   if (!S.oldestKey || m.k < S.oldestKey) S.oldestKey = m.k;
@@ -8782,7 +8783,7 @@ function appendMsg(m) {
     // 常見路徑：真的是最新的一則
     S.msgs.push(m);
     $("msgList").appendChild(rowEl(m, last));
-    if (atBottom) sc.scrollTop = sc.scrollHeight;
+    if (atBottom) follow.stickIf(sc, true);
   } else {
     // 補進來的舊訊息：插回正確位置，重畫，並保住使用者當下看的位置
     let i = S.msgs.length;
@@ -8838,6 +8839,7 @@ function resetList() {
   S.rx = {};
   $("msgList").replaceChildren();
   $("emptyState").hidden = false;
+  follow.reset($("scroller"));
   /* ⚠️ 這裡只能清「畫面與記憶體」，絕對不可以碰 localStorage。
         resetList() 在「進房」時也會跑一次 —— 在這裡刪掉本機基準的話，
         「你不在的時候他想念了你 N 次」永遠算不出來（基準每次進房都被抹掉）。
@@ -9541,6 +9543,8 @@ function bindChatUI() {
   /* --- 捲到底就回報已讀（節流，避免每個捲動事件都寫入） --- */
   let readThrottle = null;
   const sc = $("scroller");
+  /* 先裝貼底判斷：往上捲立刻放開，回到最底才再跟著新訊息。 */
+  follow.arm(sc);
   sc.addEventListener("scroll", () => {
     paintJump();
     // 捲到接近頂端就補一次載入。IntersectionObserver 在 iOS 慣性捲動時
@@ -10628,10 +10632,26 @@ function initViewport() {
     if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
   };
 
+  /* 鍵盤把視窗壓矮時，只有人本來就貼在最底才跟著。
+     正在往上翻歷史時，視窗縮放不可以把他拉回去。 */
   const stickToBottom = () => {
-    if ($("chat").hidden) return;
+    if ($("chat").hidden || !follow.isFollowing()) return;
     const sc = $("scroller");
-    requestAnimationFrame(() => { sc.scrollTop = sc.scrollHeight; });
+    requestAnimationFrame(() => {
+      if ($("chat").hidden || !follow.isFollowing()) return;
+      follow.stick(sc);
+    });
+  };
+  /* 點進輸入框是明確要看最新一句（手機鍵盤）。這條不看剛才有沒有被放開。 */
+  const pinLatest = () => {
+    if ($("chat").hidden) return;
+    follow.force();
+    const sc = $("scroller");
+    requestAnimationFrame(() => {
+      if ($("chat").hidden) return;
+      follow.force();
+      follow.stick(sc);
+    });
   };
 
   fit();
@@ -10649,8 +10669,8 @@ function initViewport() {
 
   // 點輸入框叫出鍵盤後，把最新訊息推回看得到的位置
   $("msgInput").addEventListener("focus", () => {
-    setTimeout(() => { fit(); stickToBottom(); }, 300);
-    setTimeout(() => { fit(); stickToBottom(); }, 600);   // iOS 鍵盤動畫較慢，補一次
+    setTimeout(() => { fit(); pinLatest(); }, 300);
+    setTimeout(() => { fit(); pinLatest(); }, 600);   // iOS 鍵盤動畫較慢，補一次
   });
 }
 
