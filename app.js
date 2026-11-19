@@ -33,7 +33,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.07";
+const APP_VERSION = "v62.08";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -9472,6 +9472,20 @@ function bindChatUI() {
   // 影片的上限直接從 config 讀出來寫進選單，不要在 HTML 裡寫死第二份數字
   const vsub = $("plusVideoSub");
   if (vsub) vsub.textContent = `最長 ${CFG.videoMaxSeconds || 30} 秒 · ${CFG.videoMaxUploadMB || 50} MB 以內`;
+
+  /* ⚠️ 跟送出鈕同一個理由擋掉預設行為：焦點一離開輸入框，手機鍵盤就收起來，
+        視覺視窗變高，整條輸入列往下跳。手指是在「跳之前」的位置放開的，
+        這一下落在按鈕外面，click 根本不會發生 —— 看起來就是按了沒反應。
+        進房時輸入框會被聚焦，所以鍵盤常常本來就是開著的。
+     ⚠️ 選單裡的「圖片／影片」也要擋。只保住「＋」的話，選單打開後再點圖片，
+        鍵盤還是會收，選單跟著跑掉，檔案視窗一樣開不出來。
+     ⚠️ 只在焦點本來就在輸入框時擋。使用者自己收起鍵盤之後再點，不要把鍵盤叫回來。 */
+  const keepTypingFocus = (e) => {
+    if (document.activeElement === input) e.preventDefault();
+  };
+  plus?.addEventListener("mousedown", keepTypingFocus);
+  $("plusPhoto")?.addEventListener("mousedown", keepTypingFocus);
+  $("plusVideo")?.addEventListener("mousedown", keepTypingFocus);
 
   plus?.addEventListener("click", (e) => {
     e.stopPropagation();
