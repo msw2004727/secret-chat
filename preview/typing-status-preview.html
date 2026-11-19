@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>打字狀態預覽</title>
+<style>
+  :root {
+    --page: #0b0d11;
+    --card: #14181f;
+    --card-line: rgba(255,255,255,.08);
+    --ink: #e8eaed;
+    --muted: #8b939e;
+    --accent: #2b6cd4;
+    --accent-2: #9ec1ff;
+    --good: #7dcea0;
+    --bad: #f0a0a0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    min-height: 100%;
+    background:
+      radial-gradient(900px 420px at 50% -10%, rgba(43,108,212,.18), transparent 60%),
+      var(--page);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif;
+    line-height: 1.5;
+  }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  main { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 64px; }
+  .kicker { margin: 0 0 6px; color: var(--accent-2); font-size: 12px; letter-spacing: .14em; }
+  h1 { margin: 0; font-size: 28px; font-weight: 650; letter-spacing: -.02em; }
+  .sub { margin: 8px 0 0; max-width: 62ch; color: var(--muted); font-size: 14.5px; }
+  .panel, .spec, .metrics {
+    margin-top: 18px;
+    background: var(--card);
+    border: 1px solid var(--card-line);
+    border-radius: 16px;
+    padding: 14px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row + .row { margin-top: 10px; }
+  .label { flex: 0 0 auto; width: 72px; color: var(--muted); font-size: 12px; }
+  .choices { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+  .chip, .toggle {
+    border: 1px solid rgba(255,255,255,.1);
+    background: #10141a;
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 13px;
+    line-height: 1.3;
+    transition: border-color .2s, background .2s, transform .15s;
+  }
+  .chip small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .04em; }
+  .chip.on, .toggle.on {
+    border-color: rgba(158,193,255,.7);
+    background: rgba(43,108,212,.22);
+    color: white;
+  }
+  .chip:active, .toggle:active { transform: scale(.98); }
+  .status-chip { text-align: left; border-radius: 12px; padding: 8px 10px; white-space: nowrap; }
+  .demo-bar { flex: 1 1 120px; height: 3px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .demo-bar > span { display: block; height: 100%; width: 0; background: var(--accent-2); }
+  .demo-bar.go > span { animation: demo-load 1.8s linear; }
+  @keyframes demo-load { to { width: 100%; } }
+
+  .stage { margin-top: 18px; display: grid; justify-items: center; gap: 12px; }
+  .device-name { margin: 0; color: var(--muted); font-size: 12px; }
+  .bezel {
+    background: #050608;
+    border-radius: 36px;
+    padding: 12px;
+    box-shadow: 0 30px 70px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .screen {
+    position: relative;
+    width: 390px;
+    height: 292px;
+    overflow: hidden;
+    border-radius: 24px;
+    background: var(--bg);
+    color: var(--txt);
+  }
+  .guide {
+    position: absolute;
+    z-index: 6;
+    left: 50%;
+    top: 0;
+    height: 54px;
+    border-left: 1px dashed rgba(158,193,255,.9);
+    transform: translateX(-0.5px);
+    pointer-events: none;
+  }
+  .screen:not(.show-guide) .guide { display: none; }
+
+  /* —— 聊天室標題列。尺寸與色票對齊 style.css 的 .c-bar / .c-pair —— */
+  .screen {
+    --bg: #0f1115;
+    --bg-soft: #171a20;
+    --line: #262a32;
+    --txt: #e8eaed;
+    --txt-dim: #7d848f;
+    --me: #2b6cd4;
+    --you: #1c2028;
+    --you-txt: #e8eaed;
+  }
+  .screen.light {
+    --bg: #ffffff;
+    --bg-soft: #f4f5f7;
+    --line: #e6e8eb;
+    --txt: #16181c;
+    --txt-dim: #8a9099;
+    --me: #1a73e8;
+    --you: #eef0f3;
+    --you-txt: #16181c;
+  }
+  .c-bar {
+    position: relative;
+    height: 54px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    padding: 0 6px;
+  }
+  .c-icon {
+    flex: 0 0 auto;
+    width: 42px; height: 42px;
+    border: 0; border-radius: 50%;
+    background: transparent; color: var(--txt-dim);
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  .screen[data-w="320"] .c-icon,
+  .screen[data-w="360"] .c-icon,
+  .screen[data-w="375"] .c-icon { width: 38px; height: 38px; }
+  .c-title {
+    flex: 1 1 auto; min-width: 0;
+    display: flex; align-items: center; gap: 7px;
+    font-size: 13px; color: var(--txt-dim);
+    overflow: hidden; white-space: nowrap;
+  }
+  .screen[data-layout="now"] .c-title { padding-left: 4px; }
+  .screen[data-layout="now"][data-w="320"] .c-title,
+  .screen[data-layout="now"][data-w="360"] .c-title { font-size: 12.5px; gap: 5px; }
+  .screen[data-layout="fix"][data-w="375"] .c-title,
+  .screen[data-layout="fix"][data-w="390"] .c-title { font-size: 12px; gap: 5px; }
+  .screen[data-layout="fix"][data-w="320"] .c-title,
+  .screen[data-layout="fix"][data-w="360"] .c-title { font-size: 11.5px; gap: 4px; }
+  .c-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #34a853; box-shadow: 0 0 0 3px rgba(52,168,83,.16);
+    flex: 0 0 auto;
+  }
+  .c-title.no-dot .c-dot { display: none; }
+  #peerText {
+    flex: 1 1 auto; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--me);
+  }
+  #peerText.swap { animation: rise .46s cubic-bezier(.16,1,.3,1); }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .dots { display: inline-flex; align-items: center; gap: 2px; height: 1em; margin: 0 1px; vertical-align: -1px; }
+  .dots i {
+    width: 3px; height: 3px; border-radius: 50%; background: currentColor;
+    opacity: .25; animation: dot 1.05s ease-in-out infinite;
+  }
+  .dots i:nth-child(2) { animation-delay: .16s; }
+  .dots i:nth-child(3) { animation-delay: .32s; }
+  @keyframes dot {
+    0%, 70%, 100% { opacity: .22; transform: translateY(0); }
+    35% { opacity: 1; transform: translateY(-1.5px); }
+  }
+  .drift { display: inline-block; animation: drift 1.4s ease-in-out infinite; }
+  @keyframes drift {
+    0%, 100% { transform: translateX(0); opacity: .72; }
+    50% { transform: translateX(3px); opacity: 1; }
+  }
+  .c-bar-side { display: flex; align-items: center; gap: 2px; height: 54px; }
+  .c-pair {
+    display: flex; align-items: center; justify-content: center; gap: 1px;
+    height: 54px; width: max-content; min-width: 0;
+  }
+  .c-seal { display: inline-flex; align-items: center; gap: 1px; height: 20px; flex: 0 0 auto; color: #f7f3ea; }
+  #sealM { margin-right: 4px; }
+  #sealF { margin-left: 4px; }
+  .c-seal i {
+    display: inline-block; font-style: normal; font-size: 12px; font-weight: 400; line-height: 1;
+    transform: rotate(-11deg);
+  }
+  .c-seal b { font-size: 11px; font-weight: 400; letter-spacing: -.03em; line-height: 1; }
+  .c-seal em { font-style: normal; font-weight: 400; }
+  .screen.light .c-seal,
+  .screen.light .c-seal i,
+  .screen.light .c-seal b { color: #1c2430; }
+  .c-pair-slot { position: relative; display: flex; align-items: center; justify-content: center; width: 26px; height: 54px; flex: 0 0 auto; }
+  .c-pair-wrap { position: relative; width: 26px; height: 26px; }
+  .c-pair-who {
+    width: 26px; height: 26px; padding: 0; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,.28);
+    background: rgba(255,255,255,.04); color: rgba(232,234,237,.45);
+    font-size: 13px; font-weight: 600; line-height: 24px; text-align: center;
+  }
+  .c-pair-who.is-m.set { color: #9ec1ff; border-color: rgba(120,168,255,.85); background: rgba(255,255,255,.08); }
+  .c-pair-who.is-f.set { color: #ffb3c7; border-color: rgba(255,140,164,.9); background: rgba(255,255,255,.08); }
+  .screen.light .c-pair-who { border-color: #d7dbe0; background: #f4f5f7; color: #8a9099; }
+  .screen.light .c-pair-who.is-m.set { color: #1a73e8; border-color: rgba(26,115,232,.55); background: rgba(26,115,232,.08); }
+  .screen.light .c-pair-who.is-f.set { color: #d6336c; border-color: rgba(214,51,108,.45); background: rgba(214,51,108,.08); }
+  .c-pair-tick {
+    position: absolute; top: 0; right: 0; z-index: 2;
+    height: 10px; padding: 0 2px; transform: translateY(-72%);
+    display: inline-flex; align-items: center;
+    border-radius: 999px; pointer-events: none;
+    background: #171c24; color: #d7e7ff; border: 1px solid rgba(176,206,240,.45);
+    font: 700 7px/8px ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: -.04em;
+  }
+  .screen.light .c-pair-tick { background: #fff; color: #174ea6; border-color: rgba(26,115,232,.35); }
+  .c-pair-tick[hidden] { display: none !important; }
+  .c-pair-link {
+    width: auto; height: 54px; flex: 1 1 18px; min-width: 8px; max-width: 34px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    color: rgba(232,234,237,.34);
+  }
+  .c-pair-link svg { width: 100%; height: 12px; display: block; overflow: visible; }
+  .c-pair-heart { opacity: .4; }
+  .c-pair-link.on { color: #d7ecff; }
+  .c-pair-link.on svg { filter: drop-shadow(0 0 3px rgba(170,214,255,.95)); }
+  .c-pair-link.on .c-pair-heart { opacity: 1; }
+  .c-pair-link.on .c-pair-flow { animation: c-pair-flow 1.6s linear infinite; }
+  @keyframes c-pair-flow { to { stroke-dashoffset: -22; } }
+  .c-pair-dist {
+    height: 11px; max-width: 100%; padding: 0 3px; border-radius: 999px;
+    font-size: 8px; font-weight: 700; line-height: 11px;
+    color: transparent; white-space: nowrap;
+  }
+  .c-pair-link.on .c-pair-dist { color: #e7f3ff; background: rgba(126,174,224,.16); box-shadow: inset 0 0 0 1px rgba(190,220,255,.28); }
+  .screen.light .c-pair-link { color: #b7bdc6; }
+  .screen.light .c-pair-link.on { color: #1a73e8; }
+  .screen.light .c-pair-link.on svg { filter: drop-shadow(0 0 2px rgba(26,115,232,.45)); }
+  .screen.light .c-pair-link.on .c-pair-dist { color: #174ea6; background: rgba(26,115,232,.10); box-shadow: inset 0 0 0 1px rgba(26,115,232,.22); }
+  .c-count {
+    flex: 0 0 auto; min-width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 8px; margin-right: 2px; border-radius: 14px;
+    background: var(--bg-soft); color: var(--txt-dim);
+    font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums;
+  }
+  .screen[data-w="320"] .c-count,
+  .screen[data-w="360"] .c-count { min-width: 24px; padding: 0 5px; }
+
+  /* 目前版面：左右絕對定位，中間 left:50% + translateX(-50%) */
+  .screen[data-layout="now"] .c-bar-side {
+    position: absolute; top: 0; z-index: 3;
+  }
+  .screen[data-layout="now"] .c-bar-side.is-left {
+    left: 6px; right: calc(50% + 92px); overflow: hidden; justify-content: flex-start;
+  }
+  .screen[data-layout="now"] .c-bar-side.is-right { right: 6px; justify-content: flex-end; }
+  .screen[data-layout="now"] .c-pair {
+    position: absolute; left: 50%; top: 0; z-index: 2;
+    transform: translateX(-50%);
+    max-width: min(220px, calc(100% - 156px));
+  }
+
+  /* 修正版面：兩側 1fr、中間 auto，文字再長也不能把中間撐歪 */
+  .screen[data-layout="fix"] .c-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+  }
+  .screen[data-layout="fix"] .c-bar-side.is-left {
+    min-width: 0; overflow: hidden; padding-right: 6px;
+  }
+  .screen[data-layout="fix"] .c-bar-side.is-right {
+    min-width: 0; justify-content: flex-end; padding-left: 6px;
+  }
+  .screen[data-layout="fix"] .c-pair { justify-self: center; }
+
+  .thread { padding: 16px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .bub {
+    max-width: 74%; padding: 7px 11px; border-radius: 16px; font-size: 14px;
+  }
+  .bub.you { align-self: flex-start; background: var(--you); color: var(--you-txt); border-bottom-left-radius: 5px; }
+  .bub.me { align-self: flex-end; background: var(--me); color: #fff; border-bottom-right-radius: 5px; }
+
+  .metrics { width: min(560px, 100%); display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; }
+  .metrics dt { color: var(--muted); }
+  .metrics dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .ok { color: var(--good); }
+  .bad { color: var(--bad); }
+  .spec h2 { margin: 0 0 8px; font-size: 16px; }
+  .spec p, .spec li { color: #c5cad1; font-size: 13.5px; }
+  .spec ul { margin: 8px 0 0; padding-left: 1.2em; }
+  .spec code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; color: var(--accent-2); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.06); vertical-align: top; }
+  th { color: var(--muted); font-weight: 550; }
+  @media (prefers-reduced-motion: reduce) {
+    #peerText.swap, .dots i, .drift, .c-pair-link.on .c-pair-flow, .demo-bar.go > span { animation: none !important; }
+    .dots i { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <p class="kicker">標題列預覽 · 尚未接上聊天室</p>
+  <h1>打字狀態</h1>
+  <p class="sub">左上角依對方怎麼打字換一句。中間的兩人定位鎖在螢幕中線，字再長也不跟著挪。窄螢幕放不下完整句時，改顯示還讀得懂的短句，省略號只留到最後。</p>
+
+  <section class="panel" aria-label="預覽控制">
+    <div class="row">
+      <div class="label">寬度</div>
+      <div class="choices" id="widths">
+        <button type="button" class="chip" data-width="320">320<small>小手機</small></button>
+        <button type="button" class="chip" data-width="360">360<small>Android</small></button>
+        <button type="button" class="chip" data-width="375">375<small>SE / 8</small></button>
+        <button type="button" class="chip on" data-width="390">390<small>12–14</small></button>
+        <button type="button" class="chip" data-width="414">414<small>Plus</small></button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">狀態</div>
+      <div class="choices" id="statuses"></div>
+    </div>
+    <div class="row">
+      <div class="label">版面</div>
+      <div class="choices">
+        <button type="button" class="toggle" id="layoutNow" data-layout="now">目前版面</button>
+        <button type="button" class="toggle on" id="layoutFix" data-layout="fix">修正版面</button>
+        <button type="button" class="toggle on" id="guideBtn" aria-pressed="true">中線</button>
+        <button type="button" class="toggle on" id="linkBtn" aria-pressed="true">已定位</button>
+        <button type="button" class="toggle" id="themeBtn" aria-pressed="false">淺色</button>
+        <button type="button" class="toggle" id="demoBtn" aria-pressed="false">自動輪播</button>
+        <div class="demo-bar" id="demoBar" aria-hidden="true"><span></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stage">
+    <div class="bezel">
+      <div class="screen show-guide" id="screen" data-layout="fix" data-w="390">
+        <div class="guide"></div>
+        <header class="c-bar">
+          <div class="c-bar-side is-left">
+            <button class="c-icon" type="button" aria-label="離開" tabindex="-1">
+              <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2Z"/></svg>
+            </button>
+            <div class="c-title" id="title">
+              <span class="c-dot" id="peerDot"></span>
+              <span id="peerText"></span>
+            </div>
+          </div>
+          <div class="c-pair" id="pairLoc">
+            <span class="c-seal" id="sealM"><b>×<em>0</em></b><i>勝</i></span>
+            <span class="c-pair-slot">
+              <span class="c-pair-wrap">
+                <button type="button" class="c-pair-who is-m set" id="pairM" tabindex="-1">麥</button>
+                <span class="c-pair-tick" id="pairMTick">12</span>
+              </span>
+            </span>
+            <div class="c-pair-link on" id="pairLink">
+              <svg viewBox="0 0 64 16" aria-hidden="true">
+                <path class="c-pair-flow" d="M8 8h16M40 8h16" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-dasharray="2.5 2.2"/>
+                <path d="M8 8l3.6-2.6M8 8l3.6 2.6" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M56 8l-3.6-2.6M56 8l-3.6 2.6" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
+                <path class="c-pair-heart" fill="currentColor" d="M32 11.5c-1.5-1.2-3.5-2.7-3.5-4.2a1.85 1.85 0 0 1 3.5-1 1.85 1.85 0 0 1 3.5 1c0 1.5-2 3-3.5 4.2z"/>
+              </svg>
+              <span class="c-pair-dist" id="pairDist">1.2km</span>
+            </div>
+            <span class="c-pair-slot">
+              <span class="c-pair-wrap">
+                <button type="button" class="c-pair-who is-f set" id="pairF" tabindex="-1">辛</button>
+                <span class="c-pair-tick" id="pairFTick">12</span>
+              </span>
+            </span>
+            <span class="c-seal" id="sealF"><i>勝</i><b>×<em>0</em></b></span>
+          </div>
+          <div class="c-bar-side is-right">
+            <div class="c-count">15</div>
+            <button class="c-icon" type="button" aria-label="選單" tabindex="-1">
+              <svg viewBox="0 0 24 24" width="21" height="21">
+                <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M19.4 13.6a7.6 7.6 0 0 0 0-3.2l1.8-1.3-1.8-3.1-2.1.8a7.6 7.6 0 0 0-2.8-1.6L14.2 2h-3.6l-.3 2.2a7.6 7.6 0 0 0-2.8 1.6l-2.1-.8-1.8 3.1 1.8 1.3a7.6 7.6 0 0 0 0 3.2l-1.8 1.3 1.8 3.1 2.1-.8a7.6 7.6 0 0 0 2.8 1.6l.3 2.2h3.6l.3-2.2a7.6 7.6 0 0 0 2.8-1.6l2.1.8 1.8-3.1-1.8-1.3Z"/>
+              </svg>
+            </button>
+          </div>
+        </header>
+        <div class="thread">
+          <div class="bub you">在忙嗎</div>
+          <div class="bub me">等我打完這句</div>
+        </div>
+      </div>
+    </div>
+    <p class="device-name" id="deviceName">390px · 修正版面</p>
+    <dl class="metrics" id="metrics"></dl>
+  </section>
+
+  <section class="spec">
+    <h2>狀態怎麼判</h2>
+    <p>全部在打字的那一台算，只把一個字母送出去。注音或拼音組字期間只續上「還在打」的心跳，不計入速度；送出、刪除以確定的文字為準。</p>
+    <table>
+      <thead><tr><th>代碼</th><th>畫面上的句子</th><th>門檻</th></tr></thead>
+      <tbody>
+        <tr><td><code>d</code></td><td>打了又刪中🙈</td><td>近 8 秒刪掉至少 4 個字、至少 3 次，而且同一段裡有再打進去</td></tr>
+        <tr><td><code>f</code></td><td>瘋狂輸入中⌨️💨</td><td>近 2.5 秒送出至少 8 個字，而且是分次打的（一次貼上不算）</td></tr>
+        <tr><td><code>b</code></td><td>醞釀好久終於開口中😶‍🌫️</td><td>靜了至少 60 秒之後才開始打，開頭 5 秒。刪改或狂打會立刻蓋過</td></tr>
+        <tr><td><code>l</code></td><td>認真寫長文中📝</td><td>草稿至少 36 字，或這一段已打超過 18 秒且至少 12 字</td></tr>
+        <tr><td><code>p</code></td><td>邊想邊打中🤔</td><td>近 12 秒有兩段以上輸入，中間停了 1.5 到 10 秒</td></tr>
+        <tr><td><code>n</code></td><td>正在輸入中…✏️</td><td>其餘正在打的時候</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>優先順序是 <code>d</code>、<code>f</code>、<code>b</code>、<code>l</code>、<code>p</code>、<code>n</code>。刪改和狂打可以立刻換句，其餘至少停 1.2 秒再換，避免閃來閃去。</li>
+      <li>靜止超過 8 秒，這一段打字結束。現有的 5 秒沒心跳就收掉指示，維持不變。</li>
+      <li>舊版只認得 <code>typing/裝置</code> 上的時間戳。新的字母寫在旁邊的 <code>typingS/裝置</code>，同一次寫入、斷線時一起刪。舊分頁仍顯示「正在輸入…」，新分頁才換句。</li>
+    </ul>
+  </section>
+</main>
+<script>
+const STATUSES = [
+  {
+    id: "f", code: "f", full: "瘋狂輸入中⌨️💨",
+    variants: [
+      [{ t: "瘋狂輸入中" }, { t: "⌨️" }, { t: "💨", drift: true }],
+      [{ t: "狂打中" }, { t: "💨", drift: true }],
+      [{ t: "狂打" }, { t: "💨", drift: true }],
+      [{ t: "狂打" }],
+      [{ t: "狂" }, { t: "💨", drift: true }]
+    ]
+  },
+  {
+    id: "p", code: "p", full: "邊想邊打中🤔",
+    variants: [
+      [{ t: "邊想邊打中" }, { t: "🤔" }],
+      [{ t: "邊想中" }, { t: "🤔" }],
+      [{ t: "邊想" }, { t: "🤔" }],
+      [{ t: "邊想" }],
+      [{ t: "想" }, { t: "🤔" }]
+    ]
+  },
+  {
+    id: "d", code: "d", full: "打了又刪中🙈",
+    variants: [
+      [{ t: "打了又刪中" }, { t: "🙈" }],
+      [{ t: "又刪中" }, { t: "🙈" }],
+      [{ t: "又刪" }, { t: "🙈" }],
+      [{ t: "又刪" }],
+      [{ t: "刪" }, { t: "🙈" }]
+    ]
+  },
+  {
+    id: "l", code: "l", full: "認真寫長文中📝",
+    variants: [
+      [{ t: "認真寫長文中" }, { t: "📝" }],
+      [{ t: "寫長文" }, { t: "📝" }],
+      [{ t: "長文" }, { t: "📝" }],
+      [{ t: "長文" }],
+      [{ t: "長" }, { t: "📝" }]
+    ]
+  },
+  {
+    id: "n", code: "n", full: "正在輸入中…✏️",
+    variants: [
+      [{ t: "正在輸入中" }, { dots: true }, { t: "✏️" }],
+      [{ t: "輸入中" }, { dots: true }, { t: "✏️" }],
+      [{ t: "輸入" }, { dots: true }],
+      [{ t: "輸入" }],
+      [{ t: "打" }, { dots: true }]
+    ]
+  },
+  {
+    id: "b", code: "b", full: "醞釀好久終於開口中😶‍🌫️",
+    variants: [
+      [{ t: "醞釀好久終於開口中" }, { t: "😶‍🌫️" }],
+      [{ t: "終於開口" }, { t: "😶‍🌫️" }],
+      [{ t: "開口" }, { t: "😶‍🌫️" }],
+      [{ t: "開口" }],
+      [{ t: "開" }, { t: "😶‍🌫️" }]
+    ]
+  }
+];
+
+const NAMES = { 320: "小手機", 360: "常見 Android", 375: "iPhone SE / 8", 390: "iPhone 12–14", 414: "iPhone Plus" };
+const state = { width: 390, status: "n", layout: "fix", guide: true, linked: true, light: false, demo: false };
+let demoTimer = 0;
+
+const screen = document.getElementById("screen");
+const peerText = document.getElementById("peerText");
+const title = document.getElementById("title");
+const metrics = document.getElementById("metrics");
+
+function logical(parts) {
+  return parts.map((p) => p.dots ? "…" : p.t).join("");
+}
+function paint(parts) {
+  peerText.replaceChildren();
+  for (const part of parts) {
+    if (part.dots) {
+      const dots = document.createElement("span");
+      dots.className = "dots";
+      dots.setAttribute("aria-hidden", "true");
+      for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("i"));
+      peerText.appendChild(dots);
+    } else {
+      const node = document.createElement("span");
+      if (part.drift) node.className = "drift";
+      node.textContent = part.t;
+      peerText.appendChild(node);
+    }
+  }
+}
+function fits() {
+  return peerText.scrollWidth - peerText.clientWidth <= 0.5;
+}
+function apply(status, animate) {
+  const full = status.variants[0];
+  let chosen = full;
+  let tier = "完整";
+  title.classList.remove("no-dot");
+  if (state.layout === "now") {
+    paint(full);
+  } else {
+    const tiers = ["完整", "中等", "短句", "兩字", "最短"];
+    let found = false;
+    for (let i = 0; i < status.variants.length && !found; i++) {
+      for (const hideDot of [false, true]) {
+        title.classList.toggle("no-dot", hideDot);
+        paint(status.variants[i]);
+        if (fits()) {
+          chosen = status.variants[i];
+          tier = tiers[i] + (hideDot ? " · 收起圓點" : "");
+          found = true;
+          break;
+        }
+      }
+    }
+    if (!found) {
+      title.classList.add("no-dot");
+      chosen = status.variants[status.variants.length - 1];
+      paint(chosen);
+      tier = "最短 · 仍超出，省略號";
+    }
+  }
+  const label = logical(chosen);
+  peerText.dataset.label = label;
+  peerText.dataset.tier = state.layout === "now" ? "完整（目前版面不縮字）" : tier;
+  peerText.title = status.full;
+  peerText.setAttribute("aria-label", status.full);
+  if (animate) {
+    peerText.classList.remove("swap");
+    void peerText.offsetWidth;
+    peerText.classList.add("swap");
+  }
+  state.status = status.id;
+  document.querySelectorAll("[data-status]").forEach((btn) => {
+    btn.classList.toggle("on", btn.dataset.status === status.id);
+  });
+  report();
+}
+function report() {
+  const s = screen.getBoundingClientRect();
+  const pair = document.getElementById("pairLoc").getBoundingClientRect();
+  const m = document.getElementById("pairM").getBoundingClientRect();
+  const f = document.getElementById("pairF").getBoundingClientRect();
+  const text = peerText.getBoundingClientRect();
+  const count = document.querySelector(".c-count").getBoundingClientRect();
+  const center = s.left + s.width / 2;
+  const pairOffset = (pair.left + pair.width / 2) - center;
+  const buttonOffset = ((m.left + f.right) / 2) - center;
+  const gap = pair.left - text.right;
+  const rightGap = count.left - pair.right;
+  const clipped = peerText.scrollWidth - peerText.clientWidth > 0.5;
+  const overlap = text.right > pair.left + 0.5 && text.left < pair.right;
+  const fontSize = getComputedStyle(peerText).fontSize;
+  const status = STATUSES.find((x) => x.id === state.status);
+  const near = (n) => (Math.abs(n) < 0.6 ? "ok" : "bad");
+  const rows = [
+    ["定位組中心", fmt(pairOffset), near(pairOffset)],
+    ["麥與辛的中點", fmt(buttonOffset), near(buttonOffset)],
+    ["標題顯示", peerText.dataset.label + "（" + peerText.dataset.tier + "）", clipped || overlap ? "bad" : "ok"],
+    ["完整句子", status.full, ""],
+    ["字級 / 可用寬", fontSize + " · 文字 " + Math.round(peerText.clientWidth) + "px", ""],
+    ["裁切 / 重疊", (clipped ? "有裁切 " + Math.round(peerText.scrollWidth - peerText.clientWidth) + "px" : "沒有裁切") + (overlap ? " · 壓到定位" : " · 沒壓到定位"), clipped || overlap ? "bad" : "ok"],
+    ["空隙", "文字到定位 " + gap.toFixed(1) + "px · 定位到倒數 " + rightGap.toFixed(1) + "px", gap < 4 || rightGap < 4 ? "bad" : "ok"]
+  ];
+  metrics.replaceChildren();
+  for (const [k, v, cls] of rows) {
+    const dt = document.createElement("dt");
+    dt.textContent = k;
+    const dd = document.createElement("dd");
+    dd.textContent = v;
+    if (cls) dd.className = cls;
+    metrics.append(dt, dd);
+  }
+  document.getElementById("deviceName").textContent =
+    state.width + "px · " + NAMES[state.width] + " · " + (state.layout === "fix" ? "修正版面" : "目前版面");
+  window.__lastAudit = {
+    width: state.width,
+    layout: state.layout,
+    status: state.status,
+    full: status.full,
+    shown: peerText.dataset.label,
+    tier: peerText.dataset.tier,
+    fontSize,
+    textClient: peerText.clientWidth,
+    textScroll: peerText.scrollWidth,
+    clipped,
+    overlap,
+    pairOffset,
+    buttonOffset,
+    gap,
+    rightGap,
+    pairWidth: pair.width
+  };
+}
+function fmt(n) {
+  const v = (Math.round(n * 10) / 10).toFixed(1);
+  return (n > 0.05 ? "+" : "") + v + "px";
+}
+function setWidth(width) {
+  state.width = width;
+  screen.dataset.w = String(width);
+  screen.style.width = width + "px";
+  document.querySelectorAll("[data-width]").forEach((btn) => btn.classList.toggle("on", Number(btn.dataset.width) === width));
+  apply(STATUSES.find((s) => s.id === state.status), false);
+}
+function setLayout(layout) {
+  state.layout = layout;
+  screen.dataset.layout = layout;
+  document.getElementById("layoutNow").classList.toggle("on", layout === "now");
+  document.getElementById("layoutFix").classList.toggle("on", layout === "fix");
+  apply(STATUSES.find((s) => s.id === state.status), true);
+}
+function setLinked(on) {
+  state.linked = on;
+  document.getElementById("linkBtn").classList.toggle("on", on);
+  document.getElementById("linkBtn").setAttribute("aria-pressed", String(on));
+  document.getElementById("pairM").classList.toggle("set", on);
+  document.getElementById("pairF").classList.toggle("set", on);
+  document.getElementById("pairLink").classList.toggle("on", on);
+  document.getElementById("pairDist").textContent = on ? "1.2km" : "";
+  for (const id of ["pairMTick", "pairFTick"]) document.getElementById(id).hidden = !on;
+  apply(STATUSES.find((s) => s.id === state.status), false);
+}
+function stopDemo() {
+  state.demo = false;
+  clearInterval(demoTimer);
+  document.getElementById("demoBtn").classList.remove("on");
+  document.getElementById("demoBtn").setAttribute("aria-pressed", "false");
+  document.getElementById("demoBtn").textContent = "自動輪播";
+  const bar = document.getElementById("demoBar");
+  bar.classList.remove("go");
+}
+function startDemo() {
+  stopDemo();
+  state.demo = true;
+  const btn = document.getElementById("demoBtn");
+  btn.classList.add("on");
+  btn.setAttribute("aria-pressed", "true");
+  btn.textContent = "停止輪播";
+  const tick = () => {
+    const bar = document.getElementById("demoBar");
+    bar.classList.remove("go");
+    void bar.offsetWidth;
+    bar.classList.add("go");
+  };
+  tick();
+  demoTimer = setInterval(() => {
+    const i = STATUSES.findIndex((s) => s.id === state.status);
+    apply(STATUSES[(i + 1) % STATUSES.length], true);
+    tick();
+  }, 1800);
+}
+
+document.getElementById("statuses").append(...STATUSES.map((status) => {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "chip status-chip";
+  btn.dataset.status = status.id;
+  btn.textContent = status.full;
+  btn.addEventListener("click", () => { stopDemo(); apply(status, true); });
+  return btn;
+}));
+document.getElementById("widths").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-width]");
+  if (btn) setWidth(Number(btn.dataset.width));
+});
+document.getElementById("layoutNow").addEventListener("click", () => setLayout("now"));
+document.getElementById("layoutFix").addEventListener("click", () => setLayout("fix"));
+document.getElementById("guideBtn").addEventListener("click", () => {
+  state.guide = !state.guide;
+  screen.classList.toggle("show-guide", state.guide);
+  document.getElementById("guideBtn").classList.toggle("on", state.guide);
+  document.getElementById("guideBtn").setAttribute("aria-pressed", String(state.guide));
+});
+document.getElementById("linkBtn").addEventListener("click", () => setLinked(!state.linked));
+document.getElementById("themeBtn").addEventListener("click", () => {
+  state.light = !state.light;
+  screen.classList.toggle("light", state.light);
+  const btn = document.getElementById("themeBtn");
+  btn.classList.toggle("on", state.light);
+  btn.setAttribute("aria-pressed", String(state.light));
+  btn.textContent = state.light ? "深色" : "淺色";
+});
+document.getElementById("demoBtn").addEventListener("click", () => state.demo ? stopDemo() : startDemo());
+
+window.__preview = {
+  setWidth, setLayout, setLinked,
+  setStatus(id) { stopDemo(); apply(STATUSES.find((s) => s.id === id), true); },
+  startDemo, stopDemo,
+  audit() { report(); return window.__lastAudit; }
+};
+
+document.fonts.ready.then(() => apply(STATUSES.find((s) => s.id === "n"), true));
+window.addEventListener("resize", () => report());
+</script>
+</body>
+</html>

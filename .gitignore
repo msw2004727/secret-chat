@@ -33,6 +33,8 @@
 !/config.js
 !/index.html
 !/pending.html
+!/preview/
+!/preview/typing-status-preview.html
 !/style.css
 !/sw.js
 !/manifest.json
