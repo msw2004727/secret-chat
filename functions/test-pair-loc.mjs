@@ -103,7 +103,7 @@ assert.equal(rule(locroom.$id['.write'], {
   data: { exists: () => true },
   newData: { exists: () => false, hasChildren: () => false },
 }), true);
-assert.equal(rules.rules.loc['.read'], "auth != null");
+assert.equal(rules.rules.loc['.read'], "auth != null && root.child('admin/' + auth.uid).val() === true");
 assert.match(app, /enableHighAccuracy: true/);
 assert.match(app, /這台手機沒有開定位，無法更新/);
 assert.match(app, /現在抓不到位置，請稍後再試/);

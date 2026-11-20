@@ -25,23 +25,35 @@ service firebase.storage {
 
       // 讀：登入過、而且路徑長度對得上（房間位址一定是 32 字）
       allow read: if request.auth != null
-                  && roomId.size() == 32
-                  && fileId.size() >= 16;
+                  && roomId.matches('^[0-9a-f]{32}$')
+                  && fileId.matches('^[0-9a-f]{16,64}$')
+                  && (request.auth.token.firebase.sign_in_provider == 'anonymous'
+                      || request.auth.token.firebase.sign_in_provider == 'custom');
 
-      // 寫：再多兩道 —— 大小上限，以及「一定要是不透明的二進位」。
-      // 加密後的東西沒有 MIME 可言，所以只收 application/octet-stream；
-      // 這順便擋掉「有人把這個桶子當免費圖床用」。
+      // 寫：登入身分、路徑、大小、以及「一定要是不透明的二進位」。
+      // 加密後的東西沒有 MIME 可言，所以只收 application/octet-stream。
       //
-      // ⚠️ 上限 64 MB 是為了 v23 的影片（app 端限 50 MB，這裡留餘裕給加密後的膨脹）。
-      //    規則分不出「這是照片還是影片」，所以照片理論上也能塞到 64 MB ——
-      //    真正在管照片的是 config.js 的 photoMaxUploadMB。
-      //    這道規則的職責是「擋住把桶子當免費空間用的人」，不是執行 app 的業務邏輯。
+      // ⚠️ Storage 規則讀不到 Realtime Database，沒辦法在這裡查 acl/ok。
+      //    房間成員能做的對應檢查是：
+      //      ‧ 房號必須是密碼推導的 32 字十六進位（跟資料庫房間位址同一種）
+      //      ‧ 檔名必須是客戶端 mediaId() 那種十六進位亂數
+      //      ‧ 上傳者把 auth.uid 寫進 metadata.owner，而且不能覆蓋別人的檔
+      //      ‧ 只接受這個 App 實際用的登入方式（匿名，或 LINE 的 custom token）
+      //    審查關閉時，匿名登入就是進房的那個人；審查開啟時，進房的是 LINE custom token。
+      //
+      // ⚠️ 上限跟客戶端實際送出的檔一樣：照片先壓到 photoMaxUploadMB（6 MB），
+      //    影片不轉檔、明文上限 videoMaxUploadMB（50 MB）。AES-GCM 只多 16 bytes，
+      //    這裡留 64 KB 給標頭。規則分不出照片或影片，所以照片理論上也能塞到這個上限。
       allow write: if request.auth != null
-                   && roomId.size() == 32
-                   && fileId.size() >= 16
+                   && roomId.matches('^[0-9a-f]{32}$')
+                   && fileId.matches('^[0-9a-f]{16,64}$')
+                   && (request.auth.token.firebase.sign_in_provider == 'anonymous'
+                       || request.auth.token.firebase.sign_in_provider == 'custom')
                    && (request.resource == null
-                       || (request.resource.size < 64 * 1024 * 1024
-                           && request.resource.contentType == 'application/octet-stream'));
+                       || (request.resource.size < 50 * 1024 * 1024 + 64 * 1024
+                           && request.resource.contentType == 'application/octet-stream'
+                           && request.resource.metadata.owner == request.auth.uid
+                           && (resource == null || resource.metadata.owner == request.auth.uid)));
     }
 
     // 其餘路徑一律封死。沒有這一條的話，別人可以拿你的桶子當圖床。

@@ -3802,9 +3802,8 @@ const LocAdm = {
         照 key 一頁一頁刪，每一頁只帶鍵不帶內容。
      ⚠️ 刪完要把「看過到哪」也往前推，不然鈴鐺會因為「最新的那筆不見了」
         而永遠停在舊的標記上（其實不會亮，但狀態是髒的）。
-     ⚠️ 資料庫規則現在允許「登入過就刪得掉」—— 使用者要這顆按鈕，
-        而規則沒辦法驗證誰是管理員（大家都是匿名的）。代價是別人也刪得掉，
-        但他們看不懂內容，而且這些紀錄本來 7 天就會自己消失。 */
+     ⚠️ 刪除只放行 admin/ 裡的 LINE 管理員。匿名登入只能新增，
+        不能讀、不能改、也不能刪別人的紀錄。儀表板進得來就清得掉。 */
   async wipeAll() {
     if (this.busy) return false;
     this.busy = true;
@@ -4215,7 +4214,8 @@ const LocRoom = {
  *    → 已知行為：位置推播的訂閱只在你進儀表板時自我修復。
  *      （v35 把 silent push 修掉之後，訂閱被作廢已經很少見了。）
  *
- * ⚠️ 沒有冷卻（使用者明確要求）：對方按幾次就響幾次。
+ * ⚠️ 伺服器對位置推播有每分鐘次數上限，避免匿名洗版把通知打爆。
+ *    平常一筆一筆回報仍會響；短時間爆量會先停。
  * ─────────────────────────────────────────────── */
 
 const LOC_SEEN = "sc-loc-seen";        // 鈴鐺用：最後看過的那一筆 loc 的 key
@@ -4471,6 +4471,7 @@ async function buildPhoto(file, onProgress) {
   const task = f.st.uploadBytesResumable(ref, new Uint8Array(cipher), {
     contentType: "application/octet-stream",
     cacheControl: "private, max-age=604800",
+    customMetadata: { owner: (f.auth && f.auth.currentUser && f.auth.currentUser.uid) || "" },
   });
   await new Promise((res, rej) => {
     task.on("state_changed",
@@ -4817,6 +4818,7 @@ async function buildVideo(file, onProgress) {
   const task = f.st.uploadBytesResumable(ref, new Uint8Array(cipher), {
     contentType: "application/octet-stream",
     cacheControl: "private, max-age=604800",
+    customMetadata: { owner: (f.auth && f.auth.currentUser && f.auth.currentUser.uid) || "" },
   });
   await new Promise((res, rej) => {
     task.on("state_changed",
@@ -4941,7 +4943,7 @@ async function sendVideo(file) {
     } else if (msg === "sc/no-storage") {
       toast("影片功能需要先在 Firebase 主控台啟用 Storage", 5000);
     } else if (String(err.code || "").includes("unauthorized")) {
-      toast("Storage 規則擋下了上傳 —— 影片上限要 64 MB，檢查 storage.rules 是否已更新", 7000);
+      toast("Storage 規則擋下了上傳 —— 影片上限是 50 MB，檢查 storage.rules 是否已更新", 7000);
     } else {
       toast("影片送出失敗，請檢查網路");
     }
@@ -5908,7 +5910,20 @@ async function enterChat() {
   const pushRef = ref(db, `${base}/push/${S.clientId}`);
   const onlineRef = ref(db, `${base}/push/${S.clientId}/on`);
   const newMsgRef = ref(db, `${base}/push/${S.clientId}/nm`);
-  S.savePush = (rec) => set(pushRef, rec);
+  S.savePush = async (rec) => {
+    const uid = f.auth.currentUser && f.auth.currentUser.uid;
+    const next = uid ? { ...rec, uid } : rec;
+    try {
+      await set(pushRef, next);
+    } catch (err) {
+      /* 別人先搶寫了這台裝置的訂閱時，規則會拒絕覆蓋。刪掉那筆再寫自己的，
+         這台裝置的推播才接得回來。網路錯誤不能刪，否則會把好好的訂閱清掉。 */
+      const code = String((err && err.code) || (err && err.message) || "");
+      if (!uid || !/permission-denied|PERMISSION_DENIED/i.test(code)) throw err;
+      await remove(pushRef);
+      await set(pushRef, next);
+    }
+  };
   S.dropPush = () => remove(pushRef);
   /* 兩個開關的旗標（v52 起兩者獨立）。
      ⚠️ 只寫那一個子節點，不要整筆 set —— 整筆 set 會把 ep/k/a、另一個開關的旗標
