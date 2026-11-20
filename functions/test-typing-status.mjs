@@ -115,8 +115,19 @@ assert.match(typingS.$clientId[".validate"], /\[dfblpn\]/);
 assert.equal(rules.rules.rooms.$roomId.typing.$clientId[".validate"], "newData.isNumber()");
 
 const app = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
+const css = fs.readFileSync(new URL("../style.css", import.meta.url), "utf8");
 assert.match(app, /typingS\/\$\{S\.clientId\}/);
 assert.match(app, /onDisconnect\(myStyleRef\)\.remove\(\)/);
 assert.match(app, /remove\(ref\(db, `\$\{base\}\/typingS`\)\)/);
+assert.match(css, /@media \(max-width: 390px\) \{[\s\S]*#chat \.c-title \{[^}]*position: absolute/);
+assert.match(css, /#chat \.c-bar \{[^}]*height: calc\(54px \+ var\(--c-bar-extra\) \+ env\(safe-area-inset-top\)\)/);
+assert.match(css, /#chat \.c-pair \{[\s\S]*align-self: start/);
+assert.match(css, /\.c-input \{[^}]*padding-left: max\(8px, env\(safe-area-inset-left\), env\(safe-area-inset-right\)\)/);
+assert.match(css, /\.c-input \{[^}]*padding-right: max\(8px, env\(safe-area-inset-left\), env\(safe-area-inset-right\)\)/);
+assert.match(css, /\.screen \{[^}]*left: var\(--app-left, 0px\)/);
+assert.match(css, /\.screen \{[^}]*right: var\(--app-right, 0px\)/);
+assert.match(app, /--app-left/);
+assert.match(app, /--app-right/);
+assert.match(app, /vv\.offsetLeft/);
 
 console.log("PASS: typing status codes, thresholds, label fit and typingS rules.");

@@ -41,8 +41,10 @@ body {
 .screen {
   position: absolute;
   top: var(--app-top, 0px);
-  left: 0;
-  right: 0;
+  /* iOS 鍵盤開啟時視覺視窗會整塊橫移。左右跟上去，輸入列才不會停在負的 left。
+     寬螢幕的 margin:auto 仍在這兩條邊界裡面置中。 */
+  left: var(--app-left, 0px);
+  right: var(--app-right, 0px);
   height: 100%;
   height: var(--app-h, 100%);
   overflow: hidden;
@@ -515,6 +517,46 @@ html[data-theme="dark"] .update-banner {
 .c-title.no-dot .c-dot { display: none; }
 @media (max-width: 390px) {
   .c-title { font-size: 12px; gap: 5px; }
+}
+/* 窄螢幕左欄只剩幾十 px，狀態字會被切到看不懂。
+   整句改放到標題列第二行，橫向用滿，定位組仍留在原本那 54px 的正中間。
+   第二行高度寫死，打字開始或停止都不會把標題列撐高或縮回。 */
+@media (max-width: 390px) {
+  #chat { --c-bar-extra: 22px; }
+  #chat .c-bar {
+    height: calc(54px + var(--c-bar-extra) + env(safe-area-inset-top));
+    align-items: start;
+  }
+  #chat .c-bar-side,
+  #chat .c-pair {
+    align-self: start;
+    height: 54px;
+  }
+  #chat .c-bar-side.is-left {
+    position: static;
+    overflow: visible;
+  }
+  #chat .c-title {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: calc(54px + env(safe-area-inset-top));
+    height: 22px;
+    min-height: 22px;
+    margin: 0;
+    padding-left: 4px;
+    box-sizing: border-box;
+    z-index: 4;
+  }
+  #chat .c-share {
+    top: calc(54px + var(--c-bar-extra) + env(safe-area-inset-top));
+  }
+  #chat .c-callcap {
+    top: calc(62px + var(--c-bar-extra) + env(safe-area-inset-top));
+  }
+  .update-banner {
+    top: calc(84px + env(safe-area-inset-top));
+  }
 }
 .c-dot {
   width: 7px; height: 7px; border-radius: 50%;
@@ -2443,7 +2485,17 @@ html[data-theme="dark"] #chat {
   position: relative;
   z-index: 8; /* 跟標題列同一層，動物和對白不會蓋住輸入列 */
   display: flex; align-items: flex-end; gap: 6px;
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-left: 0;
+  margin-right: 0;
+  /* 左右用同一個數，輸入列才會完整留在畫面裡，不會左緣被切掉。 */
+  padding-top: 8px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  padding-left: max(8px, env(safe-area-inset-left), env(safe-area-inset-right));
+  padding-right: max(8px, env(safe-area-inset-left), env(safe-area-inset-right));
   border-top: 1px solid var(--line);
   background: var(--bg);
 }
@@ -3528,6 +3580,10 @@ html[data-theme="dark"] .c-veil { background: rgba(0,0,0,.46); }
 .c-scroll::-webkit-scrollbar-thumb, .c-sticker-grid::-webkit-scrollbar-thumb, .c-text::-webkit-scrollbar-thumb {
   background: var(--line); border-radius: 8px;
 }
+/* 輸入框的捲軸若佔 8px，iOS 鍵盤打開時整條輸入列會被往左推出約一個捲軸寬。
+   捲軸改成不佔位，左右內距才對稱。 */
+.c-text { scrollbar-width: none; }
+.c-text::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* ---------- 小螢幕微調 ---------- */
 @media (max-width: 380px) {
@@ -3546,7 +3602,12 @@ html[data-theme="dark"] .c-veil { background: rgba(0,0,0,.46); }
     border-right: 1px solid var(--line);
   }
   .c-scroll { padding: 16px 20px 8px; }
-  .c-input { padding: 10px 14px; }
+  .c-input {
+    padding-top: 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    padding-left: max(14px, env(safe-area-inset-left), env(safe-area-inset-right));
+    padding-right: max(14px, env(safe-area-inset-left), env(safe-area-inset-right));
+  }
   .bub { max-width: min(72%, 520px); }
 }
 @media (min-width: 760px) {
