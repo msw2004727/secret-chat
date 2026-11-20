@@ -66,3 +66,50 @@ assert.equal(stored.other, "小辛");
 assert.equal(stored.topic, "誰是笨蛋");
 
 console.log("PASS: wheel label rules accept 1–6 character strings and reject the rest.");
+
+const adminUid = "adm1";
+const anonUid = "anon1";
+assert.equal((await req("PUT", "/admin/adm1", true, "owner")).status, 200);
+
+const locBody = { t: { ".sv": "timestamp" }, ek: "abc", iv: "iviviviviviv", c: "cipher" };
+const created = await req("PUT", "/loc/loc1", locBody, userQuery(anonUid), true);
+assert.equal(created.status, 200, created.text);
+const anonRead = await req("GET", "/loc", undefined, userQuery(anonUid), true);
+assert.notEqual(anonRead.status, 200, "anonymous must not read loc " + anonRead.text);
+const adminRead = await req("GET", "/loc", undefined, userQuery(adminUid), true);
+assert.equal(adminRead.status, 200, adminRead.text);
+assert.match(adminRead.text, /cipher/);
+const queried = await fetch(`http://${host}/loc.json?ns=${encodeURIComponent(ns)}&${userQuery(adminUid)}&orderBy=%22%24key%22&limitToLast=1`, {
+  headers: { Authorization: "Bearer owner" },
+});
+assert.equal(queried.status, 200, await queried.text());
+const shallow = await fetch(`http://${host}/loc.json?ns=${encodeURIComponent(ns)}&${userQuery(adminUid)}&shallow=true`, {
+  headers: { Authorization: "Bearer owner" },
+});
+assert.equal(shallow.status, 200, await shallow.text());
+assert.notEqual((await req("PUT", "/loc/loc1", { ...locBody, c: "changed" }, userQuery(anonUid), true)).status, 200);
+assert.notEqual((await req("DELETE", "/loc/loc1", undefined, userQuery(anonUid), true)).status, 200);
+assert.notEqual((await req("PUT", "/loc/loc2", { t: { ".sv": "timestamp" }, ek: "", iv: "iv", c: "c" }, userQuery(anonUid), true)).status, 200);
+assert.equal((await req("DELETE", "/loc/loc1", undefined, userQuery(adminUid), true)).status, 200);
+
+const secret = "a".repeat(32);
+const note = { t: 1, iv: "1234567890123456", c: "note" };
+assert.notEqual((await req("PUT", `/devnote/${secret}/room1/dev1`, note, userQuery(anonUid), true)).status, 200);
+assert.notEqual((await req("PUT", `/devnote/${"Z".repeat(32)}/room1/dev1`, note, userQuery(adminUid), true)).status, 200);
+assert.equal((await req("PUT", `/devnote/${secret}/room1/dev1`, note, userQuery(adminUid), true)).status, 200);
+assert.notEqual((await req("GET", `/devnote/${secret}`, undefined, userQuery(anonUid), true)).status, 200);
+const pushSub = { ep: "https://push.example/a", k: "kk", a: "aa", t: 1, on: true };
+assert.notEqual((await req("PUT", `/locpush/${secret}/phone`, pushSub, userQuery(anonUid), true)).status, 200);
+assert.equal((await req("PUT", `/locpush/${secret}/phone`, pushSub, userQuery(adminUid), true)).status, 200);
+
+const msg = { s: "device", t: 1, iv: "iviviviviviv", c: "cipher" };
+assert.equal((await req("PUT", `/rooms/${room}/m/m1`, msg, userQuery(anonUid), true)).status, 200);
+assert.notEqual((await req("PUT", `/rooms/${room}/m/m1`, { ...msg, c: "changed" }, userQuery(anonUid), true)).status, 200);
+assert.equal((await req("DELETE", `/rooms/${room}/m/m1`, undefined, userQuery("bob"), true)).status, 200);
+const ownPush = { ep: "https://push.example/a", k: "kk", a: "aa", uid: anonUid };
+assert.equal((await req("PUT", `/rooms/${room}/push/device1`, ownPush, userQuery(anonUid), true)).status, 200);
+assert.notEqual((await req("PUT", `/rooms/${room}/push/device1`, { ...ownPush, ep: "https://push.example/evil", uid: "bob" }, userQuery("bob"), true)).status, 200);
+assert.equal((await req("PUT", `/rooms/${room}/push/device1`, { ...ownPush, ep: "https://push.example/new" }, userQuery(anonUid), true)).status, 200);
+assert.notEqual((await req("PUT", "/locNotify/win", 1, userQuery(adminUid), true)).status, 200);
+
+console.log("PASS: loc, devnote, locpush, message and push rules.");

@@ -358,15 +358,14 @@ exports.notifyPeerOnline = onValueCreated(
  *
  *  loc/ 底下多一筆就通知「訂了位置推播的裝置」。
  *
- *  ⚠️ 跟訊息推播的差別，三個都是使用者明確要求的：
+ *  ⚠️ 跟訊息推播的差別，兩個是使用者明確要求的：
  *      ‧ 通知文字不同 → payload 帶 k:"loc"，文字本身還是寫死在 sw.js
  *      ‧ tag 不同     → 兩則並排，不互相覆蓋
- *      ‧ **沒有冷卻** → 對方按幾次就響幾次
  *
- *  ⚠️ 沒有冷卻的代價：站上沒有 App Check，任何匿名登入的人都寫得進 loc，
- *     也就能讓收件裝置一直響。使用者已知悉並選擇不加保險 ——
- *     煞車是他自己把儀表板的開關關掉。要加回來的話，
- *     就是比照 MSG_COOLDOWN_MS 在 locpush/<id>/<裝置>/lm 記時間戳。
+ *  ⚠️ 位置節點任何匿名登入都寫得進去，一筆就會觸發這支函式。
+ *     推播次數收在 locNotify：每個時間窗最多送 LOC_PUSH_BURST 次，
+ *     超過就略過。平常一筆一筆回報仍會響；洗版不會每筆都打到裝置。
+ *     不寫在 locpush 訂閱上 —— 客戶端整筆 set 會把那個時間戳洗掉。
  *
  *  ⚠️ 這裡「完全不解密」，也解不開 —— 私鑰只在使用者的瀏覽器裡。
  *     所以通知永遠說不出座標，只能說「有一筆新的」。這是設計上的必然。
@@ -463,9 +462,42 @@ async function pushToAdminDevices(tag, kind) {
   }
 }
 
+/* 位置推播的全站節流。記在 locNotify，規則不讓客戶端讀寫，只有 Admin SDK 碰得到。
+   一個時間窗裡的前幾筆照送（兩個人先後回報都聽得到），再來的洗版直接停。 */
+const LOC_PUSH_WINDOW_MS = 60 * 1000;
+const LOC_PUSH_BURST = 3;
+
+async function locPushAllowed(db) {
+  const ref = db.ref("locNotify");
+  const cur = (await ref.get()).val() || {};
+  const now = Date.now();
+  const win = typeof cur.win === "number" ? cur.win : 0;
+  const n = typeof cur.n === "number" ? cur.n : 0;
+  if (win && now - win < LOC_PUSH_WINDOW_MS && n >= LOC_PUSH_BURST) return false;
+  const fresh = !win || now - win >= LOC_PUSH_WINDOW_MS;
+  await ref.set({ win: fresh ? now : win, n: fresh ? 1 : n + 1 });
+  return true;
+}
+
 exports.notifyLocation = onValueCreated(
   { ref: "/loc/{locId}", instance: INSTANCE },
-  () => pushToAdminDevices("位置", "loc")
+  async () => {
+    let db;
+    try { db = getDb(); }
+    catch (err) {
+      logger.error("firebase-admin 初始化失敗，位置推播無法送出", err);
+      return;
+    }
+    try {
+      if (!(await locPushAllowed(db))) {
+        logger.info("[位置] 這個時間窗的推播已達上限，略過");
+        return;
+      }
+    } catch (err) {
+      logger.warn("[位置] 讀不到推播節流，這次仍送出", err && err.message);
+    }
+    return pushToAdminDevices("位置", "loc");
+  }
 );
 
 /* ────────────────────────── v61：LINE 審核 ────────────────────────── */
@@ -504,7 +536,12 @@ const isLineUid = (s) => typeof s === "string" && /^U[0-9a-f]{32}$/.test(s);
 
 async function lineForm(url, form) {
   const body = new URLSearchParams(form).toString();
-  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body });
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body,
+    signal: AbortSignal.timeout(8000),
+  });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) { const e = new Error("line " + res.status); e.line = json; throw e; }
   return json;
@@ -523,7 +560,7 @@ async function handleLineAuth(req, res) {
   try { caller = await getAdminAuth().verifyIdToken(m[1]); } catch (_) { return deny("ID token 驗不過"); }
 
   const body = (req.body && typeof req.body === "object") ? req.body : {};
-  if (body.homeAction) return handleHomeSettings(body, caller, res, deny);
+  if (body.homeAction) return handleHomeSettings(body, caller, res, deny, clientIp(req));
   if (body.profile === true) {
     if (caller.lp !== true || !isLineUid(caller.uid)) return deny("需要 LINE 身分");
     try {
@@ -634,11 +671,16 @@ async function handleLineAuth(req, res) {
 }
 exports.__handleLineAuth = handleLineAuth;   // 給測試直接跑處理函式用
 
-async function handleHomeSettings(body, caller, res, deny) {
+async function handleHomeSettings(body, caller, res, deny, ip) {
   const db = getDb();
   const { scryptSync, randomBytes, timingSafeEqual } = require("node:crypto");
   const password = typeof body.password === "string" ? body.password : "";
   if (body.homeAction === "unlock") {
+    const who = "pin:" + String(ip || "unknown").slice(0, 80);
+    const room = typeof body.rid === "string" ? body.rid.slice(0, 40) : "";
+    if (tooMany(who, 12, 10 * 60 * 1000) || (room && tooMany(who + ":" + room, 12, 10 * 60 * 1000)) || tooMany("pin-all", 40, 60 * 1000)) {
+      return deny("首頁密碼太頻繁");
+    }
     if (!/^\d{4,16}$/.test(password)) return deny("首頁密碼格式");
     try {
       const saved = (await db.ref("homeSwitchSecret").get()).val();
@@ -676,6 +718,30 @@ async function handleHomeSettings(body, caller, res, deny) {
       部署帳號沒有這項權限。縮圖跟 LINE 換票共用已經存在的 lineAuth。 */
 const og = require("./og");
 const ogCache = new Map();
+const rateBuckets = new Map();
+
+/* Hosting / Cloud Run 會把真正的連線位址接在 X-Forwarded-For 最後面。
+   用最後一跳，呼叫端自己塞的 Origin 或前面的轉址清單都不能換成別的 IP。 */
+function clientIp(req) {
+  const forwarded = String((req && req.get && req.get("x-forwarded-for")) || "");
+  const parts = forwarded.split(",").map((s) => s.trim()).filter(Boolean);
+  const appEngine = req && req.get && req.get("x-appengine-user-ip");
+  const raw = (typeof appEngine === "string" && appEngine.trim()) || parts[parts.length - 1] || (req && req.ip) || "";
+  const ip = String(raw).trim();
+  return ip ? ip.slice(0, 80) : "unknown";
+}
+
+function tooMany(key, limit, windowMs) {
+  const now = Date.now();
+  let bucket = rateBuckets.get(key);
+  if (!bucket || now - bucket.t >= windowMs) {
+    bucket = { t: now, n: 0 };
+    rateBuckets.set(key, bucket);
+  }
+  bucket.n += 1;
+  if (rateBuckets.size > 4000) rateBuckets.delete(rateBuckets.keys().next().value);
+  return bucket.n > limit;
+}
 
 function ogRemember(url, value, ttl) {
   ogCache.set(url, { value, exp: Date.now() + ttl });
@@ -716,6 +782,10 @@ async function handleOgPreview(req, res) {
     res.set("Cache-Control", "no-store").status(403).json({ title: "", image: "", site: "" });
     return;
   }
+  if (tooMany("og:" + clientIp(req), 60, 60 * 1000) || tooMany("og-all", 120, 60 * 1000)) {
+    res.set("Cache-Control", "no-store").status(429).json({ title: "", image: "", site: "" });
+    return;
+  }
   const raw = ogQuery(req);
   try {
     const hit = ogRecall(raw);
@@ -741,6 +811,10 @@ async function handleOgImage(req, res) {
   }
   if (!ogCallerOk(req)) {
     res.set("Cache-Control", "no-store").status(403).end();
+    return;
+  }
+  if (tooMany("og:" + clientIp(req), 60, 60 * 1000) || tooMany("og-all", 120, 60 * 1000)) {
+    res.set("Cache-Control", "no-store").status(429).end();
     return;
   }
   try {
@@ -802,3 +876,5 @@ const { onRequest } = require("firebase-functions/v2/https");
 exports.lineAuth = onRequest({ cors: LINE_ORIGINS, region: REGION, maxInstances: 3, memory: "256MiB", timeoutSeconds: 30 }, dispatchLineRequest);
 exports.__dispatchLineRequest = dispatchLineRequest;
 exports.__previewKind = previewKind;
+exports.__clientIp = clientIp;
+exports.__tooMany = tooMany;

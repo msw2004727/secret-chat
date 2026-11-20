@@ -293,4 +293,22 @@ try {
   await new Promise((resolve) => server.close(resolve));
 }
 
-console.log("PASS: link preview URL detection, SSRF blocklist, OG parser, and same-origin proxy wiring.");
+assert.equal(fn.__clientIp({ get: (h) => h === "x-forwarded-for" ? "1.1.1.1, 203.0.113.9" : "", ip: "10.0.0.1" }), "203.0.113.9");
+assert.equal(fn.__clientIp({ get: (h) => h === "x-appengine-user-ip" ? "198.51.100.7" : h === "x-forwarded-for" ? "1.1.1.1" : "" }), "198.51.100.7");
+assert.equal(fn.__clientIp({ get: () => "", ip: "" }), "unknown");
+const limitedIp = "203.0.113.44";
+for (let i = 0; i < 60; i++) assert.equal(fn.__tooMany("og:" + limitedIp, 60, 60000), false);
+assert.equal(fn.__tooMany("og:" + limitedIp, 60, 60000), true);
+const limited = fakeRes();
+await fn.__dispatchLineRequest({
+  method: "GET",
+  path: "/api/og",
+  originalUrl: "/api/og?url=https://example.com",
+  query: { url: "https://example.com" },
+  get: (h) => h === "sec-fetch-site" ? "same-origin" : h === "x-forwarded-for" ? "9.9.9.9, " + limitedIp : "",
+}, limited);
+assert.equal(limited.statusCode, 429);
+assert.match(fnSrc, /AbortSignal\.timeout\(8000\)/);
+assert.match(fnSrc, /首頁密碼太頻繁/);
+
+console.log("PASS: link preview URL detection, SSRF blocklist, OG parser, same-origin proxy wiring, and per-IP throttle.");

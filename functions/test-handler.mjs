@@ -96,6 +96,7 @@ const fakeDb = {
       if (L && DB.locpush && DB.locpush[L[1]] && DB.locpush[L[1]][L[2]]) {
         DB.locpush[L[1]][L[2]][L[3]] = v;
       }
+      if (path === "locNotify") DB.locNotify = v;
     },
   }),
 };
@@ -367,19 +368,29 @@ check("payload 是固定文字", payload.includes("Google") && payload.includes(
         removed.some((p2) => p2 === "locpush/SECRET2/DEAD"), JSON.stringify(removed));
   check("★★ 而且真的從資料庫裡不見了", !(DB.locpush.SECRET2 || {}).DEAD);
 
-  /* 使用者明確要求「不要冷卻」——寫了時間戳就等於偷偷加了冷卻 */
-  check("★★★ 沒有寫任何冷卻時間戳（使用者要求不加冷卻）",
+  /* 節流記在 locNotify，不寫進 locpush。客戶端整筆 set 會把訂閱上的時間戳洗掉。 */
+  check("★★ 節流不寫在 locpush 訂閱上",
         !cooldownWrites.some((p2) => p2.startsWith("locpush/")), JSON.stringify(cooldownWrites));
 
-  /* 連按兩次要響兩次 —— 這條是「不加冷卻」真正的驗收 */
+  /* 前幾筆照送：兩個人先後回報都要聽得到。洗版才停。 */
   sent.length = 0;
   await fn.notifyLocation.run({ params: { locId: "LID2" }, data: { val: () => ({ t: 2 }) } });
-  check("★★★ 連續兩筆回報 → 第二筆照樣送（沒有冷卻）", sent.length >= 2, String(sent.length));
+  check("★★ 同一個時間窗的第二筆仍送出", sent.length >= 2, String(sent.length));
+  sent.length = 0;
+  await fn.notifyLocation.run({ params: { locId: "LID3" }, data: { val: () => ({ t: 3 }) } });
+  check("★★ 第三筆仍送出（上限是 3）", sent.length >= 2, String(sent.length));
+  sent.length = 0;
+  await fn.notifyLocation.run({ params: { locId: "LID4" }, data: { val: () => ({ t: 4 }) } });
+  check("★★★ 超過每分鐘 3 次就不再推播", sent.length === 0, String(sent.length));
+  DB.locNotify = { win: Date.now() - 61 * 1000, n: 3 };
+  sent.length = 0;
+  await fn.notifyLocation.run({ params: { locId: "LID5" }, data: { val: () => ({ t: 5 }) } });
+  check("★★ 時間窗過了又會送", sent.length >= 2, String(sent.length));
 
   const src3 = require("fs").readFileSync(new URL("./index.js", import.meta.url), "utf8");
   const locSection = src3.slice(src3.indexOf("exports.notifyLocation"));
-  check("★★ 位置那一段沒有用到任何冷卻常數",
-        !/COOLDOWN_MS/.test(locSection));
+  check("★ 位置推播有每分鐘次數上限",
+        /LOC_PUSH_BURST\s*=\s*3/.test(src3) && /LOC_PUSH_WINDOW_MS\s*=\s*60 \* 1000/.test(src3));
   check("★★ 記錄檔不寫位址或裝置代號（那個位址是密碼推導出來的）",
         !/logger\.[a-z]+\(`?[^`)]*\$\{?(idNode|devNode|t\.path)/.test(locSection));
 }

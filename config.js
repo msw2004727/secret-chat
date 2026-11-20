@@ -186,7 +186,7 @@ window.CONFIG = {
   photoThumbQuality: 0.7,
 
   // 單張原圖上傳的大小上限（MB）。超過就不送，避免誤傳巨檔。
-  // ⚠️ 改大的話，storage.rules 裡那道上限也要一起改（現在是 64 MB）。
+  // ⚠️ 改大的話，storage.rules 裡那道上限也要一起改（現在是 50 MB + 64 KB，給 AES-GCM）。
   photoMaxUploadMB: 6,
 
   /* ---------- 影片（v23） ----------
