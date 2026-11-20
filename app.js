@@ -33,7 +33,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.09";
+const APP_VERSION = "v62.12";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -10645,7 +10645,8 @@ function leaveChat() {
 
 /* ────────────────────────── 9. 版面自適應 ──────────────────────────
  * 版面用 position:fixed 固定，不隨網址列或鍵盤改變尺寸。
- * 鍵盤高度另外算成 --kb，只拿來墊高聊天室底部。
+ * 看得到的那一塊（含 iOS 鍵盤把視窗橫移的那幾像素）寫進 --app-*，
+ * 畫面跟輸入列一起對齊，不會停在負的 left。
  * ────────────────────────────────────────────────────────────── */
 
 function initViewport() {
@@ -10654,11 +10655,21 @@ function initViewport() {
 
   /* 版面高度 = 「目前實際看得到的高度」。
      鍵盤彈出時這個值會自動變小，輸入列就停在鍵盤正上方；
-     body 已經釘死，所以縮短後不會露出空白。 */
+     body 已經釘死，所以縮短後不會露出空白。
+     左右也跟這塊走：offsetLeft 不為 0 時，輸入列的 left 會變成負的，左邊被切掉。 */
+  const place = (top, left, width, height) => {
+    const layoutW = document.documentElement.clientWidth || window.innerWidth;
+    const l = Math.max(0, left);
+    const w = Math.max(0, width);
+    const right = Math.max(0, layoutW - l - w);
+    root.style.setProperty("--app-h", Math.max(0, height) + "px");
+    root.style.setProperty("--app-top", Math.max(0, top) + "px");
+    root.style.setProperty("--app-left", l + "px");
+    root.style.setProperty("--app-right", right + "px");
+  };
   const fit = () => {
     if (!vv) {
-      root.style.setProperty("--app-h", window.innerHeight + "px");
-      root.style.setProperty("--app-top", "0px");
+      place(0, 0, window.innerWidth, window.innerHeight);
       requestAnimationFrame(() => snapSeals(document));
       return;
     }
@@ -10669,9 +10680,8 @@ function initViewport() {
       return;
     }
 
-    // 高度與位置都要對齊「實際看得到的那一塊」，輸入列才會剛好停在鍵盤上緣
-    root.style.setProperty("--app-h", Math.round(vv.height) + "px");
-    root.style.setProperty("--app-top", Math.round(vv.offsetTop) + "px");
+    // 高度與位置都要對齊「實際看得到的那一塊」，輸入列才會剛好停在鍵盤上緣，左右也不會被切掉
+    place(Math.round(vv.offsetTop), Math.round(vv.offsetLeft), Math.round(vv.width), Math.round(vv.height));
     requestAnimationFrame(() => snapSeals(document));
 
     // iOS 會把整份文件往上推來讓輸入框露出來，這裡強制拉回原位
