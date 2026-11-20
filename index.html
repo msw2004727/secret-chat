@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v62.12">
+<meta name="sc-shell" content="v62.13">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -866,8 +866,15 @@
       <button type="button" class="c-stk-tab" data-k="fun"  role="tab" aria-selected="false">樂</button>
       <span class="c-stk-sp"></span>
       <!-- ⚠️「＋ 新增」只在「其他」那一頁出現。內建那四頁加不了東西，
-           留著一顆按了沒反應的鈕，比「這裡沒有這顆鈕」難懂得多（同 v46 公告那條坑）。 -->
-      <button class="c-mini" id="btnAddSticker">＋ 新增</button>
+           留著一顆按了沒反應的鈕，比「這裡沒有這顆鈕」難懂得多（同 v46 公告那條坑）。
+           ⚠️ 跟「＋」的圖片／影片同一招：整顆是 label，檔案欄蓋在字上。
+              透明度 0，但要有實際寬高，不能 display:none。
+              iPhone 不會理會對隱藏檔案欄的 .click()。 -->
+      <label class="c-mini c-stk-add" id="btnAddSticker">
+        <span aria-hidden="true">＋ 新增</span>
+        <input type="file" id="fileInput" class="c-plus-file" accept="image/*" multiple aria-label="新增貼圖"
+               data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other">
+      </label>
       <button class="c-mini" id="btnCloseStickers">收合</button>
     </div>
     <div class="c-sticker-grid" id="stickerGrid"></div>
@@ -1103,8 +1110,6 @@
     <span class="c-uptrack"><span class="c-upfill" id="upFill"></span></span>
   </div>
 
-
-  <input type="file" id="fileInput" accept="image/*" hidden multiple>
 
   <!-- 失焦遮罩：解除必須重新驗證 -->
   <!-- 閒置遮罩的解鎖：跟「載入更早的訊息」用同一組九宮格。

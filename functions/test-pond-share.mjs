@@ -86,7 +86,7 @@ assert.match(app, /onEat: \(id\) => S\.share\?\.eat\(id\)/);
 assert.match(src, /runTransaction/);
 assert.match(src, /rooms\/\$\{roomId\}\/pondShare/);
 assert.doesNotMatch(src, /localStorage|setInterval\(/);
-assert.equal(app.match(/const APP_VERSION = "([^"]+)"/)[1], "v62.12");
+assert.equal(app.match(/const APP_VERSION = "([^"]+)"/)[1], "v62.13");
 assert.doesNotMatch(app, /setAlive/);
 
 console.log('PASS: one shared glass bar tracks who just ate.');

@@ -33,7 +33,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.12";
+const APP_VERSION = "v62.13";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -631,6 +631,10 @@ const FilePicker = {
     const input = $(id);
     if (!input || $("chat").hidden) return;
     this.pending = { id, key: S.key, at: Date.now() };
+    /* 畫面上的檔案欄是蓋在 label 上的 .c-plus-file。對它們 .click()
+       在 iPhone 沒有用，而且呼叫端不該再走這條。 */
+    const cls = input.classList;
+    if (cls && cls.contains && cls.contains("c-plus-file")) return;
     try { input.click(); } catch (_) { this.pending = null; toast("無法開啟選檔視窗，請重試"); }
   },
   take(input) {
@@ -4618,67 +4622,161 @@ async function dropMediaBlob(body) {
  * ⚠️ iOS Safari 只有在 muted + playsInline 都設好的情況下，
  *    才肯把影片畫面畫進 canvas。少一個就會拿到「全黑的封面」，
  *    而且不會報錯 —— 這種 bug 只有在真機上才看得到。
+ *
+ * ⚠️ 封面抽幀可以失敗，影片仍要送得出去（泡泡改畫深色底＋播放鍵）。
+ *    iPhone／WebKit 若為了封面把整支影片解進記憶體，分頁會在幾秒後崩潰。
+ *    所以只讀 metadata、封面只 seek 很短的時間並且逾時就放棄、畫布有上限，
+ *    結束時立刻撤銷 object URL、把 video 元素放掉。
  * ─────────────────────────────────────────────────────────── */
+
+/* iPhone、iPad，以及「用滑鼠模式跑的 iPad」（桌面版 Safari 的 Macintosh + 觸控）。
+   Playwright 的 iPhone 模擬也會落在這條，封面才會走比較短的逾時。 */
+function appleTouchPoster() {
+  try {
+    const ua = navigator.userAgent || "";
+    if (/iPad|iPhone|iPod/.test(ua)) return true;
+    return /Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1;
+  } catch (_) { return false; }
+}
+
+function releaseProbeVideo(v, url) {
+  if (v) {
+    try { v.pause(); } catch (_) {}
+    try { v.srcObject = null; } catch (_) {}
+    try { v.removeAttribute("src"); } catch (_) {}
+    try { v.src = ""; } catch (_) {}
+    try { v.load(); } catch (_) {}
+    try { v.remove(); } catch (_) {}
+  }
+  if (url) { try { URL.revokeObjectURL(url); } catch (_) {} }
+}
+
+/* duration 有時是 Infinity。seekable 的結尾通常就是真正長度，而且不用解整支影片。 */
+function videoDurationOf(v) {
+  const d = Number(v.duration);
+  if (isFinite(d) && d > 0 && d < 86400) return d;
+  try {
+    const n = v.seekable ? v.seekable.length : 0;
+    if (n > 0) {
+      const end = Number(v.seekable.end(n - 1));
+      if (isFinite(end) && end > 0 && end < 86400) return end;
+    }
+  } catch (_) {}
+  return 0;
+}
 
 /* 讀長度、尺寸，順便抽一幀當封面。抽不到幀不算失敗（回 poster: null）。 */
 async function probeVideo(file) {
   const url = URL.createObjectURL(file);
-  const v = document.createElement("video");
-  v.preload = "metadata";
-  v.muted = true;
-  v.defaultMuted = true;
-  v.playsInline = true;
-  v.setAttribute("playsinline", "");
-  v.setAttribute("muted", "");
-  v.src = url;
-
-  const wait = (ev, ms) => new Promise((res, rej) => {
-    const to = setTimeout(() => rej(new Error("sc/video-timeout")), ms);
-    const ok = () => { clearTimeout(to); v.removeEventListener("error", bad); res(true); };
-    const bad = () => { clearTimeout(to); v.removeEventListener(ev, ok); rej(new Error("sc/video-unreadable")); };
-    v.addEventListener(ev, ok, { once: true });
-    v.addEventListener("error", bad, { once: true });
-  });
-
+  let v = null;
   try {
+    v = document.createElement("video");
+    const ios = appleTouchPoster();
+    v.preload = "metadata";
+    v.muted = true;
+    v.defaultMuted = true;
+    v.playsInline = true;
+    v.autoplay = false;
+    v.setAttribute("playsinline", "");
+    v.setAttribute("webkit-playsinline", "");
+    v.setAttribute("muted", "");
+    /* 顯示尺寸縮到幾乎看不見。videoWidth／videoHeight 仍是原始尺寸。 */
+    v.width = 2;
+    v.height = 2;
+
+    const wait = (ev, ms) => new Promise((res, rej) => {
+      let done = false;
+      const finish = (fn) => {
+        if (done) return;
+        done = true;
+        clearTimeout(to);
+        v.removeEventListener(ev, ok);
+        v.removeEventListener("error", bad);
+        fn();
+      };
+      const ok = () => finish(() => res(true));
+      const bad = () => finish(() => rej(new Error("sc/video-unreadable")));
+      const to = setTimeout(() => finish(() => rej(new Error("sc/video-timeout"))), ms);
+      v.addEventListener(ev, ok);
+      v.addEventListener("error", bad);
+    });
+
+    v.src = url;
     await wait("loadedmetadata", 20000);
 
-    let dur = Number(v.duration);
-    /* ⚠️ 有些錄影檔（尤其是還在寫入時複製出來的）duration 會是 Infinity，
-          要先跳到很後面逼它算出真正長度。 */
-    if (!isFinite(dur) || dur <= 0) {
-      v.currentTime = 1e6;
-      try { await wait("timeupdate", 4000); } catch (_) {}
-      dur = Number(v.duration);
-      v.currentTime = 0;
+    let dur = videoDurationOf(v);
+    /* ⚠️ 不要 seek 到 1e6。那會把整支影片解進記憶體，WebKit 分頁會跟著崩潰。
+          只探到「比上限再長一點」：夠判太長，也不必解完整支。 */
+    if (!(dur > 0)) {
+      /* 比「太長」那條線再多一點。探得到就代表超過上限；探不到就用實際停下來的位置。 */
+      const probeAt = (CFG.videoMaxSeconds || 30) + 1;
+      try {
+        v.currentTime = probeAt;
+        await wait("seeked", ios ? 1200 : 2000);
+      } catch (_) {}
+      dur = videoDurationOf(v);
+      if (!(dur > 0)) {
+        const at = Number(v.currentTime);
+        if (isFinite(at) && at > 0.2) dur = at;
+      }
     }
 
     const w = v.videoWidth || 0;
     const h = v.videoHeight || 0;
-    if (!isFinite(dur) || dur <= 0) throw new Error("sc/video-unreadable");
+    if (!(dur > 0)) throw new Error("sc/video-unreadable");
 
     let poster = null;
-    try {
-      v.currentTime = Math.min(CFG.videoPosterAt ?? 0.6, Math.max(0, dur - 0.05));
-      await wait("seeked", 8000);
-      const max = CFG.videoPosterSize || 480;
-      const scale = Math.min(1, max / Math.max(w || 1, h || 1));
-      const cw = Math.max(1, Math.round((w || max) * scale));
-      const ch = Math.max(1, Math.round((h || max) * scale));
-      const cv = document.createElement("canvas");
-      cv.width = cw; cv.height = ch;
-      cv.getContext("2d").drawImage(v, 0, 0, cw, ch);
-      poster = cv.toDataURL("image/webp", CFG.videoPosterQuality || 0.7);
-      // 全黑或極短的 data URL 代表其實沒畫到東西，寧可當作沒有封面
-      if (!poster || poster.length < 200) poster = null;
-    } catch (_) { poster = null; }
+    try { poster = await captureVideoPoster(v, w, h, dur, ios, wait); }
+    catch (_) { poster = null; }
 
     return { dur, w, h, poster };
   } finally {
-    v.removeAttribute("src");
-    try { v.load(); } catch (_) {}
-    URL.revokeObjectURL(url);
+    releaseProbeVideo(v, url);
   }
+}
+
+/* 封面只解一幀、而且只解得動的那種。失敗、逾時、畫素太大，都回 null，不擋送出。 */
+async function captureVideoPoster(v, w, h, dur, ios, wait) {
+  if (!(w > 0) || !(h > 0)) return null;
+  /* 畫布縮很小也擋不住解碼器先配置整幀。超過 1080p 就不要為了封面去解。 */
+  if (w * h > 1920 * 1080) return null;
+
+  const configured = CFG.videoPosterSize || 480;
+  const edge = Math.max(1, Math.min(configured, ios ? 320 : 480));
+  const at = Math.min(Number(CFG.videoPosterAt ?? 0.6) || 0.6, Math.max(0, dur - 0.05));
+  /* 只 seek 很短的一點（預設 0.6 秒，避開全黑的第一幀）。絕不是檔尾。 */
+  if (at >= 0.05) {
+    v.currentTime = at;
+    await wait("seeked", ios ? 1200 : 2000);
+  }
+  /* 停掉解碼再畫。iPhone 上讓影片繼續播著去 toDataURL，分頁會在幾秒後崩潰。 */
+  try { v.pause(); } catch (_) {}
+
+  const scale = Math.min(1, edge / Math.max(w, h));
+  const cw = Math.max(1, Math.min(edge, Math.round(w * scale)));
+  const ch = Math.max(1, Math.min(edge, Math.round(h * scale)));
+  const cv = document.createElement("canvas");
+  cv.width = cw;
+  cv.height = ch;
+  /* willReadFrequently 讓 WebKit 走軟體畫布，避免把 GPU 影片幀拷進去時把分頁打崩。 */
+  const ctx = cv.getContext("2d", { alpha: false, willReadFrequently: !!ios });
+  if (!ctx) return null;
+  ctx.drawImage(v, 0, 0, cw, ch);
+
+  let poster = "";
+  const q = CFG.videoPosterQuality || 0.7;
+  try { poster = cv.toDataURL("image/webp", q); }
+  catch (_) { poster = ""; }
+  if (!poster || !poster.startsWith("data:image/webp")) {
+    try { poster = cv.toDataURL("image/jpeg", q); }
+    catch (_) { poster = ""; }
+  }
+  /* 把點陣圖放掉，避免封面字串跟整幀同時留在記憶體裡。 */
+  cv.width = 0;
+  cv.height = 0;
+  // 全黑或極短的 data URL 代表其實沒畫到東西，寧可當作沒有封面
+  if (!poster || poster.length < 200) return null;
+  return poster;
 }
 
 /* iPhone 預設錄 HEVC 並包成 .mov。它在 Chrome 107+／Safari／Firefox 134+ 都放得出來，
@@ -9354,7 +9452,8 @@ function bindChatUI() {
     if (grid.classList.contains("editing")) { grid.classList.remove("editing"); return; }
     $("stickerPanel").hidden = true;
   });
-  $("btnAddSticker").addEventListener("click", () => FilePicker.open("fileInput"));
+  /* 「＋ 新增」是蓋著檔案欄的 label。iPhone 不會理會對 display:none
+     檔案欄的程式點擊，所以手指必須直接點到 #fileInput。 */
 
   /* 閱後即焚的開關（v50）。⚠️ 跟送出鈕同一個理由擋掉預設行為：
         焦點一離開輸入框，手機的螢幕鍵盤就收起來（v44 的教訓）。 */
@@ -9492,7 +9591,7 @@ function bindChatUI() {
     if (plusMenu && !plusMenu.hidden && !plusMenu.contains(e.target) && e.target !== plus) closePlus();
   }, true);
 
-  /* 圖片／影片的檔案欄自己蓋在列上。不要先關選單再 input.click()：
+  /* 圖片／影片／貼圖的檔案欄自己蓋在列上。不要先藏起來再 input.click()：
      檔案欄若是 display:none，或點到的那一列在同一輪被藏起來，iPhone 不會開相簿。 */
   const armFile = (id) => {
     const inputEl = $(id);
@@ -9506,6 +9605,7 @@ function bindChatUI() {
   };
   armFile("photoInput");
   armFile("videoInput");
+  armFile("fileInput");
   for (const id of ["photoInput", "videoInput", "fileInput"]) {
     $(id)?.addEventListener("cancel", () => { FilePicker.pending = null; });
   }

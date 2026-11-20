@@ -2371,6 +2371,15 @@ html[data-theme="dark"] #chat {
   min-height: 36px;
 }
 .c-mini:hover { background: rgba(26,115,232,.1); }
+/* 「＋ 新增」蓋一顆真正的檔案欄。跟 .c-plus-file 同一套：
+   透明度 0、字級放大，手指才點得到。overflow 把放大的字收在這顆鈕裡。 */
+.c-stk-add {
+  position: relative; overflow: hidden; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.c-stk-add > span { pointer-events: none; }
 
 /* 貼圖面板的分頁列（v48）。
    ⚠️ 它「取代」了原本的 .c-stickers-head，不是多疊一列 —— 見 index.html 的註解。
