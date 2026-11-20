@@ -264,7 +264,7 @@ const app = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
 const board = fs.readFileSync(new URL("../doodle.js", import.meta.url), "utf8");
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../style.css", import.meta.url), "utf8");
-assert.match(app, /const APP_VERSION = "v62\.13"/);
+assert.match(app, /const APP_VERSION = "v62\.14"/);
 assert.match(html, /id="doodleSave">存檔<\/button>\s*<button type="button" class="c-doodle-mini" id="doodleClear">清除<\/button>\s*<button type="button" class="c-doodle-mini" id="doodleClose">關閉<\/button>/);
 assert.match(html, /id="doodleClearAsk"[\s\S]*class="c-gx-card"/);
 assert.match(board, /consentEffect/);

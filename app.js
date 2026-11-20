@@ -33,7 +33,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.13";
+const APP_VERSION = "v62.14";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -644,6 +644,11 @@ const FilePicker = {
     return files;
   },
 };
+
+/* 手指還按在檔案欄上時先不要搬版面。
+   鍵盤收起會改 visualViewport，v62.12 會立刻把整頁平移；
+   檔案欄若在那一下被挪走，iPhone 就不會開相簿。 */
+let filePickHold = false;
 
 /* 把圖片檔解成點陣圖。
    ⚠️ `imageOrientation: "from-image"` 一定要帶 ——
@@ -9588,6 +9593,9 @@ function bindChatUI() {
   });
   /* 點外面就收。⚠️ 用捕獲階段，否則會被泡泡上那些 stopPropagation 的處理器擋掉。 */
   document.addEventListener("click", (e) => {
+    /* 點在圖片／影片／貼圖的檔案欄上時，這一輪先不要把選單藏起來。
+       藏起來等於 display:none，iPhone 會把正在開的相簿取消。 */
+    if (filePickHold) return;
     if (plusMenu && !plusMenu.hidden && !plusMenu.contains(e.target) && e.target !== plus) closePlus();
   }, true);
 
@@ -10752,6 +10760,10 @@ function leaveChat() {
 function initViewport() {
   const vv = window.visualViewport;
   const root = document.documentElement;
+  let viewportDirty = false;
+
+  const isFileTap = (target) => !!(target && target.closest &&
+    target.closest('input[type="file"], .c-plus-hit, .c-stk-add'));
 
   /* 版面高度 = 「目前實際看得到的高度」。
      鍵盤彈出時這個值會自動變小，輸入列就停在鍵盤正上方；
@@ -10768,6 +10780,10 @@ function initViewport() {
     root.style.setProperty("--app-right", right + "px");
   };
   const fit = () => {
+    /* 相簿手勢進行中先記住，等 click 的預設動作跑完再搬。
+       現在搬的話，檔案欄會從手指底下溜走，iPhone 不會開相簿。 */
+    if (filePickHold) { viewportDirty = true; return; }
+    viewportDirty = false;
     if (!vv) {
       place(0, 0, window.innerWidth, window.innerHeight);
       requestAnimationFrame(() => snapSeals(document));
@@ -10787,6 +10803,29 @@ function initViewport() {
     // iOS 會把整份文件往上推來讓輸入框露出來，這裡強制拉回原位
     if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
   };
+  const releaseFileHold = () => {
+    if (!filePickHold && !viewportDirty) return;
+    filePickHold = false;
+    if (viewportDirty) fit();
+  };
+
+  document.addEventListener("pointerdown", (e) => {
+    filePickHold = isFileTap(e.target);
+  }, true);
+  document.addEventListener("pointercancel", () => {
+    if (filePickHold) setTimeout(releaseFileHold, 0);
+  }, true);
+  /* click 有時會比 pointerup 晚一點才到。先留著旗標，
+     讓「點外面收選單」不會在相簿開啟前把檔案欄藏掉。
+     版面要等相簿真的開始開了再補搬，太早搬還是會被 iPhone 取消。 */
+  document.addEventListener("pointerup", () => {
+    if (!filePickHold) return;
+    setTimeout(() => { if (filePickHold) releaseFileHold(); }, 1200);
+  }, true);
+  document.addEventListener("click", () => {
+    if (!filePickHold) return;
+    setTimeout(releaseFileHold, 500);
+  }, false);
 
   /* 鍵盤把視窗壓矮時，只有人本來就貼在最底才跟著。
      正在往上翻歷史時，視窗縮放不可以把他拉回去。 */
