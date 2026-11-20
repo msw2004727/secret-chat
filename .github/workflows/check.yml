@@ -19,5 +19,6 @@ jobs:
             functions/package-lock.json
       - run: npm ci
       - run: npm ci --prefix functions
+      - run: npx playwright install webkit --with-deps
       - run: npm test
       - run: npm run build
