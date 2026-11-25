@@ -33,7 +33,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.15";
+const APP_VERSION = "v62.16";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -9335,6 +9335,54 @@ function enterSends() {
   catch (_) { return window.innerWidth > 720; }   // 老到沒有 matchMedia 的瀏覽器才走這條
 }
 
+/* 送出鈕與鍵盤 Enter 鍵的標示（v62.16）。
+ *
+ * ⚠️ 鍵盤上那顆鍵的字要跟 enterSends() 一致。手機上 Enter 是換行，
+ *    以前 enterkeyhint 卻寫死 "send"，鍵盤就顯示「傳送」——
+ *    按下去只換了一行，看起來就是「送出沒反應」。有實體鍵盤時才標「傳送」。
+ *
+ * ⚠️ 手機上的 click 很容易被瀏覽器取消：手指按著時微微滑動超過門檻、
+ *    iOS 鍵盤開著時順手平移了視覺視窗、或輸入列在按下那一刻被擠走，
+ *    瀏覽器都會當作「不是點擊」。WebKit 實測：輸入列在按下時被擠走，
+ *    pointerup 落到 body、click 完全不發，只有 touchend 還留在送出鈕上
+ *    （觸控事件一律送回 touchstart 的那個元素，連 setPointerCapture 都救不回 pointerup）。
+ *    所以觸控改在 touchend 送出：同一根手指、800 毫秒內放開、
+ *    手指移動不到 32px 就算數。鈕被擠走、手指沒動，放開時一樣送得出去。
+ *    滑鼠照舊走 click；觸控送出後吞掉緊接而來的那一次 click，不會送兩次。
+ *    螢幕閱讀器與鍵盤操作只會有 click，仍然送得出去。
+ *
+ * ⚠️ mousedown 擋預設行為是 v44 的規矩：焦點一走，手機鍵盤就收起來。
+ *    只在焦點本來就在輸入框時擋。 */
+function bindSendButton(input, btn, fire) {
+  const syncEnterHint = () => input.setAttribute("enterkeyhint", enterSends() ? "send" : "enter");
+  syncEnterHint();
+  input.addEventListener("focus", syncEnterHint);
+
+  let down = null, skipClickUntil = 0;
+  btn.addEventListener("mousedown", (e) => {
+    if (document.activeElement === input) e.preventDefault();
+  });
+  btn.addEventListener("touchstart", (e) => {
+    const t = e.changedTouches && e.changedTouches[0];
+    down = (t && e.touches && e.touches.length === 1)
+      ? { id: t.identifier, x: t.clientX, y: t.clientY, at: Date.now() } : null;
+  }, { passive: true });
+  btn.addEventListener("touchcancel", () => { down = null; }, { passive: true });
+  btn.addEventListener("touchend", (e) => {
+    const d = down; down = null;
+    const t = d && [...(e.changedTouches || [])].find((x) => x.identifier === d.id);
+    if (!t) return;
+    if (Date.now() - d.at > 800) return;                               // 長按不算
+    if (Math.hypot(t.clientX - d.x, t.clientY - d.y) > 32) return;     // 手指滑走了
+    skipClickUntil = Date.now() + 700;
+    fire();
+  }, { passive: true });
+  btn.addEventListener("click", () => {
+    if (Date.now() < skipClickUntil) { skipClickUntil = 0; return; }
+    fire();
+  });
+}
+
 function bindChatUI() {
   Droop.mount();
   Droop.now = nowServer;
@@ -9343,7 +9391,12 @@ function bindChatUI() {
   const autoGrow = () => {
     input.style.height = "auto";
     input.style.height = Math.min(input.scrollHeight, 132) + "px";
-    sendBtn.disabled = !input.value.trim();
+    /* ⚠️ 用 aria-disabled，不用 disabled（v62.16）。
+          真的 disabled 的鈕收不到 mousedown，上面那條「保住鍵盤」就不會跑：
+          空白時點一下灰色送出鈕，焦點離開輸入框、鍵盤收起、整個畫面往下跳。
+          而且只要哪條輸入路徑漏了 input 事件，鈕就卡在停用，有字也按不出去。
+          sendNow 自己會擋空白，不靠按鈕狀態。 */
+    sendBtn.setAttribute("aria-disabled", input.value.trim() ? "false" : "true");
   };
   input.addEventListener("input", autoGrow);
 
@@ -9413,14 +9466,11 @@ function bindChatUI() {
 
   /* ⚠️ 按鈕的預設行為會把焦點從輸入框搶走，而焦點一走，手機的螢幕鍵盤就收起來 ——
         使用者要再點一次輸入框才能繼續打，變成「送一句、鍵盤收一次、再點開」，
-        連續講話時整個畫面一直在跳。在 mousedown 擋掉預設行為就不會發生，
-        click 照常會觸發（手機點按鈕也會走 mousedown 這條相容事件，兩邊都吃得到）。
+        連續講話時整個畫面一直在跳。bindSendButton 在 mousedown 擋掉預設行為，
+        觸控改在 pointerup 送出（理由見那支函式上面）。
      ⚠️ 只在「焦點本來就在輸入框」時擋。使用者自己把鍵盤收起來之後再點送出，
         不該被強迫叫回一個他剛剛才關掉的鍵盤。 */
-  sendBtn.addEventListener("mousedown", (e) => {
-    if (document.activeElement === input) e.preventDefault();
-  });
-  sendBtn.addEventListener("click", sendNow);
+  bindSendButton(input, sendBtn, sendNow);
 
   /* 輕點對話區的空白處 → 收起螢幕鍵盤。
    *
@@ -10689,7 +10739,7 @@ function leaveChat() {
   }
   mi.value = "";                             // 沒送出的草稿不能帶進下一間房
   mi.style.height = "";
-  $("btnSend").disabled = true;
+  $("btnSend").setAttribute("aria-disabled", "true");
 
   // 4. 清掉指向舊房間的操作與金鑰
   unmaskUrl();
