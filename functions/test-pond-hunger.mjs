@@ -140,6 +140,8 @@ assert.equal(node.b.$other['.validate'], false);
 assert.equal(node.p.$other['.validate'], false);
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 assert.doesNotMatch(app, /mountPondHunger|pondHunger/);
-assert.match(app, /mountPondShare/);
+assert.doesNotMatch(app, /mountPondShare|pondShare|pond-share/);
+const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+assert.doesNotMatch(html, /id="pondShare"|c-share/);
 
-console.log('PASS: old pond hunger records stay valid, and the chat no longer runs them.');
+console.log('PASS: old pond hunger and pond share records stay valid, and the chat no longer runs them.');
