@@ -15,10 +15,12 @@ const THEMES = {
     life: { pebble: "#e7e2d9", school: "#c6d6e1", turtle: "#cddbbd", pad: "#c7dec9", flower: "#efc4d3", bubble: "#cfe1ec", ripple: "#c9dbe6", leaf: "#e6d3a8", dragonfly: "#bfdadb", duck: "#dcd5c6", firefly: "#cdb95c" },
   },
 };
-/* 鳥瞰的上下關係：池底石子、小魚、龜在水裡，鯊魚蓋得過它們；
-   荷葉、氣泡、水波、落葉、蜻蜓、鴨子、螢火蟲在水面上，蓋在鯊魚上面。 */
-const UNDER = ["pebble", "school", "turtle"];
-const OVER = ["pad", "flower", "bubble", "ripple", "leaf", "dragonfly", "duck", "firefly"];
+/* 鳥瞰的上下關係：池底石子、小魚、龜、氣泡、水波畫在鯊魚下面，鯊魚蓋得過它們；
+   荷葉、落葉、蜻蜓、鴨子、螢火蟲在水面上，蓋在鯊魚上面。
+   ⚠️ 水波和氣泡不能放上層：點畫面和吃飼料的水波剛好在鯊魚經過的地方，
+      放上層會把鯊魚身體挖出一圈缺口（v62.20 的破圖）。 */
+const UNDER = ["pebble", "school", "turtle", "bubble", "ripple"];
+const OVER = ["pad", "flower", "leaf", "dragonfly", "duck", "firefly"];
 const LAYERS = [...UNDER, ...OVER];
 
 function mix(a, b, t) {
@@ -389,8 +391,12 @@ export function mountPondShark(scroller, hooks) {
       }
     }
     paint(overFrom, LAYERS.length, () => false);
-    /* 鳥瞰看飼料往下沉，就是在原地慢慢變小變淡；一樣要嘴碰到才消失。 */
+    /* 鳥瞰看飼料往下沉，就是在原地慢慢變小變淡；一樣要嘴碰到才消失。
+       鯊魚身體或荷葉蓋住的那一格不畫飼料，兩個字才不會疊在同一格。 */
     for (const fd of pond.foods) {
+      const fc = Math.floor(fd.x / CW), fr = Math.floor(fd.y / CH);
+      const fi = fr * cols + fc;
+      if (fc >= 0 && fr >= 0 && fc < cols && fr < rows && (buf[fi] > 0.05 || lifeLy[fi] >= overFrom)) continue;
       ctx.fillStyle = fd.age < 6 ? T.food : mix(T.food, T.bg, Math.min(0.55, (fd.age - 6) / 20));
       ctx.fillText(fd.age < 0.25 ? "*" : fd.age < 6 ? "o" : ".", Math.floor(fd.x / CW) * CW, Math.floor(fd.y / CH) * CH);
     }

@@ -165,9 +165,9 @@ const pets = fs.readFileSync(new URL("../room-pets.js", import.meta.url), "utf8"
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const sw = fs.readFileSync(new URL("../sw.js", import.meta.url), "utf8");
 const rules = JSON.parse(fs.readFileSync(new URL("../database.rules.json", import.meta.url), "utf8"));
-assert.match(app, /const APP_VERSION = "v62\.20"/);
-assert.match(html, /content="v62\.20"/);
-assert.match(sw, /const VERSION = "sc-v62\.20"/);
+assert.match(app, /const APP_VERSION = "v62\.21"/);
+assert.match(html, /content="v62\.21"/);
+assert.match(sw, /const VERSION = "sc-v62\.21"/);
 assert.doesNotMatch(app, /ball-sync/);
 assert.doesNotMatch(app, /ballLive/);
 assert.doesNotMatch(app, /BallSync/);

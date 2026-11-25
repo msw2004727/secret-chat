@@ -178,6 +178,13 @@ assert.match(src, /from "\.\/pond-life\.js"/);
 assert.match(src, /life\.render\(putLife, still\)/);
 assert.match(src, /life\.tap\(/);
 assert.match(src, /const OVER = \["pad"/, 'lily pads sit on the surface');
+/* v62.20 破圖：水波與氣泡放上層會把鯊魚身體挖出缺口；飼料字會跟鯊魚字疊在同一格。 */
+const under = JSON.parse(src.match(/const UNDER = (\[[^\]]*\])/)[1]);
+const over = JSON.parse(src.match(/const OVER = (\[[^\]]*\])/)[1]);
+for (const k of ['ripple', 'bubble']) {
+  assert.ok(under.includes(k) && !over.includes(k), k + ' is drawn under the sharks so it never cuts holes in them');
+}
+assert.match(src, /buf\[fi\] > 0\.05 \|\| lifeLy\[fi\] >= overFrom\)\) continue;/, 'pellets hide under a shark body instead of overprinting it');
 assert.match(src, /lifeLy\[i\] >= overFrom\) continue/, 'surface things cover the sharks');
 assert.doesNotMatch(src, /SINK|vy: /, 'pellets no longer fall down the screen');
 assert.doesNotMatch(lifeSrc, /document|window|firebase|ref\(/, 'pond-life stays pure and local');
