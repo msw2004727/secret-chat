@@ -1,12 +1,27 @@
-/* 對話區背景：兩隻 ASCII 鯊魚。畫布不吃點擊。
+/* 對話區背景：兩隻 ASCII 鯊魚，加上 pond-life.js 的小魚群、氣泡、水草、訪客。畫布不吃點擊。
    分頁切走或離開聊天室就停；系統要求減少動效時只畫一張靜止的。 */
+
+import { createLife, nightness, moodPace, SINK } from "./pond-life.js";
 
 const CW = 6, CH = 9;
 const RAMP = " .,:;-=+*x#%@";
 const THEMES = {
-  dark: { bg: "#0a0c0d", food: "#6b604c", fish: ["#3d5160", "#5a4450"] },
-  light: { bg: "#ffffff", food: "#bfae8c", fish: ["#b7cfe0", "#e3c2ce"] },
+  dark: {
+    bg: "#0a0c0d", night: "#06080a", food: "#6b604c", fish: ["#3d5160", "#5a4450"],
+    life: { sand: "#2a2722", weed: "#22362b", bubble: "#2b3b47", school: "#33454f", ripple: "#3a4a55", turtle: "#3d4a35", jelly: "#4a3d56", octopus: "#56403a" },
+  },
+  light: {
+    bg: "#ffffff", night: "#f3f6f9", food: "#bfae8c", fish: ["#b7cfe0", "#e3c2ce"],
+    life: { sand: "#e4dac6", weed: "#cde0cf", bubble: "#d2e3ee", school: "#c6d6e1", ripple: "#c9dbe6", turtle: "#cddbbd", jelly: "#e0cfeb", octopus: "#ecc8c2" },
+  },
 };
+const LAYERS = ["sand", "weed", "bubble", "school", "turtle", "jelly", "octopus", "ripple"];
+
+function mix(a, b, t) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const ch = (sh) => Math.round(((pa >> sh) & 255) * (1 - t) + ((pb >> sh) & 255) * t);
+  return "#" + ((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1);
+}
 const L = 38, S = 5.2, STEP = 0.35;
 /* 比現在慢一成又四分。擺尾頻率跟前進一起縮，波形才不會跟位移脫節。 */
 export const PACE = 0.75;
@@ -92,6 +107,7 @@ export function createPond(width, height) {
       x: Math.max(m, Math.min(pond.w - m, x)),
       y: Math.max(m, Math.min(pond.h - m, y)),
       age: 0,
+      vy: SINK,
     });
   };
   pond.step = (dt) => stepPond(pond, dt, pond.alive);
@@ -159,7 +175,13 @@ function reposition(pond, i) {
    alive[i] === false 的魚已經死了：停在原地、不畫、也不准吃。 */
 export function stepPond(pond, dt, alive) {
   const foods = pond.foods;
-  for (const fd of foods) fd.age += dt;
+  /* 丟下去的飼料慢慢沉到沙地上方停住，一樣等嘴碰到才消失。 */
+  const bed = pond.h - 22;
+  for (const fd of foods) {
+    fd.age += dt;
+    if (fd.vy && fd.y < bed) fd.y = Math.min(bed, fd.y + fd.vy * dt);
+  }
+  const pace = pond.pace > 0 ? pond.pace : 1;
   const living = [];
   for (let i = 0; i < pond.fish.length; i++) if (!alive || alive[i] !== false) living.push(pond.fish[i]);
   const racing = foods.length > 0 && living.length > 0;
@@ -175,7 +197,8 @@ export function stepPond(pond, dt, alive) {
       const dist = Math.hypot(fd.x - hx, fd.y - hy);
       if (dist < best) { best = dist; tgt = fd; }
     }
-    let sp = CRUISE * (racing ? RACE : 1);
+    /* 巡航跟著日夜與休息放慢；搶飼料一律全速。 */
+    let sp = racing ? CRUISE * RACE : CRUISE * pace;
     const comeHome = !tgt && (out > 0.9 * BODY || f.outT > 2.5 || bothOut);
     if (tgt) {
       if (f.tgt !== tgt) { f.tgt = tgt; f.chase = 0; }
@@ -240,6 +263,9 @@ export function mountPondShark(scroller, hooks) {
   if (!host || !cv) return { start() {}, stop() {}, drop() {} };
   const ctx = cv.getContext("2d");
   const pond = createPond(1, 1);
+  const life = createLife(1, 1);
+  let night = nightness(new Date()), nightAt = 0, lastTap = performance.now();
+  let lifeCh = new Uint16Array(1), lifeLy = new Uint8Array(1);
   let cols = 1, rows = 1, buf = new Float32Array(1), own = new Int8Array(1);
   let raf = 0, running = false, last = 0, drawAcc = 0;
   const still = reducedMotion();
@@ -265,10 +291,13 @@ export function mountPondShark(scroller, hooks) {
     cv.style.height = h + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     pond.resize(w, h);
+    life.resize(w, h);
     cols = Math.ceil(w / CW);
     rows = Math.ceil(h / CH);
     buf = new Float32Array(cols * rows);
     own = new Int8Array(cols * rows);
+    lifeCh = new Uint16Array(cols * rows);
+    lifeLy = new Uint8Array(cols * rows);
   }
 
   function put(x, y, v, id) {
@@ -308,14 +337,42 @@ export function mountPondShark(scroller, hooks) {
     }
   }
 
+  function putLife(cx, cy, ch, layer) {
+    if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) return;
+    const i = cy * cols + cx;
+    lifeCh[i] = ch.charCodeAt(0);
+    lifeLy[i] = LAYERS.indexOf(layer) + 1;
+  }
+
+  /* 小魚只要閃鯊魚的頭和身體前半段，取幾個點就夠。 */
+  function sharkPts() {
+    const out = [];
+    pond.fish.forEach((f, i) => {
+      if (pond.alive && pond.alive[i] === false) return;
+      out.push({ x: f.x, y: f.y, pts: [0, 8, 16, 26].map((k) => spine(f, k)) });
+    });
+    return out;
+  }
+
   function draw() {
     const T = THEMES[themeName()];
     buf.fill(0);
     pond.fish.forEach((f, i) => { if (!pond.alive || pond.alive[i] !== false) raster(f, i); });
-    ctx.fillStyle = T.bg;
+    const dim = night * 0.35;
+    ctx.fillStyle = mix(T.bg, T.night, night);
     ctx.fillRect(0, 0, pond.w, pond.h);
     ctx.font = (CH + 1) + "px ui-monospace, Menlo, Consolas, monospace";
     ctx.textBaseline = "top";
+    /* 配角先畫，被鯊魚蓋到的格子讓給鯊魚，字才不會疊在一起。 */
+    lifeCh.fill(0);
+    life.render(putLife, still);
+    for (let ly = 1; ly <= LAYERS.length; ly++) {
+      ctx.fillStyle = mix(T.life[LAYERS[ly - 1]], T.bg, dim);
+      for (let i = 0; i < lifeCh.length; i++) {
+        if (lifeLy[i] !== ly || !lifeCh[i] || buf[i] > 0.05) continue;
+        ctx.fillText(String.fromCharCode(lifeCh[i]), (i % cols) * CW, Math.floor(i / cols) * CH);
+      }
+    }
     for (let id = 0; id < pond.fish.length; id++) {
       if (pond.alive && pond.alive[id] === false) continue;
       ctx.fillStyle = T.fish[id];
@@ -339,8 +396,15 @@ export function mountPondShark(scroller, hooks) {
     if (document.hidden) return;
     const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016);
     last = now;
+    if (now - nightAt > 30000) { night = nightness(new Date()); nightAt = now; }
+    pond.pace = moodPace(night, (now - lastTap) / 1000);
     const eaten = pond.step(dt) || [];
-    if (hooks && hooks.onEat) for (const id of eaten) hooks.onEat(id);
+    for (const id of eaten) {
+      const f = pond.fish[id];
+      if (f) life.ripple(f.x, f.y);
+      if (hooks && hooks.onEat) hooks.onEat(id);
+    }
+    life.step(dt, sharkPts(), pond.pace);
     drawAcc += dt;
     if (drawAcc >= 0.08) { drawAcc = 0; draw(); }
     raf = requestAnimationFrame(frame);
@@ -387,7 +451,9 @@ export function mountPondShark(scroller, hooks) {
     armed = false;
     if (performance.now() - start.t > 400) { release(); return; }
     const box = cv.getBoundingClientRect();
+    lastTap = performance.now();
     pond.drop(start.x - box.left, start.y - box.top);
+    life.tap(start.x - box.left, start.y - box.top);
     if (still) draw();
   }, { passive: true });
   scroller.addEventListener("pointercancel", () => { down = null; release(); }, { passive: true });
@@ -411,5 +477,5 @@ export function mountPondShark(scroller, hooks) {
     pond.alive = next;
     if (running || still) draw();
   }
-  return { start, stop, reset, drop: pond.drop, setAlive };
+  return { start, stop, reset, drop: pond.drop, setAlive, life };
 }
