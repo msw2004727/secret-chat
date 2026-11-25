@@ -32,7 +32,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.22";
+const APP_VERSION = "v62.23";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -6146,6 +6146,9 @@ async function enterChat() {
      但其實還沒到伺服器，promise 會一直懸著。這時候關掉分頁訊息就永久消失，
      而你以為傳出去了。所以每一則都要標記「還沒落地」，落地了才拿掉。 */
   async function sendPayload(payload) {
+    /* 自己剛送的這一則一定要捲到最底看得到（v62.23），不管送出前是不是剛好貼底。
+       只限這台裝置、送出後幾秒內：另一台裝置送的、或舊訊息滑進視窗，都不會把人拉下去。 */
+    S.pinOwnUntil = Date.now() + 8000;
     const sealed = await seal(S.key, payload);
     const p = push(mRef, { s: S.clientId, t: serverTimestamp(), ...sealed });
     const key = p.key;                     // 真實 Firebase 同步就給 key，不必等落地
@@ -8907,7 +8910,15 @@ function appendMsg(m) {
     // 常見路徑：真的是最新的一則
     S.msgs.push(m);
     $("msgList").appendChild(rowEl(m, last));
-    if (atBottom) follow.stickIf(sc, true);
+    /* ⚠️ 自己剛送的不看 atBottom（v62.23）：打多行字時輸入框長高、把訊息區擠矮，
+          送出那一刻離底部已經差了幾十 px，舊寫法會判成「不在底部」而不捲，
+          自己的訊息落在畫面外。 */
+    const ownJustSent = m.s === S.clientId && Date.now() < (S.pinOwnUntil || 0);
+    if (ownJustSent && sc) {
+      follow.force();
+      follow.stick(sc);
+      requestAnimationFrame(() => { follow.force(); follow.stick(sc); });
+    } else if (atBottom) follow.stickIf(sc, true);
   } else {
     // 補進來的舊訊息：插回正確位置，重畫，並保住使用者當下看的位置
     let i = S.msgs.length;
@@ -9774,6 +9785,18 @@ function bindChatUI() {
   const sc = $("scroller");
   /* 先裝貼底判斷：往上捲立刻放開，回到最底才再跟著新訊息。 */
   follow.arm(sc);
+  /* 訊息區本身變矮（輸入框打多行長高、面板打開、鍵盤）時，本來跟著最新的人繼續貼底（v62.23）。
+     變矮不會觸發 scroll 事件，scrollTop 不變，最底那幾則就被藏到輸入列後面。
+     人往上翻過（follow 已放開）就不動。 */
+  if (typeof ResizeObserver === "function") {
+    let lastH = sc.clientHeight;
+    new ResizeObserver(() => {
+      const h = sc.clientHeight;
+      if (h === lastH) return;
+      lastH = h;
+      if (!$("chat").hidden && follow.isFollowing()) follow.stick(sc);
+    }).observe(sc);
+  }
   sc.addEventListener("scroll", () => {
     paintJump();
     // 捲到接近頂端就補一次載入。IntersectionObserver 在 iOS 慣性捲動時
