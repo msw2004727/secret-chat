@@ -33,7 +33,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.16";
+const APP_VERSION = "v62.17";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -184,6 +184,10 @@ function hex(buf) {
 }
 
 let toastTimer;
+/* 兩段式確認（清除對話、刪除記事）的第二下，至少要跟第一下隔這麼久才算（v62.17）。
+   手機連點兩下大約 100～300 毫秒；刻意再按一次通常超過半秒。 */
+const ARM_GUARD_MS = 450;
+
 function toast(msg, ms = 2200) {
   const el = $("toast");
   el.textContent = msg;
@@ -2403,11 +2407,14 @@ const Notes = {
     if (!this.editing) { this.showList(); return; }       // 還沒存過的新記事，直接退出就是丟掉
     if (!this.delArmed) {
       this.delArmed = true;
+      this.delArmedAt = Date.now();
       $("ntDelHint").innerHTML = '<b class="nt-confirm">再按一次刪除</b>';
       clearTimeout(this.delT);
       this.delT = setTimeout(() => this.disarmDelete(), 3000);
       return;
     }
+    // ⚠️ 跟「清除對話」同一條（v62.17）：手指一抖的第二下不算刪除
+    if (Date.now() - (this.delArmedAt || 0) < ARM_GUARD_MS) return;
     const key = this.editing;
     this.disarmDelete();
     this.dirty = false;
@@ -9556,15 +9563,16 @@ function bindChatUI() {
 
   /* --- 一鍵清除：點一次露出確定，再點一次才真的清 --- */
   const wipeBtn = $("btnWipe"), wipeYes = $("wipeYes");
-  let wipeTimer = 0;
+  let wipeTimer = 0, wipeArmedAt = 0;
   const disarmWipe = () => {
-    clearTimeout(wipeTimer); wipeTimer = 0;
+    clearTimeout(wipeTimer); wipeTimer = 0; wipeArmedAt = 0;
     if (wipeBtn) wipeBtn.hidden = false;
     if (wipeYes) wipeYes.hidden = true;
   };
   const closeGearMenu = () => {
     const menu = $("gearMenu");
     if (menu) menu.hidden = true;
+    $("chat")?.classList.remove("gear-open");
     $("btnSettings")?.setAttribute("aria-expanded", "false");
     const zoo = $("zooPanel");
     if (zoo) zoo.hidden = true;
@@ -9578,6 +9586,7 @@ function bindChatUI() {
     if (!menu) return;
     if (menu.hidden) {
       menu.hidden = false;
+      $("chat")?.classList.add("gear-open");     // 標題列抬到輸入列之上，選單下半截才不會被蓋住
       $("btnSettings")?.setAttribute("aria-expanded", "true");
     } else closeGearMenu();
   };
@@ -9586,12 +9595,17 @@ function bindChatUI() {
     e.stopPropagation();
     if (wipeYes) wipeYes.hidden = false;
     wipeBtn.hidden = true;
+    wipeArmedAt = Date.now();
     clearTimeout(wipeTimer);
     wipeTimer = setTimeout(disarmWipe, 4000);
   });
   wipeYes?.addEventListener("click", async (e) => {
     e.preventDefault();
     e.stopPropagation();
+    /* ⚠️ 「確定清除」就長在「清除對話」原本的位置上（v62.17）。
+          手機上手指一抖點成兩下，第二下會直接落在確定上，整段對話就沒了。
+          露出來不到 ARM_GUARD_MS 的那一下不算，要真的再按一次。 */
+    if (Date.now() - wipeArmedAt < ARM_GUARD_MS) return;
     disarmWipe();
     closeGearMenu();
     if (!S.wipe) { toast("還在連線中，請稍候一下"); return; }
