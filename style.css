@@ -1660,7 +1660,9 @@ html[data-theme="dark"] .row.you .lp-card { background: rgba(255,255,255,.06); }
   display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden;
 }
-.c-icon:hover { background: var(--bg-soft); color: var(--txt); }
+/* ⚠️ :hover 只給真的有滑鼠的裝置（v62.16）。手機點過一次，hover 會黏在那顆鈕上，
+      灰底一直亮著，看起來像卡住、按不太順。 */
+@media (hover: hover) { .c-icon:hover { background: var(--bg-soft); color: var(--txt); } }
 .c-icon:active { transform: scale(.92); background: var(--bg-soft); }
 
 /* 標題列的動物開關（v61.52）。面板掛在齒輪左邊那顆雙箭頭上，
@@ -1827,7 +1829,7 @@ html[data-theme="dark"] .c-zoo-panel { box-shadow: 0 12px 28px rgba(0,0,0,.5); }
 #cats.cats-off .poop-pile,
 #cats.cats-off .cat-bonk,
 .cat-say-layer.cats-off { visibility: hidden; }
-.c-danger:hover { color: var(--danger); }
+@media (hover: hover) { .c-danger:hover { color: var(--danger); } }
 .c-hold {
   position: absolute; inset: auto 0 0 0; height: 100%;
   background: rgba(217,48,37,.18); transform: scaleY(0); transform-origin: bottom;
@@ -2370,7 +2372,7 @@ html[data-theme="dark"] #chat {
   font-size: 13px; padding: 8px 10px; border-radius: 8px;
   min-height: 36px;
 }
-.c-mini:hover { background: rgba(26,115,232,.1); }
+@media (hover: hover) { .c-mini:hover { background: rgba(26,115,232,.1); } }
 /* 「＋ 新增」蓋一顆真正的檔案欄。跟 .c-plus-file 同一套：
    透明度 0、字級放大，手指才點得到。overflow 把放大的字收在這顆鈕裡。 */
 .c-stk-add {
@@ -2507,8 +2509,13 @@ html[data-theme="dark"] #chat {
   padding-right: max(8px, env(safe-area-inset-left), env(safe-area-inset-right));
   border-top: 1px solid var(--line);
   background: var(--bg);
+  /* ⚠️ 輸入列不交給瀏覽器平移（v62.16）。iOS 鍵盤開著時，手指在這一條上稍微一拖，
+        Safari 會去平移視覺視窗，整個畫面跟著跑，那一下的點擊也被取消。
+        只有輸入框本身留上下捲，打長訊息時還能捲。 */
+  touch-action: none;
 }
 .c-text {
+  touch-action: pan-y;
   flex: 1 1 auto; min-width: 0;
   resize: none; border: 0; outline: 0;
   background: var(--bg-soft); color: var(--txt);
@@ -2608,8 +2615,8 @@ html[data-theme="dark"] #chat {
   display: flex; align-items: center; justify-content: center;
   transition: opacity .15s, transform .1s;
 }
-.c-send:disabled { opacity: .35; cursor: default; }
-.c-send:not(:disabled):active { transform: scale(.9); }
+.c-send[aria-disabled="true"] { opacity: .35; cursor: default; }
+.c-send:not([aria-disabled="true"]):active { transform: scale(.9); }
 
 /* --- 失焦遮罩（解除需重新輸入密碼） --- */
 /* ---------- 九宮格密碼盤（遮罩解鎖 + 歷史訊息鎖共用） ---------- */

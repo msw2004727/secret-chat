@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <!-- 網頁外殼的版號。app.js 會拿它跟自己的版號比對，
      不一樣就代表瀏覽器還留著舊的那一份（改了沒生效的頭號原因）。 -->
-<meta name="sc-shell" content="v62.15">
+<meta name="sc-shell" content="v62.16">
 <title>Google</title>
 
 <!-- 分頁圖示 -->
@@ -1034,7 +1034,7 @@
          name 也刻意不給，原生送出時序列化不出任何欄位。 -->
     <textarea id="msgInput" class="c-text" rows="1" placeholder="輸入訊息" maxlength="4000"
               autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"
-              enterkeyhint="send" inputmode="text" aria-label="輸入訊息"
+              enterkeyhint="enter" inputmode="text" aria-label="輸入訊息"
               data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></textarea>
     <!-- 閱後即焚的開關（v50）。私人房才會出現 —— 多人房由 Burn.paint() 直接藏起來。
          ⚠️ 亮著的時候送出去的訊息才會燒。這顆鈕就是唯一的提示，
@@ -1059,7 +1059,7 @@
         <circle cx="14.2" cy="9.4" r="1.15" fill="currentColor"/>
       </svg>
     </button>
-    <button type="button" class="c-send" id="btnSend" aria-label="送出" disabled>
+    <button type="button" class="c-send" id="btnSend" aria-label="送出" aria-disabled="true">
       <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 20.5 21 12 3 3.5 3 10l12 2-12 2v6.5Z"/></svg>
     </button>
     <!-- 「＋」展開的附件選單。蓋在輸入列上方，點外面就收。
