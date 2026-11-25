@@ -721,6 +721,10 @@ html[data-theme="light"] #chat .c-pair-ask-sub { color: #8a9099; }
 html[data-theme="light"] #chat .c-pair-ask-row button { background: #f4f5f7; color: #16181c; }
 html[data-theme="light"] #chat #pairAskYes { background: #1a73e8; color: #fff; }
 .c-gear { position: relative; flex: 0 0 auto; }
+/* ⚠️ 選單住在標題列裡，標題列跟輸入列同為 z-index 8，輸入列排在後面會畫在選單上（v62.17）。
+      選單往下長到輸入列那一帶時（手機、鍵盤開著最明顯），「清除對話」點下去其實點到輸入框。
+      選單開著時把標題列整層抬到輸入列（含塗鴉時的 12）之上。 */
+#chat.gear-open .c-bar { z-index: 13; }
 .c-gear-menu {
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 30;
   width: min(260px, calc(100vw - 16px));
@@ -728,8 +732,11 @@ html[data-theme="light"] #chat #pairAskYes { background: #1a73e8; color: #fff; }
   background: var(--bg); color: var(--txt); border: 1px solid var(--line);
   box-shadow: 0 12px 28px rgba(0,0,0,.28);
   display: flex; flex-direction: column; gap: 2px;
-  max-height: calc(100dvh - 70px - env(safe-area-inset-top));
+  /* ⚠️ 高度跟著 --app-h（實際看得到的那一塊），不要用 dvh（v62.17）。
+        鍵盤開著時 dvh 還是整個螢幕高，選單下半截（清除對話）會被鍵盤蓋住、捲也捲不到。 */
+  max-height: calc(var(--app-h, 100dvh) - 70px - env(safe-area-inset-top));
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .c-gear-menu[hidden] { display: none !important; }
 html[data-theme="dark"] .c-gear-menu { box-shadow: 0 12px 28px rgba(0,0,0,.5); }
@@ -1480,13 +1487,15 @@ html[data-theme="light"] #chat .c-ring-btn.c-mm-ann { color: #5c4308; background
 
 /* ---------- 設定面板 ---------- */
 .c-settings {
-  flex: 0 0 auto;
+  flex: 0 1 auto; min-height: 0;   /* 同貼圖面板（v62.17） */
   border-top: 1px solid var(--line);
   background: var(--bg-soft);
-  max-height: min(60dvh, 420px);
+  /* ⚠️ 跟選單同一個理由用 --app-h（v62.17）：鍵盤開著時 60dvh 比看得到的還高，
+        面板會把輸入列擠出畫面。 */
+  max-height: min(calc(var(--app-h, 100dvh) * .6), 420px);
   display: flex; flex-direction: column;
 }
-.c-set-list { overflow-y: auto; padding: 4px 0 2px; }
+.c-set-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 0 2px; }
 
 .c-set-row {
   display: flex; align-items: center; gap: 14px;
@@ -2357,10 +2366,12 @@ html[data-theme="dark"] #chat {
 
 /* --- 貼圖面板 --- */
 .c-stickers {
-  flex: 0 0 auto;
+  /* ⚠️ 可以縮、min-height 0（v62.17）：鍵盤開著時剩下的高度不夠，縮的是面板（裡面自己捲），
+        不是把輸入列擠出畫面。 */
+  flex: 0 1 auto; min-height: 0;
   border-top: 1px solid var(--line);
   background: var(--bg-soft);
-  max-height: min(46dvh, 320px);
+  max-height: min(calc(var(--app-h, 100dvh) * .46), 320px);   /* 鍵盤開著也不把輸入列擠出去（v62.17） */
   display: flex; flex-direction: column;
 }
 .c-stickers-head {
@@ -2429,10 +2440,10 @@ html[data-theme="dark"] #chat {
 /* ── 相簿（v60）──
    版型照抄貼圖面板，因為它們在畫面上是同一種東西（底部浮層 + 方格）。 */
 .c-album {
-  flex: 0 0 auto;
+  flex: 0 1 auto; min-height: 0;   /* 同貼圖面板（v62.17） */
   border-top: 1px solid var(--line);
   background: var(--bg-soft);
-  max-height: min(52dvh, 380px);
+  max-height: min(calc(var(--app-h, 100dvh) * .52), 380px);   /* 同上（v62.17） */
   display: flex; flex-direction: column;
 }
 .c-alb-n { font-size: 11px; color: var(--txt-dim); font-variant-numeric: tabular-nums; }
@@ -3365,6 +3376,7 @@ html[data-theme="dark"] .c-veil { background: rgba(0,0,0,.46); }
 .nt-list {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 8px 10px calc(20px + env(safe-area-inset-bottom));
   display: flex; flex-direction: column; gap: 8px;
 }
