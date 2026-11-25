@@ -200,7 +200,12 @@ assert.match(pets, /ball\.state === "carried" && ball\.carrier \? ball\.carrier\
 assert.match(pets, /tx -= carrier\.x/);
 assert.match(pets, /ty \+= H \* catS\(carrier\)/);
 assert.match(css, /\.cat-front \{[\s\S]*z-index: 3;/);
-assert.match(css, /\.c-bar \{[^}]*z-index: 8;/);
+assert.match(css, /\.c-bar \{[^}]*z-index: 10;/);
+/* 標題列要在變形泡泡（#droopLayer）之上，泡泡才不會蓋住標題列（v62.24）。 */
+const zOf = (re) => Number(css.match(re)[1]);
+assert.ok(zOf(/\.c-bar \{[^}]*z-index: (\d+);/) > zOf(/#droopLayer \{[^}]*z-index: (\d+);/), 'header sits above the drooping bubble layer');
+assert.ok(zOf(/#droopLayer \{[^}]*z-index: (\d+);/) > zOf(/\.c-input \{[^}]*z-index: (\d+);/), 'falling bubbles still draw over the input bar');
+assert.match(css, /#chat\.doodle-on \.c-doodle \{ z-index: 11; \}/, 'the doodle board still covers the header while open');
 assert.match(css, /\.c-input \{[^}]*z-index: 8;/);
 assert.match(css, /\.bub\.jelly \{[^}]*background: transparent/);
 assert.match(css, /\.pet-warp \{[\s\S]*pointer-events: none;/);

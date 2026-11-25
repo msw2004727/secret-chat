@@ -454,7 +454,10 @@ html[data-theme="dark"] .update-banner {
   /* ⚠️ position: relative 是給飄浮愛心（.c-heart-field）當定位錨點的。
         拿掉的話愛心會往上找到別的祖先，飄到畫面別的地方去。 */
   position: relative;
-  z-index: 8; /* 高於貓、雞、球、對白和特效（最高 7），動物飛到頂端時從標題後面過去 */
+  /* 10：高於貓、雞、球、對白和特效（最高 7），也高於變形泡泡的 #droopLayer（9）。
+     ⚠️ 站長要求標題列永遠在最上層（v62.24）：垂下、軟掉、往下掉的泡泡框從標題列後面過去，
+        不可以蓋住標題列。輸入列仍是 8，泡泡掉到底時照舊畫在輸入列上面、不被裁掉。 */
+  z-index: 10;
   /* 左右各 1fr、中間 auto。狀態字再長也只能縮在左欄，定位組停在正中間。
      minmax(0, 1fr) 加上子項 min-width: 0，左欄才不會把中間撐歪。 */
   display: grid;
@@ -4181,7 +4184,8 @@ html.room-pet-drag, html.room-pet-drag body { touch-action: none; }
 #droopLayer {
   position: fixed; inset: 0;
   overflow: visible; pointer-events: none;
-  /* 高於標題和輸入列（8），垂到 90 度和往下掉才不會被訊息列表或輸入列裁掉。
+  /* 高於輸入列（8），垂到 90 度和往下掉才不會被訊息列表或輸入列裁掉。
+     ⚠️ 但低於標題列（10，v62.24）：站長要求標題列永遠在最上層，變形的泡泡從它後面過去。
      選單、遮罩仍在 40 以上，蓋得過這一層。 */
   z-index: 9;
 }
@@ -4397,6 +4401,8 @@ html[data-theme="light"] .ink { stroke: #1c2430; }
 }
 .c-doodle.on { opacity: 1; transform: translateX(-50%); pointer-events: auto; }
 #chat.doodle-on .c-input { z-index: 12; }
+/* 塗鴉板打開時本來就蓋在標題列上（板子頂端貼著畫面上緣）。標題列抬到 10 之後，板子跟著抬到 11（v62.24）。 */
+#chat.doodle-on .c-doodle { z-index: 11; }
 .c-doodle-hd { display: flex; align-items: center; gap: 6px; padding: 8px 8px 4px; }
 .c-doodle-name { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; font-weight: 650; }
 .c-doodle-rings { display: inline-flex; gap: 4px; min-height: 12px; }
