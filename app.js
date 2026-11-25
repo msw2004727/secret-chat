@@ -15,7 +15,6 @@ import { attachBubbleFx, BubbleFx, bubbleRingShift, bubbleRingPoints, BUBBLE_RIN
 import { pairLocAgeSec, pairLocClock, pairLocDistance, PAIR_LOC_STALE_MS } from "./pair-loc.js";
 import { TYPING_LABELS, typingCode, fitTypingText, createTypingSense } from "./typing-status.js";
 import { mountPondShark } from "./pond-shark.js";
-import { mountPondShare } from "./pond-share.js";
 import { mountGames, snapSeals } from "./games.js";
 import { mountDoodle } from "./doodle.js";
 import { createFollowController } from "./scroll-follow.js";
@@ -33,7 +32,7 @@ const CFG = window.CONFIG;
      ‧ sw.js 的 VERSION（"sc-" + 版號）
    儀表板上方會把三者印出來比對 —— 只要對不起來，就代表這台裝置
    還跑著舊的那一份，不是程式有問題。 */
-const APP_VERSION = "v62.17";
+const APP_VERSION = "v62.18";
 /* 網址一進來就被收進 __sq。模擬器參數要在那之前抄下來，而且只在本機生效。 */
 const LOCAL_PREVIEW = (() => {
   try {
@@ -5498,7 +5497,6 @@ async function enterChat() {
      你在儀表板按撤銷的那一秒，這邊就退回偽裝首頁再跳指定頁。
      ⚠️ 規則層同時會把資料切斷，這裡只是把畫面收乾淨；少了它會看到一堆 permission_denied。 */
   Acl.watch(f, S.roomId);
-  S.share?.open(f, S.roomId, S.subs, () => S.gen === myGen && !$("chat").hidden);
   S.games?.open(f, S.roomId, S.subs, () => S.gen === myGen && !$("chat").hidden);
   S.doodle?.open(f, S.roomId, S.subs, () => S.gen === myGen && !$("chat").hidden, { id: S.clientId, side: pairSide() });
 
@@ -9715,9 +9713,7 @@ function bindChatUI() {
     releaseTap: () => { tapSuppressed = false; },
     isMenuOpen: () => { const m = $("msgMenu"); return !!(m && !m.hidden); },
     isChatOpen: () => { const c = $("chat"); return !!(c && !c.hidden); },
-    onEat: (id) => S.share?.eat(id),
   });
-  S.share = mountPondShare($("pondShare"));
   S.games = mountGames(document, { toast, getSide: pairSide });
   S.doodle = mountDoodle(document, { toast, closeGear: () => S.closeGear?.() });
   bindSettings();
@@ -10692,7 +10688,6 @@ function leaveChat() {
   S.messagePresence = null;
   S.bubbleWindow = null;
   S.gen++;                                   // 雙保險：即使有殘留 callback 也不會再作用
-  S.share?.close();
   S.games?.close();
 
   // 2. 收掉所有浮層

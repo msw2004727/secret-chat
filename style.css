@@ -548,9 +548,6 @@ html[data-theme="dark"] .update-banner {
     box-sizing: border-box;
     z-index: 4;
   }
-  #chat .c-share {
-    top: calc(54px + var(--c-bar-extra) + env(safe-area-inset-top));
-  }
   #chat .c-callcap {
     top: calc(62px + var(--c-bar-extra) + env(safe-area-inset-top));
   }
@@ -2843,64 +2840,6 @@ html[data-theme="light"] #chat .c-plantbg { opacity: .11; }
   position: absolute; left: 0; top: 0;
   pointer-events: none; display: block;
 }
-/* 共用量條。absolute 疊在標題列正下方，不把標題列撐高，也不擋餵魚。
-   一條置中，左藍右粉，兩端箭頭區寬度固定，層數變化時管子不左右跳。 */
-.c-share {
-  position: absolute;
-  left: 0; right: 0;
-  top: calc(54px + env(safe-area-inset-top));
-  z-index: 4;
-  display: flex;
-  justify-content: center;
-  margin: 0;
-  padding: 4px 0 0;
-  background: none;
-  pointer-events: none;
-}
-.c-share-meter {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  max-width: calc(100% - 24px);
-}
-.c-share-trend {
-  width: 12px;
-  height: 14px;
-  flex: 0 0 12px;
-  display: block;
-}
-.c-share-trend.is-blue { color: #6ad4ff; }
-.c-share-trend.is-pink { color: #ffb3ce; }
-.c-share-tube {
-  position: relative;
-  width: min(34vw, 260px);
-  height: 7px;
-  border-radius: 99px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,.42);
-  box-shadow: inset 0 1px 1px rgba(255,255,255,.75), inset 0 -2px 3px rgba(0,0,0,.45);
-  background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.05) 42%, rgba(0,0,0,.22));
-}
-html[data-theme="light"] #chat .c-share-tube {
-  border-color: rgba(40,60,80,.22);
-  box-shadow: inset 0 1px 1px #fff, inset 0 -2px 3px rgba(40,60,80,.16);
-  background: linear-gradient(180deg, #fff, rgba(190,208,220,.5) 50%, rgba(40,60,80,.12));
-}
-.c-share-blend {
-  position: absolute;
-  inset: 1px;
-  border-radius: 99px;
-}
-.c-share-shine {
-  position: absolute;
-  left: 8%; right: 8%; top: 1px;
-  height: 2px;
-  z-index: 2;
-  border-radius: 99px;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent);
-}
-
 /* ── 成長計量條（同時是叫出扇形選單的那顆按鈕）──
    ⚠️ 高度要壓到最低。320×568 上「標題列 54 ＋ 這一條 ＋ 斷線提示 ＋ 公告 ＋ 輸入列 65」
       全開會吃掉 213px，訊息區只剩 355px。 */
