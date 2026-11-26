@@ -157,4 +157,13 @@ assert.match(app, /mountPondShark/);
 assert.match(app, /S\.pond\?\.stop\(\)/);
 assert.doesNotMatch(app.slice(app.indexOf('function bindZoo'), app.indexOf('\nbindZoo();')), /pond-shark|pondCanvas/);
 
+/* v62.25：魚池只留兩隻鯊魚和飼料，小魚、荷葉、氣泡、水波、訪客、螢火蟲、石子全拿掉，
+   畫面上不再有別的字跟鯊魚搶格子。 */
+const sharkSrc = fs.readFileSync(new URL('../pond-shark.js', import.meta.url), 'utf8');
+assert.equal(fs.existsSync(new URL('../pond-life.js', import.meta.url)), false, 'pond-life.js is gone');
+assert.doesNotMatch(sharkSrc, /pond-life|createLife|putLife|lifeLy|UNDER|OVER|nightness|moodPace/, 'no pond extras left');
+assert.equal(createPond(400, 700).fish.length, 2, 'exactly two sharks');
+const checkSrc = fs.readFileSync(new URL('../scripts/check.mjs', import.meta.url), 'utf8');
+assert.doesNotMatch(checkSrc, /pond-life/);
+
 console.log('PASS: ascii sharks swim, ease into food, and stay behind the chat.');

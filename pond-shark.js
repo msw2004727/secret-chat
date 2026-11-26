@@ -1,27 +1,16 @@
-/* 對話區背景：從上往下鳥瞰的魚池。兩隻 ASCII 鯊魚，加上 pond-life.js 的小魚群、荷葉、氣泡、訪客。畫布不吃點擊。
+/* 對話區背景：從上往下鳥瞰的魚池。只有兩隻 ASCII 鯊魚和點畫面丟下的飼料，沒有其他點綴。畫布不吃點擊。
    分頁切走或離開聊天室就停；系統要求減少動效時只畫一張靜止的。 */
-
-import { createLife, nightness, moodPace } from "./pond-life.js";
 
 const CW = 6, CH = 9;
 const RAMP = " .,:;-=+*x#%@";
 const THEMES = {
   dark: {
-    bg: "#0a0c0d", night: "#06080a", food: "#6b604c", fish: ["#3d5160", "#5a4450"],
-    life: { pebble: "#25282a", school: "#33454f", turtle: "#3d4a35", pad: "#24392c", flower: "#5e4250", bubble: "#2f404c", ripple: "#3a4a55", leaf: "#544731", dragonfly: "#2f4b4d", duck: "#56524a", firefly: "#9a8f4e" },
+    bg: "#0a0c0d", food: "#6b604c", fish: ["#3d5160", "#5a4450"],
   },
   light: {
-    bg: "#ffffff", night: "#f3f6f9", food: "#bfae8c", fish: ["#b7cfe0", "#e3c2ce"],
-    life: { pebble: "#e7e2d9", school: "#c6d6e1", turtle: "#cddbbd", pad: "#c7dec9", flower: "#efc4d3", bubble: "#cfe1ec", ripple: "#c9dbe6", leaf: "#e6d3a8", dragonfly: "#bfdadb", duck: "#dcd5c6", firefly: "#cdb95c" },
+    bg: "#ffffff", food: "#bfae8c", fish: ["#b7cfe0", "#e3c2ce"],
   },
 };
-/* 鳥瞰的上下關係：池底石子、小魚、龜、氣泡、水波畫在鯊魚下面，鯊魚蓋得過它們；
-   荷葉、落葉、蜻蜓、鴨子、螢火蟲在水面上，蓋在鯊魚上面。
-   ⚠️ 水波和氣泡不能放上層：點畫面和吃飼料的水波剛好在鯊魚經過的地方，
-      放上層會把鯊魚身體挖出一圈缺口（v62.20 的破圖）。 */
-const UNDER = ["pebble", "school", "turtle", "bubble", "ripple"];
-const OVER = ["pad", "flower", "leaf", "dragonfly", "duck", "firefly"];
-const LAYERS = [...UNDER, ...OVER];
 
 function mix(a, b, t) {
   const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
@@ -181,7 +170,6 @@ function reposition(pond, i) {
 export function stepPond(pond, dt, alive) {
   const foods = pond.foods;
   for (const fd of foods) fd.age += dt;
-  const pace = pond.pace > 0 ? pond.pace : 1;
   const living = [];
   for (let i = 0; i < pond.fish.length; i++) if (!alive || alive[i] !== false) living.push(pond.fish[i]);
   const racing = foods.length > 0 && living.length > 0;
@@ -197,8 +185,7 @@ export function stepPond(pond, dt, alive) {
       const dist = Math.hypot(fd.x - hx, fd.y - hy);
       if (dist < best) { best = dist; tgt = fd; }
     }
-    /* 巡航跟著日夜與休息放慢；搶飼料一律全速。 */
-    let sp = racing ? CRUISE * RACE : CRUISE * pace;
+    let sp = racing ? CRUISE * RACE : CRUISE;
     const comeHome = !tgt && (out > 0.9 * BODY || f.outT > 2.5 || bothOut);
     if (tgt) {
       if (f.tgt !== tgt) { f.tgt = tgt; f.chase = 0; }
@@ -263,9 +250,6 @@ export function mountPondShark(scroller, hooks) {
   if (!host || !cv) return { start() {}, stop() {}, drop() {} };
   const ctx = cv.getContext("2d");
   const pond = createPond(1, 1);
-  const life = createLife(1, 1);
-  let night = nightness(new Date()), nightAt = 0, lastTap = performance.now();
-  let lifeCh = new Uint16Array(1), lifeLy = new Uint8Array(1);
   let cols = 1, rows = 1, buf = new Float32Array(1), own = new Int8Array(1);
   let raf = 0, running = false, last = 0, drawAcc = 0;
   const still = reducedMotion();
@@ -291,13 +275,10 @@ export function mountPondShark(scroller, hooks) {
     cv.style.height = h + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     pond.resize(w, h);
-    life.resize(w, h);
     cols = Math.ceil(w / CW);
     rows = Math.ceil(h / CH);
     buf = new Float32Array(cols * rows);
     own = new Int8Array(cols * rows);
-    lifeCh = new Uint16Array(cols * rows);
-    lifeLy = new Uint8Array(cols * rows);
   }
 
   function put(x, y, v, id) {
@@ -337,66 +318,31 @@ export function mountPondShark(scroller, hooks) {
     }
   }
 
-  function putLife(cx, cy, ch, layer) {
-    if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) return;
-    const i = cy * cols + cx;
-    lifeCh[i] = ch.charCodeAt(0);
-    lifeLy[i] = LAYERS.indexOf(layer) + 1;
-  }
-
-  /* 小魚只要閃鯊魚的頭和身體前半段，取幾個點就夠。 */
-  function sharkPts() {
-    const out = [];
-    pond.fish.forEach((f, i) => {
-      if (pond.alive && pond.alive[i] === false) return;
-      out.push({ x: f.x, y: f.y, pts: [0, 8, 16, 26].map((k) => spine(f, k)) });
-    });
-    return out;
-  }
-
   function draw() {
     const T = THEMES[themeName()];
     buf.fill(0);
     pond.fish.forEach((f, i) => { if (!pond.alive || pond.alive[i] !== false) raster(f, i); });
-    const dim = night * 0.35;
-    ctx.fillStyle = mix(T.bg, T.night, night);
+    ctx.fillStyle = T.bg;
     ctx.fillRect(0, 0, pond.w, pond.h);
     ctx.font = (CH + 1) + "px ui-monospace, Menlo, Consolas, monospace";
     ctx.textBaseline = "top";
-    /* 水裡的配角先畫，被鯊魚蓋到的格子讓給鯊魚；水面上的最後畫，鯊魚讓給它們。字不會疊在一起。 */
-    lifeCh.fill(0);
-    life.render(putLife, still);
-    const paint = (from, to, skip) => {
-      for (let ly = from; ly <= to; ly++) {
-        const key = LAYERS[ly - 1];
-        ctx.fillStyle = key === "firefly" ? T.life[key] : mix(T.life[key], T.bg, dim);
-        for (let i = 0; i < lifeCh.length; i++) {
-          if (lifeLy[i] !== ly || !lifeCh[i] || skip(i)) continue;
-          const ch = String.fromCharCode(lifeCh[i]);
-          if (ch !== " ") ctx.fillText(ch, (i % cols) * CW, Math.floor(i / cols) * CH);
-        }
-      }
-    };
-    const overFrom = UNDER.length + 1;
-    paint(1, UNDER.length, (i) => buf[i] > 0.05 || lifeLy[i] >= overFrom);
     for (let id = 0; id < pond.fish.length; id++) {
       if (pond.alive && pond.alive[id] === false) continue;
       ctx.fillStyle = T.fish[id];
       for (let cy = 0; cy < rows; cy++) for (let cx = 0; cx < cols; cx++) {
         const i = cy * cols + cx;
         const v = buf[i];
-        if (v <= 0.05 || own[i] !== id || lifeLy[i] >= overFrom) continue;
+        if (v <= 0.05 || own[i] !== id) continue;
         const ch = RAMP[Math.min(RAMP.length - 1, Math.max(1, Math.round(v * (RAMP.length - 1))))];
         ctx.fillText(ch, cx * CW, cy * CH);
       }
     }
-    paint(overFrom, LAYERS.length, () => false);
     /* 鳥瞰看飼料往下沉，就是在原地慢慢變小變淡；一樣要嘴碰到才消失。
-       鯊魚身體或荷葉蓋住的那一格不畫飼料，兩個字才不會疊在同一格。 */
+       鯊魚身體蓋住的那一格不畫飼料，兩個字才不會疊在同一格。 */
     for (const fd of pond.foods) {
       const fc = Math.floor(fd.x / CW), fr = Math.floor(fd.y / CH);
       const fi = fr * cols + fc;
-      if (fc >= 0 && fr >= 0 && fc < cols && fr < rows && (buf[fi] > 0.05 || lifeLy[fi] >= overFrom)) continue;
+      if (fc >= 0 && fr >= 0 && fc < cols && fr < rows && buf[fi] > 0.05) continue;
       ctx.fillStyle = fd.age < 6 ? T.food : mix(T.food, T.bg, Math.min(0.55, (fd.age - 6) / 20));
       ctx.fillText(fd.age < 0.25 ? "*" : fd.age < 6 ? "o" : ".", Math.floor(fd.x / CW) * CW, Math.floor(fd.y / CH) * CH);
     }
@@ -408,15 +354,10 @@ export function mountPondShark(scroller, hooks) {
     if (document.hidden) return;
     const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016);
     last = now;
-    if (now - nightAt > 30000) { night = nightness(new Date()); nightAt = now; }
-    pond.pace = moodPace(night, (now - lastTap) / 1000);
     const eaten = pond.step(dt) || [];
     for (const id of eaten) {
-      const f = pond.fish[id];
-      if (f) life.ripple(f.x, f.y);
       if (hooks && hooks.onEat) hooks.onEat(id);
     }
-    life.step(dt, sharkPts(), pond.pace, night);
     drawAcc += dt;
     if (drawAcc >= 0.08) { drawAcc = 0; draw(); }
     raf = requestAnimationFrame(frame);
@@ -463,9 +404,7 @@ export function mountPondShark(scroller, hooks) {
     armed = false;
     if (performance.now() - start.t > 400) { release(); return; }
     const box = cv.getBoundingClientRect();
-    lastTap = performance.now();
     pond.drop(start.x - box.left, start.y - box.top);
-    life.tap(start.x - box.left, start.y - box.top);
     if (still) draw();
   }, { passive: true });
   scroller.addEventListener("pointercancel", () => { down = null; release(); }, { passive: true });
@@ -489,5 +428,5 @@ export function mountPondShark(scroller, hooks) {
     pond.alive = next;
     if (running || still) draw();
   }
-  return { start, stop, reset, drop: pond.drop, setAlive, life };
+  return { start, stop, reset, drop: pond.drop, setAlive };
 }
